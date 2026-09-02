@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Overview — MIS Command Center</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+
+<!-- ─── PRELOADER ─── -->
+<div id="preloader">
+  <div class="loader-ring"></div>
+  <div class="loader-bar-track">
+    <div class="loader-bar-fill" id="loaderBar"></div>
+  </div>
+  <p class="loader-text" id="loaderText">Initializing...</p>
+</div>
+
+<!-- ─── AUTH GATE ─── -->
+<div id="authGate" class="login-screen" style="display:none;">
+  <div class="login-card">
+    <div class="login-brand">
+      <i class="ti ti-shield-lock"></i>
+      <h1>MIS Command Center</h1>
+      <p>Sign in required</p>
+    </div>
+    <p id="authGateMsg" style="text-align:center;font-size:13px;color:var(--muted);margin-bottom:18px;">Checking sign-in…</p>
+    <button id="authGateAction" class="btn btn-primary btn-block" style="display:none;"></button>
+  </div>
+</div>
+
+<!-- ─── APP SHELL ─── -->
+<div id="appShell" class="app-shell" style="display:none;">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <i class="ti ti-report-analytics"></i>
+      <div class="sidebar-brand-text">
+        <span class="sidebar-title">MIS Command Center</span>
+        <span class="sidebar-subtitle">Admin Rollup</span>
+      </div>
+    </div>
+    <nav class="sidebar-nav" id="sidebarNav">
+      <a class="nav-item active" data-view="overview" onclick="navigateAdmin('overview')">
+        <i class="ti ti-layout-dashboard"></i><span>Overview</span>
+      </a>
+      <a class="nav-item" data-view="leaderboard" onclick="navigateAdmin('leaderboard')">
+        <i class="ti ti-trophy"></i><span>Agent Leaderboard</span>
+      </a>
+      <a class="nav-item" data-view="insights" onclick="navigateAdmin('insights')">
+        <i class="ti ti-chart-infographic"></i><span>AI Insights</span>
+      </a>
+      <a class="nav-item" data-view="chatbot" onclick="navigateAdmin('chatbot')">
+        <i class="ti ti-message-chatbot"></i><span>AI Assistant</span>
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <div class="user-avatar" id="userAvatar">A</div>
+        <div>
+          <div class="user-name" id="userName">Administrator</div>
+          <div class="user-role">Full Access</div>
+        </div>
+      </div>
+      <a class="btn-icon" href="#" onclick="handleLogout(); return false;" title="Sign out">
+        <i class="ti ti-logout"></i>
+      </a>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main-content">
+    <!-- Top Bar -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="btn-icon sidebar-toggle" onclick="toggleSidebar()">
+          <i class="ti ti-menu-2"></i>
+        </button>
+        <div class="topbar-breadcrumb" id="breadcrumb">
+          <span>Overview</span>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="date-range">
+          <input type="month" class="form-input" id="globalMonthFilter" onchange="applyMonthFilter(this.value)">
+          <input type="date" class="form-input" id="globalDateFrom" onchange="applyDateFilter()">
+          <span class="date-sep">→</span>
+          <input type="date" class="form-input" id="globalDateTo" onchange="applyDateFilter()">
+        </div>
+        <select class="form-select" id="globalProcessFilter" onchange="jumpToProcess(this.value)">
+          <option value="">Jump to a process...</option>
+        </select>
+        <button class="btn btn-secondary btn-sm" onclick="refreshData()">
+          <i class="ti ti-refresh"></i>
+        </button>
+        <button class="btn-icon" onclick="toggleTheme()" title="Toggle Theme">
+          <i class="ti ti-moon" id="themeIcon"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- Page Views -->
+    <div class="page-container" id="pageContainer">
+      <div id="viewOverview" class="page-view active"></div>
+      <div id="viewLeaderboard" class="page-view"></div>
+      <div id="viewInsights" class="page-view"></div>
+      <div id="viewChatbot" class="page-view"></div>
+    </div>
+  </main>
+</div>
+
+<!-- ─── TOAST CONTAINER ─── -->
+<div id="toastContainer" class="toast-container"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3/lib/msal-browser.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<script src="assets/js/auth.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/charts.js"></script>
+<script src="assets/js/ai-insights.js"></script>
+<script src="assets/js/chatbot.js"></script>
+<script src="assets/js/app.js"></script>
+<script src="assets/js/admin-init.js"></script>
+</body>
+</html>

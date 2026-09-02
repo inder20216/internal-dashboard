@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MIS Command Center — Open Mind Services</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+
+<!-- ─── PRELOADER ─── -->
+<div id="preloader">
+  <div class="loader-ring"></div>
+  <div class="loader-bar-track">
+    <div class="loader-bar-fill" id="loaderBar"></div>
+  </div>
+  <p class="loader-text" id="loaderText">Initializing...</p>
+</div>
+
+<!-- ─── LOGIN / LAUNCHER SCREEN ─── -->
+<div id="loginScreen" class="login-screen" style="display:none;">
+  <div class="login-card">
+    <div class="login-brand">
+      <i class="ti ti-report-analytics"></i>
+      <h1>MIS Command Center</h1>
+      <p>Open Mind Services Limited</p>
+    </div>
+    <p id="loginMsg" style="text-align:center;font-size:13px;color:var(--muted);margin-bottom:18px;">Sign in with your Microsoft account to continue.</p>
+    <button id="loginAction" class="btn btn-primary btn-block" onclick="handleSignIn()">
+      <i class="ti ti-login"></i> Sign in with Microsoft
+    </button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3/lib/msal-browser.min.js"></script>
+<script src="assets/js/auth.js"></script>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/index-init.js"></script>
+</body>
+</html>
