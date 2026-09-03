@@ -409,6 +409,12 @@ function renderStatBar(id, labels, values, colors, isDark, labelFormatter) {
   const ctx = getCtx(id);
   if (!ctx) return;
   const textColor = isDark ? '#b0b5c0' : '#6b7280';
+  const fmt = labelFormatter || (v => v);
+  // The longest label (e.g. a formatted duration) needs room reserved past the
+  // bar end, or the highest-value bar's own label gets clipped by the card's
+  // edge — this happened with a bar near the axis max ("37" got sliced off).
+  const maxLabelLen = Math.max(...values.map(v => String(fmt(v)).length), 1);
+  const maxVal = Math.max(...values, 1);
   ctx.chart = new Chart(ctx, {
     type: 'bar',
     data: {
@@ -418,13 +424,14 @@ function renderStatBar(id, labels, values, colors, isDark, labelFormatter) {
     options: {
       indexAxis: 'y',
       responsive: true, maintainAspectRatio: false,
+      layout: { padding: { right: 8 + maxLabelLen * 6 } },
       plugins: {
         legend: { display: false },
         tooltip: { enabled: false },
-        datalabels: { anchor: 'end', align: 'end', offset: 3, color: textColor, font: { size: 9.5, weight: '700' }, formatter: labelFormatter || (v => v) }
+        datalabels: { anchor: 'end', align: 'end', offset: 3, clamp: true, color: textColor, font: { size: 9.5, weight: '700' }, formatter: fmt }
       },
       scales: {
-        x: { display: false, beginAtZero: true },
+        x: { display: false, beginAtZero: true, suggestedMax: maxVal * 1.001 },
         y: { ticks: { color: textColor, font: { size: 9.5 } }, grid: { display: false } }
       }
     }
