@@ -354,12 +354,13 @@ function renderDashboard() {
       </div>
     </div>
 
+    ${processName !== 'ResMed' ? `
     <div class="panel">
       <div class="panel-header"><i class="ti ti-checklist"></i> Closed &amp; Partial Closed — ${range.from === range.to ? range.from : `${range.from} → ${range.to}`}</div>
       <div class="panel-body">
         ${buildClosedPartialTable(processData.agents)}
       </div>
-    </div>
+    </div>` : ''}
 
     ${processName ? `
     <div class="grid-2">
@@ -377,6 +378,14 @@ function renderDashboard() {
     <div class="panel">
       <div class="panel-header"><i class="ti ti-plug-connected-x"></i> Downtime — from Form Submissions</div>
       <div class="panel-body" id="downtimeInsightsBody"><div style="text-align:center;padding:20px;color:var(--muted);">Loading…</div></div>
+    </div>` : ''}
+
+    ${processName === 'ResMed' ? `
+    <div class="panel">
+      <div class="panel-header"><i class="ti ti-heart-handshake"></i> Appreciation &amp; Escalation — Agent Wise</div>
+      <div class="panel-body">
+        ${buildAppreciationEscalationTable(processData.agents)}
+      </div>
     </div>` : ''}`;
 
   setTimeout(() => {
@@ -1036,6 +1045,37 @@ function buildClosedPartialTable(agents) {
         <td>${a.partialClosedCases}</td>
         <td><strong>${a.total}</strong></td>
         <td>${a.closedRatio.toFixed(1)}%</td>
+      </tr>`).join('')}</tbody>
+    </table>
+  </div>`;
+}
+
+/* Agent-wise Appreciation/Escalation — for processes where these aren't shown
+   as columns in the main Agent Performance table (e.g. ResMed, which doesn't
+   have a CRM case/escalation workflow the same way other processes do). */
+function buildAppreciationEscalationTable(agents) {
+  if (!agents || !agents.length) return '<div style="text-align:center;padding:30px;color:var(--muted);">No data available.</div>';
+  const rows = agents
+    .filter(a => (a.appreciationCount || 0) + (a.escalationCount || 0) > 0)
+    .sort((a, b) => (b.appreciationCount || 0) - (a.appreciationCount || 0));
+  if (!rows.length) return '<div style="text-align:center;padding:30px;color:var(--muted);">No Appreciation or Escalation logged this month.</div>';
+  return `<div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th>Agent</th>
+        <th>Appreciation</th>
+        <th>Escalation</th>
+        <th>Esc. Open</th>
+        <th>Esc. Pending (Field)</th>
+        <th>Esc. Pending (RHC)</th>
+      </tr></thead>
+      <tbody>${rows.map(a => `<tr>
+        <td>${a.agent}</td>
+        <td>${a.appreciationCount || 0}</td>
+        <td>${a.escalationCount || 0}</td>
+        <td>${a.crmEscalationOpen || 0}</td>
+        <td>${a.crmEscalationPendingField || 0}</td>
+        <td>${a.crmEscalationPendingRhc || 0}</td>
       </tr>`).join('')}</tbody>
     </table>
   </div>`;
