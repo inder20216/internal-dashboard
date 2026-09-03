@@ -339,9 +339,13 @@ function aggregateProcess(rows, processName) {
     apt: avgSeconds(daily, "APT", "APT (formatted)"),
     ibTalkTime: sumSeconds(daily, "IB TT", "IB TT (formatted)"),
     obTalkTime: sumSeconds(daily, "OB TT", "OB TT (formatted)"),
+    ibTalkTimeSec: ibTTSec,
+    obTalkTimeSec: obTTSec,
     /* AHT split by direction: total talk time on that side / calls answered on that side */
     ahtInbound: ib > 0 ? secondsToHms(ibTTSec / ib) : '—',
     ahtOutbound: obAns > 0 ? secondsToHms(obTTSec / obAns) : '—',
+    ahtInboundSec: ib > 0 ? Math.round(ibTTSec / ib) : 0,
+    ahtOutboundSec: obAns > 0 ? Math.round(obTTSec / obAns) : 0,
     emailSentCount: sumEmailSentCount(daily),
     emailDuration,
     /* Quality */

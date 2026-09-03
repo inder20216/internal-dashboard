@@ -403,6 +403,34 @@ function renderQualityRatio(id, quality, isDark) {
   });
 }
 
+/* ── COMPACT STAT BAR (small horizontal bar chart replacing a plain number list
+   inside a stat-group-card — e.g. IB Bifurcation, Missed Details) ── */
+function renderStatBar(id, labels, values, colors, isDark, labelFormatter) {
+  const ctx = getCtx(id);
+  if (!ctx) return;
+  const textColor = isDark ? '#b0b5c0' : '#6b7280';
+  ctx.chart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{ data: values, backgroundColor: colors, borderRadius: 3, barThickness: 12 }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { enabled: false },
+        datalabels: { anchor: 'end', align: 'end', offset: 3, color: textColor, font: { size: 9.5, weight: '700' }, formatter: labelFormatter || (v => v) }
+      },
+      scales: {
+        x: { display: false, beginAtZero: true },
+        y: { ticks: { color: textColor, font: { size: 9.5 } }, grid: { display: false } }
+      }
+    }
+  });
+}
+
 /* ── CHATBOT CHART RENDERER (inline) ── */
 function renderMiniChart(canvasId, type, labels, data, label, color, isDark) {
   const ctx = document.getElementById(canvasId)?.getContext('2d');
@@ -455,6 +483,6 @@ window.CHARTS = {
   renderTrendChart, renderProcessComparison, renderAgentRanking,
   renderPareto, renderDailyTrend, renderQualityTrend,
   renderAgentHeatmap, renderMiniChart, renderDayWiseChart,
-  renderAgentProductivity, renderBreakDuration, renderQualityRatio, renderAgentMissed,
+  renderAgentProductivity, renderBreakDuration, renderQualityRatio, renderAgentMissed, renderStatBar,
   chartColors, colorPalette
 };

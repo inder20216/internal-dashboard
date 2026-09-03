@@ -370,6 +370,22 @@ function renderDashboard() {
 
   setTimeout(() => {
     const charts = window.CHARTS;
+    const obNoAnswer = Math.max(0, (processData.outboundAll || 0) - (processData.obAnswered || 0));
+    charts.renderStatBar('statChartIB', ['Total', 'Answered', 'Missed'],
+      [processData.totalCalls || 0, processData.inboundAnswered || 0, processData.totalMissed || 0],
+      ['rgba(37,99,235,0.75)', 'rgba(5,150,105,0.75)', 'rgba(220,38,38,0.75)'], isDarkNow);
+    charts.renderStatBar('statChartOB', ['Dialed', 'Answered', 'No Answer'],
+      [processData.outboundAll || 0, processData.obAnswered || 0, obNoAnswer],
+      ['rgba(37,99,235,0.75)', 'rgba(5,150,105,0.75)', 'rgba(217,119,6,0.75)'], isDarkNow);
+    charts.renderStatBar('statChartAHTAvg', ['IB Avg', 'OB Avg'],
+      [processData.ahtInboundSec || 0, processData.ahtOutboundSec || 0],
+      ['rgba(37,99,235,0.75)', 'rgba(234,88,12,0.75)'], isDarkNow, v => secondsToHms(v));
+    charts.renderStatBar('statChartAHTTotal', ['IB Total', 'OB Total'],
+      [processData.ibTalkTimeSec || 0, processData.obTalkTimeSec || 0],
+      ['rgba(37,99,235,0.75)', 'rgba(234,88,12,0.75)'], isDarkNow, v => secondsToHms(v));
+    charts.renderStatBar('statChartMissed', ['Agent', 'IVR', 'Queue', 'Service'],
+      [processData.agentMissedInbound || 0, processData.ivrMissed || 0, processData.queueMissed || 0, processData.serviceMissed || 0],
+      ['rgba(220,38,38,0.75)', 'rgba(217,119,6,0.75)', 'rgba(124,58,237,0.75)', 'rgba(8,145,178,0.75)'], isDarkNow);
     charts.renderAgentProductivity('agentProductivityChart', processData.agents, isDarkNow);
     charts.renderBreakDuration('breakDurationChart', processData.agents, isDarkNow);
     charts.renderAgentMissed('agentMissedChart', processData.agents, isDarkNow);
@@ -760,37 +776,22 @@ function buildTopStatGroups(d) {
   return `<div class="stat-group-row">
     <div class="stat-group-card">
       <div class="stat-group-title"><i class="ti ti-phone-incoming"></i> IB Bifurcation</div>
-      <div class="stat-group-values">
-        <div class="stat-group-item"><div class="v">${d.totalCalls || 0}</div><div class="l">Total</div></div>
-        <div class="stat-group-item"><div class="v">${d.inboundAnswered || 0}</div><div class="l">Answered</div></div>
-        <div class="stat-group-item"><div class="v">${d.totalMissed || 0}</div><div class="l">Missed</div></div>
-      </div>
+      <div class="stat-group-chart" id="statChartIB"></div>
     </div>
     <div class="stat-group-card">
       <div class="stat-group-title"><i class="ti ti-phone-outgoing"></i> OB Bifurcation</div>
-      <div class="stat-group-values">
-        <div class="stat-group-item"><div class="v">${d.outboundAll || 0}</div><div class="l">Dialed</div></div>
-        <div class="stat-group-item"><div class="v">${d.obAnswered || 0}</div><div class="l">Answered</div></div>
-        <div class="stat-group-item"><div class="v">${obNoAnswer}</div><div class="l">No Answer</div></div>
-      </div>
+      <div class="stat-group-chart" id="statChartOB"></div>
     </div>
     <div class="stat-group-card">
       <div class="stat-group-title"><i class="ti ti-clock-hour-4"></i> AHT - Avg. &amp; Total</div>
-      <div class="stat-group-values">
-        <div class="stat-group-item"><div class="v">${d.ahtInbound}</div><div class="l">IB Avg</div></div>
-        <div class="stat-group-item"><div class="v">${d.ibTalkTime}</div><div class="l">IB Total</div></div>
-        <div class="stat-group-item"><div class="v">${d.ahtOutbound}</div><div class="l">OB Avg</div></div>
-        <div class="stat-group-item"><div class="v">${d.obTalkTime}</div><div class="l">OB Total</div></div>
+      <div class="stat-group-split">
+        <div class="stat-group-chart-sm" id="statChartAHTAvg"></div>
+        <div class="stat-group-chart-sm" id="statChartAHTTotal"></div>
       </div>
     </div>
     <div class="stat-group-card">
       <div class="stat-group-title"><i class="ti ti-phone-x"></i> Missed Details</div>
-      <div class="stat-group-values">
-        <div class="stat-group-item"><div class="v">${d.agentMissedInbound || 0}</div><div class="l">Agent</div></div>
-        <div class="stat-group-item"><div class="v">${d.ivrMissed || 0}</div><div class="l">IVR</div></div>
-        <div class="stat-group-item"><div class="v">${d.queueMissed || 0}</div><div class="l">Queue</div></div>
-        <div class="stat-group-item"><div class="v">${d.serviceMissed || 0}</div><div class="l">Service</div></div>
-      </div>
+      <div class="stat-group-chart" id="statChartMissed"></div>
     </div>
     <div class="stat-group-card">
       <div class="stat-group-title"><i class="ti ti-mail"></i> Emails Handled</div>
