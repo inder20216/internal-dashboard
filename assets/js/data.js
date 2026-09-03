@@ -294,6 +294,10 @@ function aggregateProcess(rows, processName) {
   const queueMissed = sumProcessDayConstant(daily, "Queue Missed");
   const ivrMissed = sumProcessDayConstant(daily, "IVR Missed");
   const serviceMissed = sumProcessDayConstant(daily, "Service Missed");
+  // Same process-day-constant pattern — a call that came in outside working
+  // hours (no agent logged in) isn't attributable to any one agent either.
+  const missedWorkingHours = sumProcessDayConstant(daily, "Missed Working Hours");
+  const missedNonWorkingHours = sumProcessDayConstant(daily, "Missed Non-Working Hours");
 
   /* Time metrics — these fields arrive as "HH:MM:SS" strings, so they must be
      summed per-row via sumSecondsRaw(), not sumNumber() (which can't parse them). */
@@ -331,6 +335,7 @@ function aggregateProcess(rows, processName) {
     agentMissedPercent: totalCalls > 0 ? (agentMissedIb + agentMissedOb) / totalCalls : 0,
     customerMissedPercent: ob > 0 ? customerMissed / ob : 0,
     queueMissed, ivrMissed, serviceMissed,
+    missedWorkingHours, missedNonWorkingHours,
     /* Time */
     shrinkage: loginSec > 0 ? breakSec / loginSec : 0,
     occupancy: workSec > 0 ? talkSec / workSec : 0,

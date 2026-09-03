@@ -350,7 +350,7 @@ function renderDashboard() {
     <div class="panel">
       <div class="panel-header"><i class="ti ti-users"></i> Agent Performance</div>
       <div class="panel-body">
-        ${buildAgentTable(processData.agents, processData.isOverall)}
+        ${buildAgentTable(processData.agents, processData.isOverall, processName)}
       </div>
     </div>
 
@@ -397,6 +397,9 @@ function renderDashboard() {
     charts.renderStatBar('statChartMissed', ['Agent', 'IVR', 'Queue', 'Service'],
       [processData.agentMissedInbound || 0, processData.ivrMissed || 0, processData.queueMissed || 0, processData.serviceMissed || 0],
       ['rgba(220,38,38,0.75)', 'rgba(217,119,6,0.75)', 'rgba(124,58,237,0.75)', 'rgba(8,145,178,0.75)'], isDarkNow);
+    charts.renderStatBar('statChartMissedHours', ['Working Hours', 'Non-Working Hours'],
+      [processData.missedWorkingHours || 0, processData.missedNonWorkingHours || 0],
+      ['rgba(220,38,38,0.75)', 'rgba(107,114,128,0.75)'], isDarkNow);
     charts.renderAgentProductivity('agentProductivityChart', processData.agents, isDarkNow);
     charts.renderBreakDuration('breakDurationChart', processData.agents, isDarkNow);
     charts.renderAgentMissed('agentMissedChart', processData.agents, isDarkNow);
@@ -775,13 +778,20 @@ function buildKPICards(d, prevData) {
       <div class="kpi-sub">Avg. working-hours gap between a missed call and the callback</div>
     </div>`;
 
-  return statusHtml + trendHtml + callbackHtml;
+  const pickTimeHtml = `<div class="kpi-card status-neutral">
+      <div class="kpi-accent" style="background:var(--accent);"></div>
+      <div class="kpi-header">
+        <div class="kpi-icon-wrap" style="background:rgba(37,99,235,0.08);color:var(--accent);"><i class="ti ti-clock-play"></i></div>
+      </div>
+      <div class="kpi-label">Avg Pick Time</div>
+      <div class="kpi-value">${d.apt || '—'}</div>
+      <div class="kpi-sub">Average time to answer, across the whole process</div>
+    </div>`;
+
+  return statusHtml + trendHtml + pickTimeHtml + callbackHtml;
 }
 
-/* Top-of-dashboard stat groups. Outbound/AHT/Inbound are all computable from the
-   current feed. Inbound Working/Non-Working hour split (and missed-in-working-hour
-   ratio) still needs call-level timestamps joined against process_shift_schedule —
-   deferred until that's wired in; not shown here for now. */
+/* Top-of-dashboard stat groups. */
 function buildTopStatGroups(d) {
   const obNoAnswer = Math.max(0, (d.outboundAll || 0) - (d.obAnswered || 0));
   return `<div class="stat-group-row">
@@ -803,6 +813,10 @@ function buildTopStatGroups(d) {
     <div class="stat-group-card">
       <div class="stat-group-title"><i class="ti ti-phone-x"></i> Missed Details</div>
       <div class="stat-group-chart" id="statChartMissed"></div>
+    </div>
+    <div class="stat-group-card">
+      <div class="stat-group-title"><i class="ti ti-clock-off"></i> Missed — Working / Non-Working Hours</div>
+      <div class="stat-group-chart" id="statChartMissedHours"></div>
     </div>
     <div class="stat-group-card">
       <div class="stat-group-title"><i class="ti ti-mail"></i> Emails Handled</div>
@@ -842,8 +856,12 @@ function buildAttentionList(agents) {
   </div>`;
 }
 
-function buildAgentTable(agents, isOverall) {
+function buildAgentTable(agents, isOverall, processName) {
   if (!agents || !agents.length) return '<div style="text-align:center;padding:30px;color:var(--muted);">No agent data available.</div>';
+  // ResMed doesn't work CRM case closure or escalations the way other
+  // processes do — those columns don't apply there. Appreciation stays for
+  // everyone; Escalation gets its own dedicated agent-wise panel instead.
+  const showCrmEscalation = processName !== 'ResMed';
   const tableHtml = `<div class="table-wrap">
     <table>
       <thead><tr>
@@ -853,6 +871,7 @@ function buildAgentTable(agents, isOverall) {
         <th>IB</th>
         <th>OB</th>
         <th>OB Ans</th>
+        <th>OB Connectivity</th>
         <th>Email</th>
         <th>AHT</th>
         <th>APT</th>
@@ -861,18 +880,18 @@ function buildAgentTable(agents, isOverall) {
         <th>OB Hangup</th>
         <th>Login Duration</th>
         <th>Break Duration</th>
-        <th>Training Duration</th>
+        <th>Training Duration</th>${showCrmEscalation ? `
         <th>CRM Closed</th>
-        <th>CRM Partial</th>
+        <th>CRM Partial</th>` : ''}
         <th>CRM</th>
         <th>Occupancy</th>
         <th>IB TT</th>
         <th>OB TT</th>
-        <th>Appreciation</th>
+        <th>Appreciation</th>${showCrmEscalation ? `
         <th>Escalation</th>
         <th>Esc. Open</th>
         <th>Esc. Pending (Field)</th>
-        <th>Esc. Pending (RHC)</th>
+        <th>Esc. Pending (RHC)</th>` : ''}
       </tr></thead>
       <tbody>${agents.map((a, i) => `<tr>
         <td><span class="rank-badge ${i < 3 ? `rank-${i+1}` : 'rank-other'}">${i+1}</span></td>
@@ -881,6 +900,7 @@ function buildAgentTable(agents, isOverall) {
         <td>${a.inboundAnswered}</td>
         <td>${a.outboundAll}</td>
         <td>${a.obAnswered || 0}</td>
+        <td>${a.outboundAll > 0 ? ((a.obAnswered || 0) / a.outboundAll * 100).toFixed(1) : '0.0'}%</td>
         <td>${a.emailsHandled}</td>
         <td>${a.aht}</td>
         <td>${a.apt}</td>
@@ -889,18 +909,18 @@ function buildAgentTable(agents, isOverall) {
         <td>${a.hangupOB || 0}</td>
         <td>${a.loginDuration}</td>
         <td>${a.breakDuration}</td>
-        <td>${a.trainingDuration}</td>
+        <td>${a.trainingDuration}</td>${showCrmEscalation ? `
         <td>${a.closedCases || 0}</td>
-        <td>${a.partialClosedCases || 0}</td>
+        <td>${a.partialClosedCases || 0}</td>` : ''}
         <td>${(a.crmCall || 0) + (a.crmEmail || 0)}</td>
         <td>${(a.occupancy * 100).toFixed(1)}%</td>
         <td>${a.ibTalkTime}</td>
         <td>${a.obTalkTime}</td>
-        <td>${a.appreciationCount || 0}</td>
+        <td>${a.appreciationCount || 0}</td>${showCrmEscalation ? `
         <td>${a.escalationCount || 0}</td>
         <td>${a.crmEscalationOpen || 0}</td>
         <td>${a.crmEscalationPendingField || 0}</td>
-        <td>${a.crmEscalationPendingRhc || 0}</td>
+        <td>${a.crmEscalationPendingRhc || 0}</td>` : ''}
       </tr>`).join('')}</tbody>
     </table>
   </div>`;
