@@ -30,6 +30,14 @@ function setPeriod(period) {
     data.currentState.dateFrom = range.from;
     data.currentState.dateTo = range.to;
     setDateInputs();
+  } else if (period === 'daily') {
+    // Clear any leftover date (from Weekly/Monthly, or a previously-picked day)
+    // so the tab starts fresh at the latest active date — a manual pick via the
+    // date filter while already on this tab still overrides it (see
+    // getPeriodDateRange), this only resets on switching tabs.
+    data.currentState.dateFrom = '';
+    data.currentState.dateTo = '';
+    setDateInputs();
   }
   document.querySelectorAll('.period-tab').forEach(t => t.classList.remove('active'));
   document.querySelector(`.period-tab[data-period="${period}"]`).classList.add('active');
@@ -43,9 +51,12 @@ function getPeriodDateRange(period) {
   const fmt = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
   if (period === 'daily') {
-    // Use the most recent date with real activity for this process, not literally
-    // "yesterday" — a process that doesn't work Sundays (etc.) would otherwise show
-    // a misleading blank snapshot every time yesterday happened to be a day off.
+    // If the user picked a specific date via the topbar date filter while on
+    // this tab, honor it. Otherwise default to the most recent date with real
+    // activity for this process, not literally "yesterday" — a process that
+    // doesn't work Sundays (etc.) would otherwise show a misleading blank
+    // snapshot every time yesterday happened to be a day off.
+    if (data.currentState.dateFrom) return { from: data.currentState.dateFrom, to: data.currentState.dateFrom };
     const processName = data.currentState.selectedProcess;
     const scoped = processName ? data.allRows.filter(r => r["Process Name"] === processName) : data.allRows;
     const latest = data.latestActiveDate(scoped);
