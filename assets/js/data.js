@@ -523,7 +523,7 @@ async function fetchData() {
    Separate data source: training_tracker / quality_audit / activity_tracker were
    never wired into the Sheet26 pipeline the main dashboard reads from, so this
    hits a dedicated webhook that queries those 3 MySQL tables directly. */
-const INSIGHTS_API_URL = "https://automation.openmindhelpline.com/webhook/tracker-insights";
+const INSIGHTS_API_URL = "https://inder20216.app.n8n.cloud/webhook/tracker-insights";
 
 async function fetchTrackerInsights(processName, from, to) {
   try {
