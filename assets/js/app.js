@@ -386,6 +386,11 @@ function renderDashboard() {
       <div class="panel-body">
         ${buildAppreciationEscalationTable(processData.agents)}
       </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header"><i class="ti ti-shopping-cart"></i> Conversions — Product &amp; Agent Wise</div>
+      <div class="panel-body" id="conversionInsightsBody"><div style="text-align:center;padding:20px;color:var(--muted);">Loading…</div></div>
     </div>` : ''}`;
 
   setTimeout(() => {
@@ -421,12 +426,14 @@ function renderDashboard() {
       const trainingEl = document.getElementById('trainingInsightsBody');
       const qualityEl = document.getElementById('qualityInsightsBody');
       const downtimeEl = document.getElementById('downtimeInsightsBody');
+      const conversionEl = document.getElementById('conversionInsightsBody');
       if (trainingEl) trainingEl.innerHTML = buildTrainingInsights(insights.training);
       if (qualityEl) {
         qualityEl.innerHTML = buildQualityInsights(insights.quality);
         if (insights.quality && insights.quality.length) window.CHARTS.renderQualityRatio('qualityRatioChart', insights.quality, isDarkNow);
       }
       if (downtimeEl) downtimeEl.innerHTML = buildDowntimeInsights(insights.downtime);
+      if (conversionEl) conversionEl.innerHTML = buildConversionInsights(insights.conversions);
     });
   }
 }
@@ -1015,6 +1022,37 @@ function buildDowntimeInsights(downtime) {
       <table>
         <thead><tr><th>Agent</th><th>Reason</th><th>Instances</th><th>Total Duration</th></tr></thead>
         <tbody>${rows.map(d => `<tr><td>${d.agent}</td><td>${d.category}</td><td>${d.count}</td><td>${secondsToHm(d.durationSec)}</td></tr>`).join('')}</tbody>
+      </table>
+    </div>`;
+}
+
+/* Product + agent wise Conversions (ResMed only), from resmed_conversion via
+   the tracker-insights webhook. */
+function buildConversionInsights(conversions) {
+  if (!conversions || !conversions.length) return '<div style="text-align:center;padding:30px;color:var(--muted);">No conversions logged for this range.</div>';
+  const byProduct = new Map();
+  conversions.forEach(c => byProduct.set(c.category, (byProduct.get(c.category) || 0) + c.count));
+  const productCards = [...byProduct.entries()].sort((a, b) => b[1] - a[1])
+    .map(([product, count]) => `<div class="stat-group-item"><div class="v">${count}</div><div class="l">${product}</div></div>`).join('');
+  const totalCount = conversions.reduce((s, c) => s + c.count, 0);
+  const rows = [...conversions].sort((a, b) => b.count - a.count);
+  return `
+    <div class="stat-group-row" style="margin-bottom:14px;">
+      <div class="stat-group-card">
+        <div class="stat-group-title"><i class="ti ti-shopping-cart"></i> Total Conversions</div>
+        <div class="stat-group-values">
+          <div class="stat-group-item"><div class="v">${totalCount}</div><div class="l">Total</div></div>
+        </div>
+      </div>
+      <div class="stat-group-card">
+        <div class="stat-group-title"><i class="ti ti-tag"></i> By Product</div>
+        <div class="stat-group-values">${productCards}</div>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Agent</th><th>Product</th><th>Conversions</th></tr></thead>
+        <tbody>${rows.map(c => `<tr><td>${c.agent}</td><td>${c.category}</td><td>${c.count}</td></tr>`).join('')}</tbody>
       </table>
     </div>`;
 }

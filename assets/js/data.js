@@ -540,7 +540,7 @@ async function fetchTrackerInsights(processName, from, to) {
     return aggregateTrackerInsights(rows);
   } catch (err) {
     console.error('fetchTrackerInsights failed:', err);
-    return { training: [], quality: [], downtime: [] };
+    return { training: [], quality: [], downtime: [], conversions: [] };
   }
 }
 
@@ -557,7 +557,10 @@ function aggregateTrackerInsights(rows) {
     agent: r.agent_name, category: r.category || 'Unspecified',
     durationSec: Number(r.value) || 0, count: Number(r.cnt) || 0
   }));
-  return { training, quality, downtime };
+  const conversions = rows.filter(r => r.metric_type === 'conversion').map(r => ({
+    agent: r.agent_name, category: r.category || 'Unspecified', count: Number(r.cnt) || 0
+  }));
+  return { training, quality, downtime, conversions };
 }
 
 /* ── EXPORT GLOBALLY ── */
