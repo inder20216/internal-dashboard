@@ -14,11 +14,41 @@ async function captureActiveView() {
   const el = getActiveViewEl();
   const isDarkNow = document.documentElement.getAttribute('data-theme') === 'dark';
   const bodyBg = getComputedStyle(document.body).backgroundColor;
-  return await html2canvas(el, {
-    backgroundColor: bodyBg && bodyBg !== 'rgba(0, 0, 0, 0)' ? bodyBg : (isDarkNow ? '#0f1117' : '#f5f6fa'),
-    scale: 2,
-    useCORS: true
+
+  // Cards/panels fade in via a CSS animation on render — force them to their
+  // final state before capturing, otherwise a capture triggered soon after a
+  // (re)render grabs them mid-fade (washed out / partially transparent).
+  const animated = el.querySelectorAll('.kpi-card, .panel, .stat-group-card, .attention-list');
+  const prevStyles = [];
+  animated.forEach(node => {
+    prevStyles.push({ node, opacity: node.style.opacity, transform: node.style.transform, animation: node.style.animation });
+    node.style.animation = 'none';
+    node.style.opacity = '1';
+    node.style.transform = 'none';
   });
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+  try {
+    // html2canvas defaults to the current viewport — explicitly pass the
+    // element's full scroll size so content below the fold isn't cut off.
+    return await html2canvas(el, {
+      backgroundColor: bodyBg && bodyBg !== 'rgba(0, 0, 0, 0)' ? bodyBg : (isDarkNow ? '#0f1117' : '#f5f6fa'),
+      scale: 2,
+      useCORS: true,
+      windowWidth: el.scrollWidth,
+      windowHeight: el.scrollHeight,
+      width: el.scrollWidth,
+      height: el.scrollHeight,
+      scrollX: 0,
+      scrollY: 0
+    });
+  } finally {
+    prevStyles.forEach(({ node, opacity, transform, animation }) => {
+      node.style.opacity = opacity;
+      node.style.transform = transform;
+      node.style.animation = animation;
+    });
+  }
 }
 
 async function exportDashboardImage() {
