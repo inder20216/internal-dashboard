@@ -375,8 +375,8 @@ body {
 .stat-group-item .v { font-size: 15px; font-weight: 800; letter-spacing: -0.01em; white-space: nowrap; }
 .stat-group-item .l { font-size: 8px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; margin-top: 1px; white-space: nowrap; }
 .stat-group-chart { position: relative; height: 84px; }
-.stat-group-split { display: flex; gap: 8px; }
-.stat-group-chart-sm { position: relative; height: 84px; flex: 1 1 0; min-width: 0; }
+.stat-group-split { display: flex; flex-direction: column; gap: 4px; }
+.stat-group-chart-sm { position: relative; height: 42px; }
 .stat-group-card.pending { border-style: dashed; opacity: 0.75; }
 .stat-group-pending { font-size: 11px; color: var(--muted); display: flex; align-items: flex-start; gap: 6px; line-height: 1.5; }
 .stat-group-pending i { color: var(--accent3); flex-shrink: 0; margin-top: 1px; }
