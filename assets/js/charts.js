@@ -438,6 +438,38 @@ function renderStatBar(id, labels, values, colors, isDark, labelFormatter) {
   });
 }
 
+/* ── HOURLY INBOUND CALLS (24-hour distribution, displayed starting at 8am) ── */
+function renderHourlyCalls(id, hourlyCalls, isDark) {
+  const ctx = getCtx(id);
+  if (!ctx) return;
+  const textColor = isDark ? '#b0b5c0' : '#6b7280';
+  const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+  const byHour = new Map((hourlyCalls || []).map(h => [h.hour, h]));
+  // Reorder 0-23 to start at 8am, wrapping around through the night hours.
+  const order = Array.from({ length: 24 }, (_, i) => (i + 8) % 24);
+  const labels = order.map(h => h === 0 ? '12am' : h < 12 ? `${h}am` : h === 12 ? '12pm' : `${h - 12}pm`);
+  const totals = order.map(h => byHour.get(h)?.total || 0);
+  const answered = order.map(h => byHour.get(h)?.answered || 0);
+  ctx.chart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Total Calls', data: totals, backgroundColor: 'rgba(37,99,235,0.75)', borderRadius: 3 },
+        { label: 'Answered', data: answered, backgroundColor: 'rgba(5,150,105,0.75)', borderRadius: 3 }
+      ]
+    },
+    options: {
+      ...defaultOpts('Hourly Inbound Calls', isDark),
+      plugins: { ...defaultOpts('Hourly Inbound Calls', isDark).plugins, datalabels: { display: false } },
+      scales: {
+        x: { ticks: { color: textColor, font: { size: 9.5 } }, grid: { display: false } },
+        y: { beginAtZero: true, ticks: { color: textColor, font: { size: 10 } }, grid: { color: gridColor } }
+      }
+    }
+  });
+}
+
 /* ── CHATBOT CHART RENDERER (inline) ── */
 function renderMiniChart(canvasId, type, labels, data, label, color, isDark) {
   const ctx = document.getElementById(canvasId)?.getContext('2d');
@@ -490,6 +522,6 @@ window.CHARTS = {
   renderTrendChart, renderProcessComparison, renderAgentRanking,
   renderPareto, renderDailyTrend, renderQualityTrend,
   renderAgentHeatmap, renderMiniChart, renderDayWiseChart,
-  renderAgentProductivity, renderBreakDuration, renderQualityRatio, renderAgentMissed, renderStatBar,
+  renderAgentProductivity, renderBreakDuration, renderQualityRatio, renderAgentMissed, renderStatBar, renderHourlyCalls,
   chartColors, colorPalette
 };

@@ -564,7 +564,13 @@ function aggregateTrackerInsights(rows) {
     agent: r.agent_name, category: r.category || 'Unspecified',
     connected: Number(r.value) || 0, total: Number(r.cnt) || 0
   }));
-  return { training, quality, downtime, conversions, obActivity };
+  // Full 24-hour array (0-23), zero-filled for hours with no calls at all —
+  // the query only returns rows for hours that actually have data.
+  const hourlyRaw = new Map(rows.filter(r => r.metric_type === 'hourly_calls').map(r => [Number(r.category), r]));
+  const hourlyCalls = Array.from({ length: 24 }, (_, h) => ({
+    hour: h, total: Number(hourlyRaw.get(h)?.value) || 0, answered: Number(hourlyRaw.get(h)?.cnt) || 0
+  }));
+  return { training, quality, downtime, conversions, obActivity, hourlyCalls };
 }
 
 /* ── EXPORT GLOBALLY ── */

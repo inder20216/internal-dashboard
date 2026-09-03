@@ -396,6 +396,11 @@ function renderDashboard() {
     <div class="panel">
       <div class="panel-header"><i class="ti ti-phone-outgoing"></i> Outbound Activity — Agent &amp; Activity Wise Connectivity</div>
       <div class="panel-body" id="obActivityInsightsBody"><div style="text-align:center;padding:20px;color:var(--muted);">Loading…</div></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header"><i class="ti ti-clock-hour-8"></i> Hourly Inbound Calls</div>
+      <div class="panel-body" style="height:280px;"><canvas id="hourlyCallsChart"></canvas></div>
     </div>` : ''}`;
 
   setTimeout(() => {
@@ -441,6 +446,7 @@ function renderDashboard() {
       if (downtimeEl) downtimeEl.innerHTML = buildDowntimeInsights(insights.downtime);
       if (conversionEl) conversionEl.innerHTML = buildConversionInsights(insights.conversions);
       if (obActivityEl) obActivityEl.innerHTML = buildObActivityInsights(insights.obActivity);
+      if (document.getElementById('hourlyCallsChart')) window.CHARTS.renderHourlyCalls('hourlyCallsChart', insights.hourlyCalls, isDarkNow);
     });
   }
 }
