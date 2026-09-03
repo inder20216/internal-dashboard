@@ -391,6 +391,11 @@ function renderDashboard() {
     <div class="panel">
       <div class="panel-header"><i class="ti ti-shopping-cart"></i> Conversions — Product &amp; Agent Wise</div>
       <div class="panel-body" id="conversionInsightsBody"><div style="text-align:center;padding:20px;color:var(--muted);">Loading…</div></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header"><i class="ti ti-phone-outgoing"></i> Outbound Activity — Agent &amp; Activity Wise Connectivity</div>
+      <div class="panel-body" id="obActivityInsightsBody"><div style="text-align:center;padding:20px;color:var(--muted);">Loading…</div></div>
     </div>` : ''}`;
 
   setTimeout(() => {
@@ -427,6 +432,7 @@ function renderDashboard() {
       const qualityEl = document.getElementById('qualityInsightsBody');
       const downtimeEl = document.getElementById('downtimeInsightsBody');
       const conversionEl = document.getElementById('conversionInsightsBody');
+      const obActivityEl = document.getElementById('obActivityInsightsBody');
       if (trainingEl) trainingEl.innerHTML = buildTrainingInsights(insights.training);
       if (qualityEl) {
         qualityEl.innerHTML = buildQualityInsights(insights.quality);
@@ -434,6 +440,7 @@ function renderDashboard() {
       }
       if (downtimeEl) downtimeEl.innerHTML = buildDowntimeInsights(insights.downtime);
       if (conversionEl) conversionEl.innerHTML = buildConversionInsights(insights.conversions);
+      if (obActivityEl) obActivityEl.innerHTML = buildObActivityInsights(insights.obActivity);
     });
   }
 }
@@ -1055,6 +1062,21 @@ function buildConversionInsights(conversions) {
         <tbody>${rows.map(c => `<tr><td>${c.agent}</td><td>${c.category}</td><td>${c.count}</td></tr>`).join('')}</tbody>
       </table>
     </div>`;
+}
+
+/* Agent + activity wise outbound connectivity (ResMed only), parsed from
+   call_disposition's note field ("Activity,Status") via the tracker-insights
+   webhook. "Connected" = disposition = 'Answer' (the same objective definition
+   used everywhere else), not the free-text status in the note. */
+function buildObActivityInsights(obActivity) {
+  if (!obActivity || !obActivity.length) return '<div style="text-align:center;padding:30px;color:var(--muted);">No outbound activity logged for this range.</div>';
+  const rows = [...obActivity].sort((a, b) => b.total - a.total);
+  return `<div class="table-wrap">
+    <table>
+      <thead><tr><th>Agent</th><th>Activity</th><th>Total</th><th>Connected</th><th>Connectivity %</th></tr></thead>
+      <tbody>${rows.map(r => `<tr><td>${r.agent}</td><td>${r.category}</td><td>${r.total}</td><td>${r.connected}</td><td>${r.total > 0 ? (r.connected / r.total * 100).toFixed(1) : '0.0'}%</td></tr>`).join('')}</tbody>
+    </table>
+  </div>`;
 }
 
 function buildClosedPartialTable(agents) {

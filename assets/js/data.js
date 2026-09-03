@@ -540,7 +540,7 @@ async function fetchTrackerInsights(processName, from, to) {
     return aggregateTrackerInsights(rows);
   } catch (err) {
     console.error('fetchTrackerInsights failed:', err);
-    return { training: [], quality: [], downtime: [], conversions: [] };
+    return { training: [], quality: [], downtime: [], conversions: [], obActivity: [] };
   }
 }
 
@@ -560,7 +560,11 @@ function aggregateTrackerInsights(rows) {
   const conversions = rows.filter(r => r.metric_type === 'conversion').map(r => ({
     agent: r.agent_name, category: r.category || 'Unspecified', count: Number(r.cnt) || 0
   }));
-  return { training, quality, downtime, conversions };
+  const obActivity = rows.filter(r => r.metric_type === 'ob_activity').map(r => ({
+    agent: r.agent_name, category: r.category || 'Unspecified',
+    connected: Number(r.value) || 0, total: Number(r.cnt) || 0
+  }));
+  return { training, quality, downtime, conversions, obActivity };
 }
 
 /* ── EXPORT GLOBALLY ── */
