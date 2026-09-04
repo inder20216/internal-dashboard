@@ -228,8 +228,21 @@ function emailHandled(r) {
   return base + taggedEmailSent;
 }
 
+// ResMed only tracks these 4 agents as real people — "Admin" in the raw data is
+// actually Sagarika Bose's login identity, and every other ResMed agent name in
+// the data is noise that shouldn't appear in any agent-wise breakdown.
+const RESMED_AGENT_ALLOWLIST = new Set(['Gulshan Khan', 'Kumkum', 'Avijit Dey', 'Sagarika Bose']);
+function normalizeResmedAgent(processName, rawAgentName) {
+  if (processName === 'ResMed' && rawAgentName === 'Admin') return 'Sagarika Bose';
+  return rawAgentName;
+}
+function passesResmedAllowlist(processName, agentDisplayName) {
+  return processName !== 'ResMed' || RESMED_AGENT_ALLOWLIST.has(agentDisplayName);
+}
+
 function agentName(r) {
-  return r.Agent || r["Agent Mapped"] || 'Unassigned';
+  const raw = r.Agent || r["Agent Mapped"] || 'Unassigned';
+  return normalizeResmedAgent(r["Process Name"], raw);
 }
 
 function hasActivity(r) {
@@ -452,7 +465,8 @@ function aggregateAgents(rows, includeProcess) {
       hangupRate: (a.inboundAnswered + a.outboundAll) > 0 ? (a.hangupIB + a.hangupOB) / (a.inboundAnswered + a.outboundAll) : 0,
       occupancy: hrsSec > 0 ? (ibSec + obSec) / hrsSec : 0
     };
-  }).sort((a, b) => b.productivityTotal - a.productivityTotal);
+  }).filter(a => passesResmedAllowlist(a.process, a.agent))
+    .sort((a, b) => b.productivityTotal - a.productivityTotal);
 }
 
 /* ── PROCESS TIME-SERIES ── */
@@ -562,24 +576,24 @@ async function fetchTrackerInsights(processName, from, to) {
 
 function aggregateTrackerInsights(rows) {
   const training = rows.filter(r => r.metric_type === 'training').map(r => ({
-    agent: r.agent_name, category: r.category || 'Unspecified',
+    agent: normalizeResmedAgent(r.process_name, r.agent_name), process: r.process_name, category: r.category || 'Unspecified',
     durationSec: Number(r.value) || 0, count: Number(r.cnt) || 0
-  }));
+  })).filter(o => passesResmedAllowlist(o.process, o.agent));
   const quality = rows.filter(r => r.metric_type === 'quality').map(r => ({
-    agent: r.agent_name, avgPercentage: Number(r.score) || 0,
+    agent: normalizeResmedAgent(r.process_name, r.agent_name), process: r.process_name, avgPercentage: Number(r.score) || 0,
     totalScore: Number(r.value) || 0, count: Number(r.cnt) || 0
-  }));
+  })).filter(o => passesResmedAllowlist(o.process, o.agent));
   const downtime = rows.filter(r => r.metric_type === 'downtime').map(r => ({
-    agent: r.agent_name, category: r.category || 'Unspecified',
+    agent: normalizeResmedAgent(r.process_name, r.agent_name), process: r.process_name, category: r.category || 'Unspecified',
     durationSec: Number(r.value) || 0, count: Number(r.cnt) || 0
-  }));
+  })).filter(o => passesResmedAllowlist(o.process, o.agent));
   const conversions = rows.filter(r => r.metric_type === 'conversion').map(r => ({
-    agent: r.agent_name, category: r.category || 'Unspecified', count: Number(r.cnt) || 0
-  }));
+    agent: normalizeResmedAgent(r.process_name, r.agent_name), process: r.process_name, category: r.category || 'Unspecified', count: Number(r.cnt) || 0
+  })).filter(o => passesResmedAllowlist(o.process, o.agent));
   const obActivity = rows.filter(r => r.metric_type === 'ob_activity').map(r => ({
-    agent: r.agent_name, category: r.category || 'Unspecified',
+    agent: normalizeResmedAgent(r.process_name, r.agent_name), process: r.process_name, category: r.category || 'Unspecified',
     connected: Number(r.value) || 0, total: Number(r.cnt) || 0
-  }));
+  })).filter(o => passesResmedAllowlist(o.process, o.agent));
   // Full 24-hour array (0-23), zero-filled for hours with no calls at all —
   // the query only returns rows for hours that actually have data.
   const hourlyRaw = new Map(rows.filter(r => r.metric_type === 'hourly_calls').map(r => [Number(r.category), r]));
