@@ -354,7 +354,7 @@ function renderDashboard() {
       </div>
     </div>
 
-    ${!['ResMed', 'LOTS'].includes(processName) ? `
+    ${processName === 'Baxter' ? `
     <div class="panel">
       <div class="panel-header"><i class="ti ti-checklist"></i> Closed &amp; Partial Closed — ${range.from === range.to ? range.from : `${range.from} → ${range.to}`}</div>
       <div class="panel-body">
@@ -910,10 +910,10 @@ function buildAttentionList(agents) {
 
 function buildAgentTable(agents, isOverall, processName) {
   if (!agents || !agents.length) return '<div style="text-align:center;padding:30px;color:var(--muted);">No agent data available.</div>';
-  // ResMed and LOTS don't work CRM case closure or escalations the way other
-  // processes do — those columns don't apply there. Appreciation stays for
-  // everyone; Escalation gets its own dedicated agent-wise panel instead.
-  const showCrmEscalation = !['ResMed', 'LOTS'].includes(processName);
+  // CRM case closure (Closed/Partial) and escalation tracking (Escalation,
+  // Esc. Open/Pending) only apply to Baxter's CRM workflow — no other process
+  // uses them. Appreciation stays visible for everyone.
+  const showCrmEscalation = processName === 'Baxter';
   const tableHtml = `<div class="table-wrap">
     <table>
       <thead><tr>
