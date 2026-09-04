@@ -470,6 +470,43 @@ function renderHourlyCalls(id, hourlyCalls, isDark) {
   });
 }
 
+/* ── HOURLY MISSED CALLS BIFURCATION (stacked by disposition type, 8am start) ── */
+function renderHourlyMissed(id, hourlyMissed, isDark) {
+  const ctx = getCtx(id);
+  if (!ctx) return;
+  const textColor = isDark ? '#b0b5c0' : '#6b7280';
+  const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+  const typeColors = {
+    'Agent Missed': 'rgba(220,38,38,0.75)',
+    'IVR Missed': 'rgba(217,119,6,0.75)',
+    'Queue Missed': 'rgba(124,58,237,0.75)',
+    'Service Missed': 'rgba(8,145,178,0.75)'
+  };
+  const fallbackPalette = ['rgba(37,99,235,0.75)', 'rgba(5,150,105,0.75)', 'rgba(107,114,128,0.75)'];
+  const types = [...new Set((hourlyMissed || []).map(r => r.type))].sort();
+  const byHourType = new Map((hourlyMissed || []).map(r => [`${r.hour}|${r.type}`, r.count]));
+  const order = Array.from({ length: 24 }, (_, i) => (i + 8) % 24);
+  const labels = order.map(h => h === 0 ? '12am' : h < 12 ? `${h}am` : h === 12 ? '12pm' : `${h - 12}pm`);
+  const datasets = types.map((type, i) => ({
+    label: type,
+    data: order.map(h => byHourType.get(`${h}|${type}`) || 0),
+    backgroundColor: typeColors[type] || fallbackPalette[i % fallbackPalette.length],
+    borderRadius: 2
+  }));
+  ctx.chart = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets },
+    options: {
+      ...defaultOpts('Hourly Missed Calls', isDark),
+      plugins: { ...defaultOpts('Hourly Missed Calls', isDark).plugins, datalabels: { display: false } },
+      scales: {
+        x: { stacked: true, ticks: { color: textColor, font: { size: 9.5 } }, grid: { display: false } },
+        y: { stacked: true, beginAtZero: true, ticks: { color: textColor, font: { size: 10 } }, grid: { color: gridColor } }
+      }
+    }
+  });
+}
+
 /* ── CHATBOT CHART RENDERER (inline) ── */
 function renderMiniChart(canvasId, type, labels, data, label, color, isDark) {
   const ctx = document.getElementById(canvasId)?.getContext('2d');
@@ -522,6 +559,6 @@ window.CHARTS = {
   renderTrendChart, renderProcessComparison, renderAgentRanking,
   renderPareto, renderDailyTrend, renderQualityTrend,
   renderAgentHeatmap, renderMiniChart, renderDayWiseChart,
-  renderAgentProductivity, renderBreakDuration, renderQualityRatio, renderAgentMissed, renderStatBar, renderHourlyCalls,
+  renderAgentProductivity, renderBreakDuration, renderQualityRatio, renderAgentMissed, renderStatBar, renderHourlyCalls, renderHourlyMissed,
   chartColors, colorPalette
 };

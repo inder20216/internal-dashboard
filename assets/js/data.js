@@ -544,7 +544,7 @@ async function fetchTrackerInsights(processName, from, to) {
     return aggregateTrackerInsights(rows);
   } catch (err) {
     console.error('fetchTrackerInsights failed:', err);
-    return { training: [], quality: [], downtime: [], conversions: [], obActivity: [] };
+    return { training: [], quality: [], downtime: [], conversions: [], obActivity: [], hourlyCalls: [], hourlyMissed: [] };
   }
 }
 
@@ -574,7 +574,11 @@ function aggregateTrackerInsights(rows) {
   const hourlyCalls = Array.from({ length: 24 }, (_, h) => ({
     hour: h, total: Number(hourlyRaw.get(h)?.value) || 0, answered: Number(hourlyRaw.get(h)?.cnt) || 0
   }));
-  return { training, quality, downtime, conversions, obActivity, hourlyCalls };
+  // score carries the hour here (category is the missed-disposition type instead).
+  const hourlyMissed = rows.filter(r => r.metric_type === 'hourly_missed').map(r => ({
+    hour: Number(r.score), type: r.category || 'Unspecified', count: Number(r.value) || 0
+  }));
+  return { training, quality, downtime, conversions, obActivity, hourlyCalls, hourlyMissed };
 }
 
 /* ── EXPORT GLOBALLY ── */

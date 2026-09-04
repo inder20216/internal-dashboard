@@ -354,7 +354,7 @@ function renderDashboard() {
       </div>
     </div>
 
-    ${processName !== 'ResMed' ? `
+    ${!['ResMed', 'LOTS'].includes(processName) ? `
     <div class="panel">
       <div class="panel-header"><i class="ti ti-checklist"></i> Closed &amp; Partial Closed — ${range.from === range.to ? range.from : `${range.from} → ${range.to}`}</div>
       <div class="panel-body">
@@ -380,7 +380,7 @@ function renderDashboard() {
       <div class="panel-body" id="downtimeInsightsBody"><div style="text-align:center;padding:20px;color:var(--muted);">Loading…</div></div>
     </div>` : ''}
 
-    ${processName === 'ResMed' ? `
+    ${['ResMed', 'LOTS'].includes(processName) ? `
     <div class="panel">
       <div class="panel-header"><i class="ti ti-heart-handshake"></i> Appreciation &amp; Escalation — Agent Wise</div>
       <div class="panel-body">
@@ -389,18 +389,25 @@ function renderDashboard() {
     </div>
 
     <div class="panel">
+      <div class="panel-header"><i class="ti ti-phone-outgoing"></i> Outbound Activity — Agent &amp; Activity Wise Connectivity</div>
+      <div class="panel-body" id="obActivityInsightsBody"><div style="text-align:center;padding:20px;color:var(--muted);">Loading…</div></div>
+    </div>` : ''}
+
+    ${processName === 'ResMed' ? `
+    <div class="panel">
       <div class="panel-header"><i class="ti ti-shopping-cart"></i> Conversions — Product &amp; Agent Wise</div>
       <div class="panel-body" id="conversionInsightsBody"><div style="text-align:center;padding:20px;color:var(--muted);">Loading…</div></div>
     </div>
 
     <div class="panel">
-      <div class="panel-header"><i class="ti ti-phone-outgoing"></i> Outbound Activity — Agent &amp; Activity Wise Connectivity</div>
-      <div class="panel-body" id="obActivityInsightsBody"><div style="text-align:center;padding:20px;color:var(--muted);">Loading…</div></div>
-    </div>
-
-    <div class="panel">
       <div class="panel-header"><i class="ti ti-clock-hour-8"></i> Hourly Inbound Calls</div>
       <div class="panel-body" style="height:280px;"><canvas id="hourlyCallsChart"></canvas></div>
+    </div>` : ''}
+
+    ${processName === 'LOTS' ? `
+    <div class="panel">
+      <div class="panel-header"><i class="ti ti-clock-hour-8"></i> Hourly Missed Calls — Bifurcation by Type</div>
+      <div class="panel-body" style="height:300px;"><canvas id="hourlyMissedChart"></canvas></div>
     </div>` : ''}`;
 
   setTimeout(() => {
@@ -447,6 +454,7 @@ function renderDashboard() {
       if (conversionEl) conversionEl.innerHTML = buildConversionInsights(insights.conversions);
       if (obActivityEl) obActivityEl.innerHTML = buildObActivityInsights(insights.obActivity);
       if (document.getElementById('hourlyCallsChart')) window.CHARTS.renderHourlyCalls('hourlyCallsChart', insights.hourlyCalls, isDarkNow);
+      if (document.getElementById('hourlyMissedChart')) window.CHARTS.renderHourlyMissed('hourlyMissedChart', insights.hourlyMissed, isDarkNow);
     });
   }
 }
@@ -887,10 +895,10 @@ function buildAttentionList(agents) {
 
 function buildAgentTable(agents, isOverall, processName) {
   if (!agents || !agents.length) return '<div style="text-align:center;padding:30px;color:var(--muted);">No agent data available.</div>';
-  // ResMed doesn't work CRM case closure or escalations the way other
+  // ResMed and LOTS don't work CRM case closure or escalations the way other
   // processes do — those columns don't apply there. Appreciation stays for
   // everyone; Escalation gets its own dedicated agent-wise panel instead.
-  const showCrmEscalation = processName !== 'ResMed';
+  const showCrmEscalation = !['ResMed', 'LOTS'].includes(processName);
   const tableHtml = `<div class="table-wrap">
     <table>
       <thead><tr>
