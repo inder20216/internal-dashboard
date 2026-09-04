@@ -507,6 +507,33 @@ function renderHourlyMissed(id, hourlyMissed, isDark) {
   });
 }
 
+/* ── FRESH CALLS: CDR NOTES vs CRM LOGGED (day-wise comparison) ── */
+function renderFreshCallsComparison(id, freshCallsComparison, isDark) {
+  const ctx = getCtx(id);
+  if (!ctx) return;
+  const textColor = isDark ? '#b0b5c0' : '#6b7280';
+  const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+  const rows = freshCallsComparison || [];
+  ctx.chart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: rows.map(r => r.date),
+      datasets: [
+        { label: 'Fresh Calls (CDR Notes)', data: rows.map(r => r.cdrCount), backgroundColor: 'rgba(37,99,235,0.75)', borderRadius: 3 },
+        { label: 'Fresh CRM Case (Logged)', data: rows.map(r => r.crmCount), backgroundColor: 'rgba(5,150,105,0.75)', borderRadius: 3 }
+      ]
+    },
+    options: {
+      ...defaultOpts('Fresh Calls vs CRM Logged', isDark),
+      plugins: { ...defaultOpts('Fresh Calls vs CRM Logged', isDark).plugins, datalabels: { display: false } },
+      scales: {
+        x: { ticks: { color: textColor, font: { size: 9.5 } }, grid: { display: false } },
+        y: { beginAtZero: true, ticks: { color: textColor, font: { size: 10 } }, grid: { color: gridColor } }
+      }
+    }
+  });
+}
+
 /* ── CHATBOT CHART RENDERER (inline) ── */
 function renderMiniChart(canvasId, type, labels, data, label, color, isDark) {
   const ctx = document.getElementById(canvasId)?.getContext('2d');
@@ -559,6 +586,6 @@ window.CHARTS = {
   renderTrendChart, renderProcessComparison, renderAgentRanking,
   renderPareto, renderDailyTrend, renderQualityTrend,
   renderAgentHeatmap, renderMiniChart, renderDayWiseChart,
-  renderAgentProductivity, renderBreakDuration, renderQualityRatio, renderAgentMissed, renderStatBar, renderHourlyCalls, renderHourlyMissed,
+  renderAgentProductivity, renderBreakDuration, renderQualityRatio, renderAgentMissed, renderStatBar, renderHourlyCalls, renderHourlyMissed, renderFreshCallsComparison,
   chartColors, colorPalette
 };

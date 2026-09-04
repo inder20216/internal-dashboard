@@ -408,6 +408,11 @@ function renderDashboard() {
     <div class="panel">
       <div class="panel-header"><i class="ti ti-clock-hour-8"></i> Hourly Missed Calls — Bifurcation by Type</div>
       <div class="panel-body" style="height:300px;"><canvas id="hourlyMissedChart"></canvas></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header"><i class="ti ti-git-compare"></i> Fresh Calls — CDR Notes vs CRM Logged</div>
+      <div class="panel-body" style="height:280px;"><canvas id="freshCallsChart"></canvas></div>
     </div>` : ''}`;
 
   setTimeout(() => {
@@ -455,6 +460,7 @@ function renderDashboard() {
       if (obActivityEl) obActivityEl.innerHTML = buildObActivityInsights(insights.obActivity);
       if (document.getElementById('hourlyCallsChart')) window.CHARTS.renderHourlyCalls('hourlyCallsChart', insights.hourlyCalls, isDarkNow);
       if (document.getElementById('hourlyMissedChart')) window.CHARTS.renderHourlyMissed('hourlyMissedChart', insights.hourlyMissed, isDarkNow);
+      if (document.getElementById('freshCallsChart')) window.CHARTS.renderFreshCallsComparison('freshCallsChart', insights.freshCallsComparison, isDarkNow);
     });
   }
 }

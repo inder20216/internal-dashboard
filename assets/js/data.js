@@ -544,7 +544,7 @@ async function fetchTrackerInsights(processName, from, to) {
     return aggregateTrackerInsights(rows);
   } catch (err) {
     console.error('fetchTrackerInsights failed:', err);
-    return { training: [], quality: [], downtime: [], conversions: [], obActivity: [], hourlyCalls: [], hourlyMissed: [] };
+    return { training: [], quality: [], downtime: [], conversions: [], obActivity: [], hourlyCalls: [], hourlyMissed: [], freshCallsComparison: [] };
   }
 }
 
@@ -578,7 +578,15 @@ function aggregateTrackerInsights(rows) {
   const hourlyMissed = rows.filter(r => r.metric_type === 'hourly_missed').map(r => ({
     hour: Number(r.score), type: r.category || 'Unspecified', count: Number(r.value) || 0
   }));
-  return { training, quality, downtime, conversions, obActivity, hourlyCalls, hourlyMissed };
+  // Merge the two independently-dated series (CDR notes vs CRM logging) onto a
+  // single date axis -- either side can have days the other doesn't.
+  const cdrByDate = new Map(rows.filter(r => r.metric_type === 'fresh_calls_cdr').map(r => [r.category, Number(r.value) || 0]));
+  const crmByDate = new Map(rows.filter(r => r.metric_type === 'fresh_calls_crm').map(r => [r.category, Number(r.value) || 0]));
+  const freshDates = [...new Set([...cdrByDate.keys(), ...crmByDate.keys()])].sort();
+  const freshCallsComparison = freshDates.map(date => ({
+    date, cdrCount: cdrByDate.get(date) || 0, crmCount: crmByDate.get(date) || 0
+  }));
+  return { training, quality, downtime, conversions, obActivity, hourlyCalls, hourlyMissed, freshCallsComparison };
 }
 
 /* ── EXPORT GLOBALLY ── */
