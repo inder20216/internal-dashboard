@@ -421,6 +421,10 @@ function aggregateAgents(rows, includeProcess) {
       apt: avgSeconds(a.rows, "APT", "APT (formatted)"),
       ibTalkTime: sumSeconds(a.rows, "IB TT", "IB TT (formatted)"),
       obTalkTime: sumSeconds(a.rows, "OB TT", "OB TT (formatted)"),
+      // Avg talk time (AHT) per call direction, for Answered calls only —
+      // distinct from the blended "AHT" column which mixes IB+OB.
+      ahtInboundSec: a.inboundAnswered > 0 ? Math.round(ibSec / a.inboundAnswered) : 0,
+      ahtOutboundSec: a.obAnswered > 0 ? Math.round(obSec / a.obAnswered) : 0,
       loginDuration: sumSeconds(a.rows, "Hours", "Hours (formatted)"),
       breakDuration: sumSeconds(a.rows, "Break time", "Break time (formatted)"),
       breakDaysCount: dayCount,

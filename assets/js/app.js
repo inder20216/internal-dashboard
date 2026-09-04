@@ -903,6 +903,8 @@ function buildAgentTable(agents, isOverall, processName) {
         <th>OB Connectivity</th>
         <th>Email</th>
         <th>AHT</th>
+        <th>AHT (IB)</th>
+        <th>AHT (OB)</th>
         <th>APT</th>
         <th>Missed</th>
         <th>IB Hangup</th>
@@ -932,6 +934,8 @@ function buildAgentTable(agents, isOverall, processName) {
         <td>${a.outboundAll > 0 ? ((a.obAnswered || 0) / a.outboundAll * 100).toFixed(1) : '0.0'}%</td>
         <td>${a.emailsHandled}</td>
         <td>${a.aht}</td>
+        <td>${secondsToHms(a.ahtInboundSec || 0)}</td>
+        <td>${secondsToHms(a.ahtOutboundSec || 0)}</td>
         <td>${a.apt}</td>
         <td>${a.agentMissed}</td>
         <td>${a.hangupIB || 0}</td>
