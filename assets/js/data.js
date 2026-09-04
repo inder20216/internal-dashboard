@@ -234,10 +234,16 @@ function emailHandled(r) {
 
 // ResMed only tracks these 4 agents as real people — "Admin" in the raw data is
 // actually Sagarika Bose's login identity, and every other ResMed agent name in
-// the data is noise that shouldn't appear in any agent-wise breakdown.
+// the data is noise that shouldn't appear in any agent-wise breakdown. Different
+// source tables spell these differently too (resmed_conversion uses first names
+// only, e.g. "Avijit" instead of "Avijit Dey") — all normalized to the full name.
 const RESMED_AGENT_ALLOWLIST = new Set(['Gulshan Khan', 'Kumkum', 'Avijit Dey', 'Sagarika Bose']);
+const RESMED_AGENT_ALIASES = {
+  'Admin': 'Sagarika Bose', 'Sagarika': 'Sagarika Bose',
+  'Gulshan': 'Gulshan Khan', 'Avijit': 'Avijit Dey'
+};
 function normalizeResmedAgent(processName, rawAgentName) {
-  if (processName === 'ResMed' && rawAgentName === 'Admin') return 'Sagarika Bose';
+  if (processName === 'ResMed' && RESMED_AGENT_ALIASES[rawAgentName]) return RESMED_AGENT_ALIASES[rawAgentName];
   return rawAgentName;
 }
 function passesResmedAllowlist(processName, agentDisplayName) {
