@@ -37,16 +37,19 @@ function computeDefaultRange() {
   }
   return { from, to };
 }
-const _def = computeDefaultRange();
 
 const STORAGE_KEY = 'mis_dashboard_state';
 
 function saveState() {
   try {
     const keep = { ...currentState };
-    // Don't persist dateFrom/dateTo — always compute fresh on load
+    // Don't persist dateFrom/dateTo — always compute fresh on load. Don't persist
+    // reportPeriod either — every visit should default to the Daily/yesterday
+    // view, not silently reopen on whatever tab (e.g. Monthly) was last clicked
+    // in a previous session.
     delete keep.dateFrom;
     delete keep.dateTo;
+    delete keep.reportPeriod;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(keep));
   } catch (_) {}
 }
@@ -59,17 +62,18 @@ function loadState() {
     if (saved.role) currentState.role = saved.role;
     if (saved.userProcess !== undefined) currentState.userProcess = saved.userProcess;
     if (saved.selectedProcess !== undefined) currentState.selectedProcess = saved.selectedProcess;
-    if (saved.reportPeriod) currentState.reportPeriod = saved.reportPeriod;
     if (saved.theme) currentState.theme = saved.theme;
   } catch (_) {}
 }
 
-loadState();
-
 let currentState = {
   selectedProcess: '',
-  dateFrom: _def.from,
-  dateTo: _def.to,
+  // Empty on purpose -- the default view is Daily (below), which resolves its
+  // own date fresh each render (see getPeriodDateRange). Seeding these with the
+  // Monthly-style 1st-of-month default here made the very first render treat
+  // that leftover date as if the user had manually picked it as a single day.
+  dateFrom: '',
+  dateTo: '',
   reportPeriod: 'daily',
   role: 'admin',
   userProcess: '',

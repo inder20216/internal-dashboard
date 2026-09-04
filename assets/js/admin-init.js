@@ -25,6 +25,12 @@
 
     window.APP_DATA.currentState.selectedProcess = '';
     window.APP_DATA.currentState.role = 'admin';
+    // Admin's Overview doesn't have Daily/Weekly/Monthly tabs like process.html --
+    // it reads dateFrom/dateTo directly, so (unlike process.html's Daily-tab
+    // default) it needs a real range set explicitly here rather than starting empty.
+    const defaultRange = window.APP_DATA.computeDefaultRange();
+    window.APP_DATA.currentState.dateFrom = defaultRange.from;
+    window.APP_DATA.currentState.dateTo = defaultRange.to;
 
     const sel = document.getElementById('globalProcessFilter');
     if (sel) {
