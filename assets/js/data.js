@@ -562,23 +562,37 @@ async function fetchData() {
   return { allRows, processList };
 }
 
-/* ── TRACKER INSIGHTS (Training Type / Quality Ratio / Downtime) ──
-   Separate data source: training_tracker / quality_audit / activity_tracker were
-   never wired into the Sheet26 pipeline the main dashboard reads from, so this
-   hits a dedicated webhook that queries those 3 MySQL tables directly. */
-const INSIGHTS_API_URL = "https://inder20216.app.n8n.cloud/webhook/tracker-insights";
+/* ── TRACKER INSIGHTS (Training Type / Quality Ratio / Downtime / etc.) ──
+   Separate data source: training_tracker / quality_audit / activity_tracker / etc.
+   were never wired into the Sheet26 pipeline the main dashboard reads from, so
+   this hits 8 independent webhooks, each querying its own MySQL table(s) — split
+   apart from a single 12-branch UNION query so one bad branch (e.g. a collation
+   mismatch) can't take down every insights panel at once; each endpoint fails
+   on its own and the others still populate. */
+const INSIGHTS_BASE = "https://inder20216.app.n8n.cloud/webhook/";
+const INSIGHTS_ENDPOINTS = [
+  'tracker-training', 'tracker-quality', 'tracker-downtime', 'tracker-conversion',
+  'tracker-ob-activity', 'tracker-hourly', 'tracker-fresh-calls', 'tracker-stg-tagging'
+];
 
 async function fetchTrackerInsights(processName, from, to) {
   try {
-    const url = `${INSIGHTS_API_URL}?process=${encodeURIComponent(processName)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`Insights API ${res.status}`);
-    const data = await res.json();
-    const rows = Array.isArray(data) ? data : (Array.isArray(data.data) ? data.data : []);
-    return aggregateTrackerInsights(rows);
+    const results = await Promise.all(INSIGHTS_ENDPOINTS.map(async (endpoint) => {
+      try {
+        const url = `${INSIGHTS_BASE}${endpoint}?process=${encodeURIComponent(processName)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`${endpoint} ${res.status}`);
+        const data = await res.json();
+        return Array.isArray(data) ? data : (Array.isArray(data.data) ? data.data : []);
+      } catch (err) {
+        console.error(`fetchTrackerInsights: ${endpoint} failed:`, err);
+        return [];
+      }
+    }));
+    return aggregateTrackerInsights(results.flat());
   } catch (err) {
     console.error('fetchTrackerInsights failed:', err);
-    return { training: [], quality: [], downtime: [], conversions: [], obActivity: [], hourlyCalls: [], hourlyMissed: [], freshCallsComparison: [], stgTagging: [] };
+    return { training: [], quality: [], downtime: [], conversions: [], obActivity: [], hourlyMissed: [], freshCallsComparison: [], stgTagging: [] };
   }
 }
 
@@ -602,12 +616,6 @@ function aggregateTrackerInsights(rows) {
     agent: normalizeResmedAgent(r.process_name, r.agent_name), process: r.process_name, category: r.category || 'Unspecified',
     connected: Number(r.value) || 0, total: Number(r.cnt) || 0
   })).filter(o => passesResmedAllowlist(o.process, o.agent));
-  // Full 24-hour array (0-23), zero-filled for hours with no calls at all —
-  // the query only returns rows for hours that actually have data.
-  const hourlyRaw = new Map(rows.filter(r => r.metric_type === 'hourly_calls').map(r => [Number(r.category), r]));
-  const hourlyCalls = Array.from({ length: 24 }, (_, h) => ({
-    hour: h, total: Number(hourlyRaw.get(h)?.value) || 0, answered: Number(hourlyRaw.get(h)?.cnt) || 0
-  }));
   // score carries the hour here (category is the missed-disposition type instead).
   const hourlyMissed = rows.filter(r => r.metric_type === 'hourly_missed').map(r => ({
     hour: Number(r.score), type: r.category || 'Unspecified', count: Number(r.value) || 0
@@ -624,7 +632,7 @@ function aggregateTrackerInsights(rows) {
   const stgTagging = rows.filter(r => r.metric_type === 'stg_tagging').map(r => ({
     agent: r.agent_name, process: r.process_name, count: Number(r.value) || 0, calls: Number(r.cnt) || 0
   }));
-  return { training, quality, downtime, conversions, obActivity, hourlyCalls, hourlyMissed, freshCallsComparison, stgTagging };
+  return { training, quality, downtime, conversions, obActivity, hourlyMissed, freshCallsComparison, stgTagging };
 }
 
 /* ── EXPORT GLOBALLY ── */
