@@ -329,6 +329,14 @@ function aggregateProcess(rows, processName) {
   const ibTTSec = sumSecondsRaw(daily, "IB TT");
   const obTTSec = sumSecondsRaw(daily, "OB TT");
   const talkSec = ibTTSec + obTTSec;
+  // Total/Avg AHT stat charts are agent-wise metrics too — for ResMed they must
+  // reflect only the 4 real agents, same as every other agent-wise panel, even
+  // though the rest of this function's totals stay unfiltered (real KPIs/volume).
+  const ahtRows = processName === 'ResMed' ? daily.filter(r => RESMED_AGENT_ALLOWLIST.has(agentName(r))) : daily;
+  const ahtIbTTSec = sumSecondsRaw(ahtRows, "IB TT");
+  const ahtObTTSec = sumSecondsRaw(ahtRows, "OB TT");
+  const ahtIbAnswered = sumNumber(ahtRows, "Inbound Answer");
+  const ahtObAnswered = sumNumber(ahtRows, "OB Answer");
 
   /* Quality metrics */
   const hangupIB = sumNumber(daily, "Call Hangup With in 10 Sec-IB");
@@ -369,13 +377,13 @@ function aggregateProcess(rows, processName) {
     apt: avgSeconds(daily, "APT", "APT (formatted)"),
     ibTalkTime: sumSeconds(daily, "IB TT", "IB TT (formatted)"),
     obTalkTime: sumSeconds(daily, "OB TT", "OB TT (formatted)"),
-    ibTalkTimeSec: ibTTSec,
-    obTalkTimeSec: obTTSec,
+    ibTalkTimeSec: ahtIbTTSec,
+    obTalkTimeSec: ahtObTTSec,
     /* AHT split by direction: total talk time on that side / calls answered on that side */
-    ahtInbound: ib > 0 ? secondsToHms(ibTTSec / ib) : '—',
-    ahtOutbound: obAns > 0 ? secondsToHms(obTTSec / obAns) : '—',
-    ahtInboundSec: ib > 0 ? Math.round(ibTTSec / ib) : 0,
-    ahtOutboundSec: obAns > 0 ? Math.round(obTTSec / obAns) : 0,
+    ahtInbound: ahtIbAnswered > 0 ? secondsToHms(ahtIbTTSec / ahtIbAnswered) : '—',
+    ahtOutbound: ahtObAnswered > 0 ? secondsToHms(ahtObTTSec / ahtObAnswered) : '—',
+    ahtInboundSec: ahtIbAnswered > 0 ? Math.round(ahtIbTTSec / ahtIbAnswered) : 0,
+    ahtOutboundSec: ahtObAnswered > 0 ? Math.round(ahtObTTSec / ahtObAnswered) : 0,
     emailSentCount: sumEmailSentCount(daily),
     emailDuration,
     /* Quality */
