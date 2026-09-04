@@ -20,8 +20,8 @@
 
   const authorized = await window.AUTH.guardPage(access => {
     if (access.role === 'admin') return true;
-    if (access.process === proc) return true;
-    return 'process.html?process=' + encodeURIComponent(access.process);
+    if (access.processes.includes(proc)) return true;
+    return 'process.html?process=' + encodeURIComponent(access.processes[0]);
   });
   if (!authorized) return; // gate is showing sign-in / access-denied UI
 
@@ -50,6 +50,18 @@
     document.getElementById('sidebarProcessName').textContent = proc;
     document.getElementById('userAvatar').textContent = window.AUTH.user.name.charAt(0).toUpperCase();
     document.getElementById('userName').textContent = window.AUTH.user.name;
+
+    // Users with access to more than one process (e.g. amandeep/naveen: Baxter +
+    // ResMed) get a small switcher here -- single-process accounts and admins
+    // (who have their own cross-process nav via admin.html) don't need this.
+    const access = window.AUTH.access;
+    const switcherEl = document.getElementById('processSwitcher');
+    if (switcherEl && access.role !== 'admin' && access.processes.length > 1) {
+      switcherEl.innerHTML = access.processes.map(p =>
+        `<a class="process-switch-item ${p === proc ? 'active' : ''}" href="process.html?process=${encodeURIComponent(p)}">${p}</a>`
+      ).join('');
+      switcherEl.style.display = 'flex';
+    }
 
     setDateInputs();
     applyTheme();

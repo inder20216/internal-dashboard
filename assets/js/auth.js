@@ -8,9 +8,10 @@
 
 const ACCESS_MAP = {
   'inder@openmind.in': { role: 'admin' },
-  'amandeep@openmind.in': { role: 'user', process: 'Baxter' },
-  'naveen@openmind.in': { role: 'user', process: 'Baxter' },
-  'reenu.gupta@openmind.in': { role: 'user', process: 'Baxter' }
+  'amandeep@openmind.in': { role: 'user', processes: ['Baxter', 'ResMed'] },
+  'naveen@openmind.in': { role: 'user', processes: ['Baxter', 'ResMed'] },
+  'reenu.gupta@openmind.in': { role: 'user', processes: ['Baxter'] },
+  'sagarika@openmind.in': { role: 'user', processes: ['ResMed'] }
 };
 
 const authMsalConfig = {
@@ -62,10 +63,12 @@ const AUTH = {
   },
 
   /* Where this user belongs — used to bounce a signed-in-but-wrong-page user
-     (e.g. a Baxter-only account hitting admin.html) to where they should be. */
+     (e.g. a Baxter-only account hitting admin.html) to where they should be.
+     A user with access to multiple processes lands on the first one; the
+     sidebar's process switcher (see process-init.js) lets them pick another. */
   homeUrl() {
     if (!this.access) return null;
-    return this.access.role === 'admin' ? 'admin.html' : 'process.html?process=' + encodeURIComponent(this.access.process);
+    return this.access.role === 'admin' ? 'admin.html' : 'process.html?process=' + encodeURIComponent(this.access.processes[0]);
   },
 
   /* Blocks the page behind #authGate until a signed-in, allowlisted user
