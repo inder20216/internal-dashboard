@@ -31,8 +31,11 @@
     setLoad(55, 'Processing data...');
 
     const processList = window.APP_DATA.processList;
+    // "Facility" is a synthetic combined process (Infres/VMM/Nihon) -- it never
+    // appears as a real "Process Name" value, so it won't be in processList.
+    const isValidProcess = proc === 'Facility' || processList.includes(proc);
 
-    if (!proc || !processList.includes(proc)) {
+    if (!proc || !isValidProcess) {
       fail(proc
         ? `Process "${proc}" was not found in the current data. It may have been renamed or has no data yet.`
         : 'No process specified. Open this page as <code>process.html?process=NAME</code>.');

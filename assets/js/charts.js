@@ -534,6 +534,43 @@ function renderFreshCallsComparison(id, freshCallsComparison, isDark) {
   });
 }
 
+/* ── FACILITY: AGENT-WISE CASE COMPARISON CHARTS (Infres/VMM/Nihon combined) ── */
+function renderFacilityCallCases(id, agents, stgTagging, isDark) {
+  const ctx = getCtx(id);
+  if (!ctx) return;
+  const stgMap = new Map((stgTagging || []).map(r => [`${r.process}||${r.agent}`, r.count]));
+  const rows = agents || [];
+  ctx.chart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: rows.map(a => a.agent),
+      datasets: [
+        { label: 'Sum of Inbound Answered', data: rows.map(a => a.inboundAnswered || 0), backgroundColor: 'rgba(37,99,235,0.8)', borderRadius: 3 },
+        { label: 'CRM Cases Logged', data: rows.map(a => a.crmCall || 0), backgroundColor: 'rgba(220,38,38,0.8)', borderRadius: 3 },
+        { label: 'Cases as per STg Tagging', data: rows.map(a => stgMap.get(`${a.process}||${a.agent}`) || 0), backgroundColor: 'rgba(132,204,22,0.8)', borderRadius: 3 }
+      ]
+    },
+    options: defaultOpts('Answered Calls vs CRM Case Logged', isDark)
+  });
+}
+
+function renderFacilityEmailCases(id, agents, isDark) {
+  const ctx = getCtx(id);
+  if (!ctx) return;
+  const rows = agents || [];
+  ctx.chart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: rows.map(a => a.agent),
+      datasets: [
+        { label: 'E-mail Case Logged Count', data: rows.map(a => a.crmEmail || 0), backgroundColor: 'rgba(37,99,235,0.8)', borderRadius: 3 },
+        { label: 'Email CRM Case Logged + Non Trading', data: rows.map(a => (a.crmEmail || 0) + (a.nonTrading || 0)), backgroundColor: 'rgba(220,38,38,0.8)', borderRadius: 3 }
+      ]
+    },
+    options: defaultOpts('Email vs CRM Email Case Logged', isDark)
+  });
+}
+
 /* ── CHATBOT CHART RENDERER (inline) ── */
 function renderMiniChart(canvasId, type, labels, data, label, color, isDark) {
   const ctx = document.getElementById(canvasId)?.getContext('2d');
@@ -587,5 +624,6 @@ window.CHARTS = {
   renderPareto, renderDailyTrend, renderQualityTrend,
   renderAgentHeatmap, renderMiniChart, renderDayWiseChart,
   renderAgentProductivity, renderBreakDuration, renderQualityRatio, renderAgentMissed, renderStatBar, renderHourlyCalls, renderHourlyMissed, renderFreshCallsComparison,
+  renderFacilityCallCases, renderFacilityEmailCases,
   chartColors, colorPalette
 };

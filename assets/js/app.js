@@ -413,6 +413,18 @@ function renderDashboard() {
     <div class="panel">
       <div class="panel-header"><i class="ti ti-git-compare"></i> Fresh Calls — CDR Notes vs CRM Logged</div>
       <div class="panel-body" style="height:280px;"><canvas id="freshCallsChart"></canvas></div>
+    </div>` : ''}
+
+    ${processName === 'Facility' ? `
+    <div class="grid-2">
+      <div class="panel">
+        <div class="panel-header"><i class="ti ti-phone-incoming"></i> Answered Calls vs CRM Case Logged — Agent Wise</div>
+        <div class="panel-body" style="height:300px;"><canvas id="facilityCallCasesChart"></canvas></div>
+      </div>
+      <div class="panel">
+        <div class="panel-header"><i class="ti ti-mail"></i> E-mail vs CRM E-mail Case Logged — Agent Wise</div>
+        <div class="panel-body" style="height:300px;"><canvas id="facilityEmailCasesChart"></canvas></div>
+      </div>
     </div>` : ''}`;
 
   setTimeout(() => {
@@ -461,6 +473,8 @@ function renderDashboard() {
       if (document.getElementById('hourlyCallsChart')) window.CHARTS.renderHourlyCalls('hourlyCallsChart', insights.hourlyCalls, isDarkNow);
       if (document.getElementById('hourlyMissedChart')) window.CHARTS.renderHourlyMissed('hourlyMissedChart', insights.hourlyMissed, isDarkNow);
       if (document.getElementById('freshCallsChart')) window.CHARTS.renderFreshCallsComparison('freshCallsChart', insights.freshCallsComparison, isDarkNow);
+      if (document.getElementById('facilityCallCasesChart')) window.CHARTS.renderFacilityCallCases('facilityCallCasesChart', processData.agents, insights.stgTagging, isDarkNow);
+      if (document.getElementById('facilityEmailCasesChart')) window.CHARTS.renderFacilityEmailCases('facilityEmailCasesChart', processData.agents, isDarkNow);
     });
   }
 }

@@ -8,6 +8,15 @@ const API_URL = "https://automation.openmindhelpline.com/webhook/mis-dashboard";
 let allRows = [];
 let processList = [];
 
+// "Facility" is a combined pseudo-process (not a real "Process Name" value in
+// the source data) that rolls up Infres, VMM, and Nihon together, agent-wise.
+const FACILITY_PROCESSES = ['Infres', 'VMM', 'Nihon'];
+function matchesProcess(row, processName) {
+  if (!processName) return true;
+  if (processName === 'Facility') return FACILITY_PROCESSES.includes(row["Process Name"]);
+  return row["Process Name"] === processName;
+}
+
 // Compute safe default date range (handles 1st-of-month edge case)
 function computeDefaultRange() {
   const now = new Date();
@@ -264,7 +273,7 @@ function latestActiveDate(rows) {
 /* ── AGGREGATE PROCESS DATA ── */
 function aggregateProcess(rows, processName) {
   const { dateFrom, dateTo } = currentState;
-  const scoped = processName ? rows.filter(r => r["Process Name"] === processName) : rows;
+  const scoped = processName ? rows.filter(r => matchesProcess(r, processName)) : rows;
   const ranged = rowsInRange(scoped, dateFrom, dateTo);
   const latest = latestActiveDate(scoped);
   const daily = dateFrom || dateTo ? ranged : (latest ? scoped.filter(r => r.Date === latest) : scoped);
@@ -320,10 +329,13 @@ function aggregateProcess(rows, processName) {
 
   /* Derived metrics */
   const lateCount = daily.filter(r => { const h = parseLoginHour(r["Login Time"]); return h !== null && h > 9.5; }).length;
-  const agents = aggregateAgents(daily, !processName);
+  // Facility spans 3 real processes, so its agent table should show the Process
+  // column too, same as the true "all processes" admin view.
+  const showProcessColumn = !processName || processName === 'Facility';
+  const agents = aggregateAgents(daily, showProcessColumn);
 
   return {
-    processName, reportLabel, isOverall: !processName,
+    processName, reportLabel, isOverall: showProcessColumn,
     agentCount: new Set(daily.map(agentName).filter(Boolean)).size,
     /* Volume */
     totalCalls, inboundAnswered: ib, outboundAll: ob, obAnswered: obAns, emailsHandled: email,
@@ -445,7 +457,7 @@ function aggregateAgents(rows, includeProcess) {
 
 /* ── PROCESS TIME-SERIES ── */
 function getTimeSeries(rows, processName) {
-  const scoped = processName ? rows.filter(r => r["Process Name"] === processName) : rows;
+  const scoped = processName ? rows.filter(r => matchesProcess(r, processName)) : rows;
   const dateMap = new Map();
   scoped.forEach(r => {
     if (!r.Date) return;
@@ -544,7 +556,7 @@ async function fetchTrackerInsights(processName, from, to) {
     return aggregateTrackerInsights(rows);
   } catch (err) {
     console.error('fetchTrackerInsights failed:', err);
-    return { training: [], quality: [], downtime: [], conversions: [], obActivity: [], hourlyCalls: [], hourlyMissed: [], freshCallsComparison: [] };
+    return { training: [], quality: [], downtime: [], conversions: [], obActivity: [], hourlyCalls: [], hourlyMissed: [], freshCallsComparison: [], stgTagging: [] };
   }
 }
 
@@ -586,7 +598,11 @@ function aggregateTrackerInsights(rows) {
   const freshCallsComparison = freshDates.map(date => ({
     date, cdrCount: cdrByDate.get(date) || 0, crmCount: crmByDate.get(date) || 0
   }));
-  return { training, quality, downtime, conversions, obActivity, hourlyCalls, hourlyMissed, freshCallsComparison };
+  // Agent-wise "STg tagging" case count (from CDR notes) -- Facility only.
+  const stgTagging = rows.filter(r => r.metric_type === 'stg_tagging').map(r => ({
+    agent: r.agent_name, process: r.process_name, count: Number(r.value) || 0, calls: Number(r.cnt) || 0
+  }));
+  return { training, quality, downtime, conversions, obActivity, hourlyCalls, hourlyMissed, freshCallsComparison, stgTagging };
 }
 
 /* ── EXPORT GLOBALLY ── */
