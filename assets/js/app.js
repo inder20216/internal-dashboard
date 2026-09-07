@@ -386,20 +386,19 @@ function renderDashboard() {
       <div class="panel-body">
         ${buildAppreciationEscalationTable(processData.agents)}
       </div>
-    </div>
-
-    <div class="panel">
-      <div class="panel-header"><i class="ti ti-phone-outgoing"></i> Outbound Activity — Agent &amp; Activity Wise Connectivity</div>
-      <div class="panel-body" id="obActivityInsightsBody"><div style="text-align:center;padding:20px;color:var(--muted);">Loading…</div></div>
     </div>` : ''}
 
     ${processName === 'ResMed' ? `
     <div class="panel">
+      <div class="panel-header"><i class="ti ti-phone-outgoing"></i> Outbound Activity — Agent &amp; Activity Wise Connectivity</div>
+      <div class="panel-body" id="obActivityInsightsBody"><div style="text-align:center;padding:20px;color:var(--muted);">Loading…</div></div>
+    </div>
+
+    <div class="panel">
       <div class="panel-header"><i class="ti ti-shopping-cart"></i> Conversions — Product &amp; Agent Wise</div>
       <div class="panel-body" id="conversionInsightsBody"><div style="text-align:center;padding:20px;color:var(--muted);">Loading…</div></div>
-    </div>` : ''}
+    </div>
 
-    ${['ResMed', 'LOTS'].includes(processName) ? `
     <div class="panel">
       <div class="panel-header"><i class="ti ti-clock-hour-8"></i> Hourly Missed Calls — Bifurcation by Type</div>
       <div class="panel-body" style="height:300px;"><canvas id="hourlyMissedChart"></canvas></div>
