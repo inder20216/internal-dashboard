@@ -255,12 +255,27 @@ function agentName(r) {
   return normalizeResmedAgent(r["Process Name"], raw);
 }
 
-// Transferred/forwarded calls show up in the raw data under a destination
-// label (e.g. "Trans_AKD Reception", "trans_NSP_Reception", "Transfer
-// -Ithum Reception") instead of a real agent's name — these aren't people
-// and shouldn't appear in any agent-wise breakdown, on any process.
+// Queue/department/system labels that show up in the raw CDR data as if they
+// were an agent (e.g. transferred/forwarded calls land under a destination
+// label instead of a real name) — these aren't people and shouldn't appear in
+// any agent-wise breakdown, on any process. Two catch-alls plus an explicit
+// list: "Trans_AKD Reception"/"trans_NSP_Reception" (transfer prefix) and
+// "FWD_POST_BH1"/"DUMMY_CALL_WAITING" (underscored system codes) are caught
+// structurally; "Emergency"/"Insurance"/"Ambulance" (PSRI's queue names) have
+// no structural signal distinguishing them from a real short name, so they're
+// just listed explicitly — extend this list as more turn up on other processes.
+const NON_AGENT_LABELS = new Set([
+  'Emergency', 'Insurance', 'Ambulance', 'Reception',
+  'Hospital lines', 'Hospital Lines', 'PSRI team', 'PSRI Team', 'Team',
+  'Testing', 'Test', 'Testin', 'POSTMAN_TEST'
+]);
 function isTransferPseudoAgent(name) {
-  return /^trans/i.test(String(name || '').trim());
+  const n = String(name || '').trim();
+  if (!n) return false;
+  if (/^trans/i.test(n)) return true;
+  if (/_/.test(n)) return true;
+  if (NON_AGENT_LABELS.has(n)) return true;
+  return false;
 }
 
 function hasActivity(r) {
