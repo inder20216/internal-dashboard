@@ -11,6 +11,13 @@ function getActiveViewEl() {
 }
 
 async function captureActiveView() {
+  // renderDashboard() creates charts on an 80ms setTimeout and fetches tracker
+  // insights (training/quality/downtime/etc.) asynchronously — a capture fired
+  // right after navigating/switching dates can otherwise land mid-render and
+  // grab a page that's still genuinely empty, not just mid fade-in.
+  const pending = window.APP_DATA && window.APP_DATA.dashboardRenderReady;
+  if (pending) { try { await pending; } catch (err) { /* proceed with whatever rendered */ } }
+
   const el = getActiveViewEl();
   const isDarkNow = document.documentElement.getAttribute('data-theme') === 'dark';
   const bodyBg = getComputedStyle(document.body).backgroundColor;

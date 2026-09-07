@@ -422,6 +422,11 @@ function renderDashboard() {
       </div>
     </div>` : ''}`;
 
+  // Exposes when this render's async work (chart batch + tracker-insights
+  // fetch) has actually finished, so a screenshot/PDF export triggered right
+  // after navigating here can wait instead of capturing mid-render (blank
+  // charts, "No X logged" showing before data has even arrived).
+  const chartsReady = new Promise((resolveCharts) => {
   setTimeout(() => {
     const charts = window.CHARTS;
     const obNoAnswer = Math.max(0, (processData.outboundAll || 0) - (processData.obAnswered || 0));
@@ -448,10 +453,12 @@ function renderDashboard() {
     charts.renderAgentMissed('agentMissedChart', processData.agents, isDarkNow);
     animateCounters();
     observeScroll();
+    resolveCharts();
   }, 80);
+  });
 
-  if (processName) {
-    data.fetchTrackerInsights(processName, range.from, range.to).then(insights => {
+  const insightsReady = processName
+    ? data.fetchTrackerInsights(processName, range.from, range.to).then(insights => {
       const trainingEl = document.getElementById('trainingInsightsBody');
       const qualityEl = document.getElementById('qualityInsightsBody');
       const downtimeEl = document.getElementById('downtimeInsightsBody');
@@ -469,8 +476,10 @@ function renderDashboard() {
       if (document.getElementById('freshCallsChart')) window.CHARTS.renderFreshCallsComparison('freshCallsChart', insights.freshCallsComparison, isDarkNow);
       if (document.getElementById('facilityCallCasesChart')) window.CHARTS.renderFacilityCallCases('facilityCallCasesChart', processData.agents, insights.stgTagging, isDarkNow);
       if (document.getElementById('facilityEmailCasesChart')) window.CHARTS.renderFacilityEmailCases('facilityEmailCasesChart', processData.agents, isDarkNow);
-    });
-  }
+    })
+    : Promise.resolve();
+
+  data.dashboardRenderReady = Promise.all([chartsReady, insightsReady]);
 }
 
 /* ── AGENT BENCHMARK ── */
