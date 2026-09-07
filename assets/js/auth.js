@@ -8,10 +8,14 @@
 
 const ACCESS_MAP = {
   'inder@openmind.in': { role: 'admin' },
-  'amandeep@openmind.in': { role: 'user', processes: ['Baxter', 'ResMed'] },
-  'naveen@openmind.in': { role: 'user', processes: ['Baxter', 'ResMed'] },
+  'amandeep@openmind.in': { role: 'user', processes: ['Baxter', 'ResMed', 'PSRI', 'LOTS', 'Infres', 'VMM', 'Nihon', 'Facility', 'ONDC'] },
+  'naveen@openmind.in': { role: 'user', processes: ['Baxter', 'ResMed', 'PSRI', 'LOTS', 'Infres', 'VMM', 'Nihon', 'Facility', 'ONDC'] },
   'reenu.gupta@openmind.in': { role: 'user', processes: ['Baxter'] },
-  'sagarika@openmind.in': { role: 'user', processes: ['ResMed'] }
+  'sagarika@openmind.in': { role: 'user', processes: ['ResMed'] },
+  'shivani@openmind.in': { role: 'user', processes: ['PSRI'] },
+  'kajal@openmind.in': { role: 'user', processes: ['LOTS', 'Infres', 'VMM', 'Nihon', 'Facility'] },
+  'deepansh@openmind.in': { role: 'user', processes: ['LOTS', 'Infres', 'VMM', 'Nihon', 'Facility', 'ONDC'] },
+  'harvinder@openmind.in': { role: 'user', processes: ['ONDC'] }
 };
 
 const authMsalConfig = {
