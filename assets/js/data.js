@@ -255,6 +255,14 @@ function agentName(r) {
   return normalizeResmedAgent(r["Process Name"], raw);
 }
 
+// Transferred/forwarded calls show up in the raw data under a destination
+// label (e.g. "Trans_AKD Reception", "trans_NSP_Reception", "Transfer
+// -Ithum Reception") instead of a real agent's name — these aren't people
+// and shouldn't appear in any agent-wise breakdown, on any process.
+function isTransferPseudoAgent(name) {
+  return /^trans/i.test(String(name || '').trim());
+}
+
 function hasActivity(r) {
   return toNumber(r["Inbound Answer"]) > 0 || toNumber(r["Outbound All"]) > 0 ||
     emailHandled(r) > 0 || excelDayToSeconds(r.AHT) > 0;
@@ -415,6 +423,7 @@ function aggregateAgents(rows, includeProcess) {
   rows.forEach(r => {
     const proc = r["Process Name"] || 'Unassigned';
     const agent = agentName(r);
+    if (isTransferPseudoAgent(agent)) return;
     const key = includeProcess ? `${proc}||${agent}` : agent;
     const cur = map.get(key) || {
       agent, sip: r.SIP || '', process: proc,
