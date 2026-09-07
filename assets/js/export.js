@@ -26,6 +26,16 @@ async function captureActiveView() {
     node.style.opacity = '1';
     node.style.transform = 'none';
   });
+
+  // Chart.js draws each canvas with its own animation (750ms+ by default) —
+  // capturing right after render grabs canvases mid-animation or still blank.
+  // Every chart instance is stashed on its canvas as `.chart` (see charts.js),
+  // so force each one to redraw instantly with no animation before capturing.
+  el.querySelectorAll('canvas').forEach(canvas => {
+    if (canvas.chart && typeof canvas.chart.update === 'function') {
+      canvas.chart.update('none');
+    }
+  });
   await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
   try {
