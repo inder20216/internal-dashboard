@@ -52,11 +52,19 @@
     document.getElementById('userName').textContent = window.AUTH.user.name;
 
     // Users with access to more than one process (e.g. amandeep/naveen: Baxter +
-    // ResMed) get a small switcher here -- single-process accounts and admins
-    // (who have their own cross-process nav via admin.html) don't need this.
+    // ResMed) get a small pill switcher here. Admins get a dropdown covering
+    // every process instead -- previously they had no way back except editing
+    // the URL by hand once they'd jumped here from admin.html's "Jump to a
+    // process" selector, which navigates away rather than filtering in place.
     const access = window.AUTH.access;
     const switcherEl = document.getElementById('processSwitcher');
-    if (switcherEl && access.role !== 'admin' && access.processes.length > 1) {
+    if (switcherEl && access.role === 'admin') {
+      const allProcesses = [...processList, 'Facility'].sort();
+      const options = ['<option value="__admin__">← Admin Overview</option>']
+        .concat(allProcesses.map(p => `<option value="${p}" ${p === proc ? 'selected' : ''}>${p}</option>`));
+      switcherEl.innerHTML = `<select class="form-select w-full" id="adminProcessSwitcherSelect" onchange="const v=this.value; location.href = v==='__admin__' ? 'admin.html' : 'process.html?process='+encodeURIComponent(v);">${options.join('')}</select>`;
+      switcherEl.style.display = 'flex';
+    } else if (switcherEl && access.processes.length > 1) {
       switcherEl.innerHTML = access.processes.map(p =>
         `<a class="process-switch-item ${p === proc ? 'active' : ''}" href="process.html?process=${encodeURIComponent(p)}">${p}</a>`
       ).join('');
