@@ -466,7 +466,7 @@ function renderHourlyMissed(id, hourlyMissed, isDark) {
     data: { labels, datasets },
     options: {
       ...defaultOpts('Hourly Missed Calls', isDark),
-      plugins: { ...defaultOpts('Hourly Missed Calls', isDark).plugins, datalabels: { display: false } },
+      plugins: { ...defaultOpts('Hourly Missed Calls', isDark).plugins, datalabels: { anchor: 'center', align: 'center', color: '#fff', font: { size: 9, weight: '700' }, formatter: dlFormatter } },
       scales: {
         x: { stacked: true, ticks: { color: textColor, font: { size: 9.5 } }, grid: { display: false } },
         y: { stacked: true, beginAtZero: true, ticks: { color: textColor, font: { size: 10 } }, grid: { color: gridColor } }
@@ -493,7 +493,6 @@ function renderFreshCallsComparison(id, freshCallsComparison, isDark) {
     },
     options: {
       ...defaultOpts('Fresh Calls vs CRM Logged', isDark),
-      plugins: { ...defaultOpts('Fresh Calls vs CRM Logged', isDark).plugins, datalabels: { display: false } },
       scales: {
         x: { ticks: { color: textColor, font: { size: 9.5 } }, grid: { display: false } },
         y: { beginAtZero: true, ticks: { color: textColor, font: { size: 10 } }, grid: { color: gridColor } }
