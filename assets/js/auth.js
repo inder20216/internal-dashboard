@@ -15,7 +15,8 @@ const ACCESS_MAP = {
   'shivani@openmind.in': { role: 'user', processes: ['PSRI'] },
   'kajal@openmind.in': { role: 'user', processes: ['LOTS', 'Infres', 'VMM', 'Nihon', 'Facility'] },
   'deepansh@openmind.in': { role: 'user', processes: ['LOTS', 'Infres', 'VMM', 'Nihon', 'Facility', 'ONDC'] },
-  'harvinder@openmind.in': { role: 'user', processes: ['ONDC'] }
+  'harvinder@openmind.in': { role: 'user', processes: ['ONDC'] },
+  'kapil@openmind.in': { role: 'user', processes: ['Baxter', 'ResMed', 'PSRI', 'LOTS', 'Infres', 'VMM', 'Nihon', 'Facility', 'ONDC'] }
 };
 
 const authMsalConfig = {
