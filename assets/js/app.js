@@ -56,7 +56,7 @@ function getPeriodDateRange(period) {
     // activity for this process, not literally "yesterday" — a process that
     // doesn't work Sundays (etc.) would otherwise show a misleading blank
     // snapshot every time yesterday happened to be a day off.
-    if (data.currentState.dateFrom) return { from: data.currentState.dateFrom, to: data.currentState.dateFrom };
+    if (data.currentState.dateFrom) return { from: data.currentState.dateFrom, to: data.currentState.dateTo || data.currentState.dateFrom };
     const processName = data.currentState.selectedProcess;
     const scoped = processName ? data.allRows.filter(r => r["Process Name"] === processName) : data.allRows;
     const latest = data.latestActiveDate(scoped);
