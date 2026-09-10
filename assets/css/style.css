@@ -160,7 +160,9 @@ body {
   display: flex; align-items: center; gap: 10px;
   border-bottom: 1px solid var(--border);
 }
-.sidebar-brand i { font-size: 22px; color: var(--accent); }
+.sidebar-brand i { font-size: 22px; color: var(--accent); flex-shrink: 0; }
+.sidebar-brand-text { min-width: 0; }
+.sidebar-title, .sidebar-subtitle { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sidebar-title { font-size: 15px; font-weight: 800; display: block; letter-spacing: -0.02em; }
 .sidebar-subtitle { font-size: 10px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
 #processSwitcher { display: flex; gap: 4px; padding: 10px 14px 0; }
