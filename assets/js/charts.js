@@ -52,8 +52,8 @@ function defaultOpts(title, isDark) {
       datalabels: { anchor: 'end', align: 'end', offset: 2, color: isDark ? '#e8eaed' : '#374151', font: { size: 9, weight: '600' }, formatter: dlFormatter, clamp: true }
     },
     scales: {
-      x: { ticks: { color: textColor, font: { size: 10 } }, grid: { color: gridColor } },
-      y: { ticks: { color: textColor, font: { size: 10 } }, grid: { color: gridColor }, beginAtZero: true }
+      x: { ticks: { color: textColor, font: { size: 10 } }, grid: { display: false } },
+      y: { ticks: { color: textColor, font: { size: 10 } }, grid: { display: false }, beginAtZero: true }
     }
   };
 }
@@ -176,8 +176,8 @@ function renderPareto(id, agents, isDark) {
     options: {
       ...defaultOpts('Pareto Analysis', isDark),
       scales: {
-        x: { ticks: { color: isDark ? '#b0b5c0' : '#6b7280', font: { size: 9 } }, grid: { color: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' } },
-        y: { beginAtZero: true, ticks: { color: isDark ? '#b0b5c0' : '#6b7280', font: { size: 9 } }, grid: { color: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }, title: { display: true, text: 'Productivity', color: isDark ? '#b0b5c0' : '#6b7280', font: { size: 10 } } },
+        x: { ticks: { color: isDark ? '#b0b5c0' : '#6b7280', font: { size: 9 } }, grid: { display: false } },
+        y: { beginAtZero: true, ticks: { color: isDark ? '#b0b5c0' : '#6b7280', font: { size: 9 } }, grid: { display: false }, title: { display: true, text: 'Productivity', color: isDark ? '#b0b5c0' : '#6b7280', font: { size: 10 } } },
         y1: { beginAtZero: true, max: 100, position: 'right', ticks: { color: chartColors.red, font: { size: 9 }, callback: v => v + '%' }, grid: { display: false }, title: { display: true, text: 'Cumulative %', color: chartColors.red, font: { size: 10 } } }
       },
       plugins: { ...defaultOpts('Pareto Analysis', isDark).plugins, legend: { position: 'bottom', labels: { color: isDark ? '#b0b5c0' : '#6b7280', font: { size: 10 } } } }
@@ -258,8 +258,8 @@ function renderDayWiseChart(id, timeSeries, isDark) {
       ...defaultOpts('Daily Trend', isDark),
       plugins: { ...defaultOpts('Daily Trend', isDark).plugins, legend: { position: 'bottom', labels: { color: isDark ? '#b0b5c0' : '#6b7280', font: { size: 10 } } } },
       scales: {
-        x: { stacked: false, ticks: { color: isDark ? '#b0b5c0' : '#6b7280', font: { size: 9 } }, grid: { color: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' } },
-        y: { beginAtZero: true, ticks: { color: isDark ? '#b0b5c0' : '#6b7280', font: { size: 9 } }, grid: { color: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' } }
+        x: { stacked: false, ticks: { color: isDark ? '#b0b5c0' : '#6b7280', font: { size: 9 } }, grid: { display: false } },
+        y: { beginAtZero: true, ticks: { color: isDark ? '#b0b5c0' : '#6b7280', font: { size: 9 } }, grid: { display: false } }
       }
     }
   });
@@ -288,8 +288,8 @@ function renderAgentProductivity(id, agents, isDark) {
       ...defaultOpts('Agent Productivity', isDark),
       plugins: { ...defaultOpts('Agent Productivity', isDark).plugins, legend: { position: 'bottom', labels: { color: textColor, font: { size: 10 } } } },
       scales: {
-        x: { ticks: { color: textColor, font: { size: 10 } }, grid: { color: gridColor } },
-        y: { beginAtZero: true, ticks: { color: textColor, font: { size: 10 }, precision: 0 }, grid: { color: gridColor } }
+        x: { ticks: { color: textColor, font: { size: 10 } }, grid: { display: false } },
+        y: { beginAtZero: true, ticks: { color: textColor, font: { size: 10 }, precision: 0 }, grid: { display: false } }
       }
     }
   });
@@ -335,8 +335,8 @@ function renderBreakDuration(id, agents, isDark) {
       ...defaultOpts('Break Duration vs Target', isDark),
       plugins: { ...defaultOpts('Break Duration vs Target', isDark).plugins, legend: { position: 'bottom', labels: { color: textColor, font: { size: 10 } } } },
       scales: {
-        x: { ticks: { color: textColor, font: { size: 10 } }, grid: { color: gridColor } },
-        y: { beginAtZero: true, ticks: { color: textColor, font: { size: 10 }, callback: v => secondsToHms(v * 60) }, grid: { color: gridColor } }
+        x: { ticks: { color: textColor, font: { size: 10 } }, grid: { display: false } },
+        y: { beginAtZero: true, ticks: { color: textColor, font: { size: 10 }, callback: v => secondsToHms(v * 60) }, grid: { display: false } }
       }
     }
   });
@@ -364,8 +364,8 @@ function renderAgentMissed(id, agents, isDark) {
       indexAxis: 'y',
       plugins: { ...defaultOpts('Agent Missed', isDark).plugins, legend: { position: 'bottom', labels: { color: textColor, font: { size: 10 } } } },
       scales: {
-        x: { stacked: true, beginAtZero: true, ticks: { color: textColor, font: { size: 10 }, precision: 0 }, grid: { color: gridColor } },
-        y: { stacked: true, ticks: { color: textColor, font: { size: 10 } }, grid: { color: gridColor } }
+        x: { stacked: true, beginAtZero: true, ticks: { color: textColor, font: { size: 10 }, precision: 0 }, grid: { display: false } },
+        y: { stacked: true, ticks: { color: textColor, font: { size: 10 } }, grid: { display: false } }
       }
     }
   });
@@ -396,8 +396,8 @@ function renderQualityRatio(id, quality, isDark) {
       indexAxis: 'y',
       plugins: { ...defaultOpts('Call Quality Ratio', isDark).plugins, legend: { display: false } },
       scales: {
-        x: { min: 0, max: 100, ticks: { color: textColor, font: { size: 10 } }, grid: { color: gridColor } },
-        y: { ticks: { color: textColor, font: { size: 10 } }, grid: { color: gridColor } }
+        x: { min: 0, max: 100, ticks: { color: textColor, font: { size: 10 } }, grid: { display: false } },
+        y: { ticks: { color: textColor, font: { size: 10 } }, grid: { display: false } }
       }
     }
   });
@@ -469,7 +469,7 @@ function renderHourlyMissed(id, hourlyMissed, isDark) {
       plugins: { ...defaultOpts('Hourly Missed Calls', isDark).plugins, datalabels: { anchor: 'center', align: 'center', color: '#fff', font: { size: 9, weight: '700' }, formatter: dlFormatter } },
       scales: {
         x: { stacked: true, ticks: { color: textColor, font: { size: 9.5 } }, grid: { display: false } },
-        y: { stacked: true, beginAtZero: true, ticks: { color: textColor, font: { size: 10 } }, grid: { color: gridColor } }
+        y: { stacked: true, beginAtZero: true, ticks: { color: textColor, font: { size: 10 } }, grid: { display: false } }
       }
     }
   });
@@ -495,7 +495,7 @@ function renderFreshCallsComparison(id, freshCallsComparison, isDark) {
       ...defaultOpts('Fresh Calls vs CRM Logged', isDark),
       scales: {
         x: { ticks: { color: textColor, font: { size: 9.5 } }, grid: { display: false } },
-        y: { beginAtZero: true, ticks: { color: textColor, font: { size: 10 } }, grid: { color: gridColor } }
+        y: { beginAtZero: true, ticks: { color: textColor, font: { size: 10 } }, grid: { display: false } }
       }
     }
   });
@@ -557,7 +557,7 @@ function renderMiniChart(canvasId, type, labels, data, label, color, isDark) {
       },
       scales: {
         x: { display: true, ticks: { color: isDark ? '#b0b5c0' : '#6b7280', font: { size: 9 } }, grid: { display: false } },
-        y: { display: true, ticks: { color: isDark ? '#b0b5c0' : '#6b7280', font: { size: 9 } }, grid: { color: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }, beginAtZero: true }
+        y: { display: true, ticks: { color: isDark ? '#b0b5c0' : '#6b7280', font: { size: 9 } }, grid: { display: false }, beginAtZero: true }
       },
       animation: { duration: 500 }
     }
