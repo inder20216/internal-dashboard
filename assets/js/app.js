@@ -337,7 +337,9 @@ function renderDashboard() {
 
     <div class="grid-2">
       <div class="panel">
-        <div class="panel-header"><i class="ti ti-coffee"></i> Break Duration vs 1-Hour Target — ${range.from === range.to ? 'Total for ' + range.from : 'Daily Average'}</div>
+        <div class="panel-header"><i class="ti ti-coffee"></i> Break Duration vs 1-Hour Target — ${range.from === range.to ? 'Total for ' + range.from : 'Daily Average'}
+          <span class="insight-badge red" style="margin-left:auto;">${processData.agents.filter(a => a.breakDaysCount > 0 && a.breakVsTargetSec > 0).length} exceeded</span>
+        </div>
         <div class="panel-body"><div class="chart-container chart-container-sm" id="breakDurationChart"></div></div>
       </div>
 
