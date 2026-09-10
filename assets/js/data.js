@@ -447,12 +447,17 @@ function aggregateAgents(rows, includeProcess) {
       hangupIB: 0, hangupOB: 0, crmCall: 0, crmEmail: 0,
       nonTrading: 0, closedCases: 0, partialClosedCases: 0,
       appreciationCount: 0, escalationCount: 0,
-      crmEscalationOpen: 0, crmEscalationPendingField: 0, crmEscalationPendingRhc: 0, rows: []
+      crmEscalationOpen: 0, crmEscalationPendingField: 0, crmEscalationPendingRhc: 0,
+      emailSentTagged: 0, rows: []
     };
     cur.inboundAnswered += toNumber(r["Inbound Answer"]);
     cur.outboundAll += toNumber(r["Outbound All"]);
     cur.obAnswered += toNumber(r["OB Answer"]);
     cur.emailsHandled += emailHandled(r);
+    // Isolated tagged Email Sent count (post-cutover, genuinely per-agent) --
+    // kept separate from emailsHandled above, which also folds in CRM email/call
+    // counts, so this can be charted on its own (Email Sent, agent-wise).
+    cur.emailSentTagged += (r.Date && r.Date >= EMAIL_TAGGING_START_DATE) ? toNumber(r["Email Sent"]) : 0;
     cur.agentMissed += toNumber(r["Agent Missed(IB)"]) + toNumber(r["Agent Missed (OB)"]);
     cur.agentMissedIb += toNumber(r["Agent Missed(IB)"]);
     cur.agentMissedOb += toNumber(r["Agent Missed (OB)"]);

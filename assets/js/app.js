@@ -412,7 +412,7 @@ function renderDashboard() {
       <div class="panel-body" style="height:280px;"><canvas id="freshCallsChart"></canvas></div>
     </div>` : ''}
 
-    ${processName === 'Facility' ? `
+    ${['Facility', 'VMM', 'Nihon', 'Infres'].includes(processName) ? `
     <div class="grid-2">
       <div class="panel">
         <div class="panel-header"><i class="ti ti-phone-incoming"></i> Answered Calls vs CRM Case Logged — Agent Wise</div>
@@ -422,6 +422,12 @@ function renderDashboard() {
         <div class="panel-header"><i class="ti ti-mail"></i> E-mail vs CRM E-mail Case Logged — Agent Wise</div>
         <div class="panel-body" style="height:300px;"><canvas id="facilityEmailCasesChart"></canvas></div>
       </div>
+    </div>` : ''}
+
+    ${['Facility', 'VMM', 'Nihon'].includes(processName) ? `
+    <div class="panel">
+      <div class="panel-header"><i class="ti ti-send"></i> Email Sent — Agent Wise</div>
+      <div class="panel-body" style="height:280px;"><canvas id="emailSentAgentChart"></canvas></div>
     </div>` : ''}`;
 
   // Exposes when this render's async work (chart batch + tracker-insights
@@ -456,6 +462,7 @@ function renderDashboard() {
     charts.renderAgentProductivity('agentProductivityChart', processData.agents, isDarkNow);
     charts.renderBreakDuration('breakDurationChart', processData.agents, isDarkNow);
     charts.renderAgentMissed('agentMissedChart', processData.agents, isDarkNow);
+    if (document.getElementById('emailSentAgentChart')) charts.renderEmailSentAgentWise('emailSentAgentChart', processData.agents, isDarkNow);
     animateCounters();
     observeScroll();
     resolveCharts();

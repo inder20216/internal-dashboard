@@ -538,6 +538,23 @@ function renderFacilityEmailCases(id, agents, isDark) {
   });
 }
 
+/* ── EMAIL SENT — AGENT WISE (tagged, post-cutover only; Email Received has no
+   per-agent attribution in the source data, so it isn't charted) ── */
+function renderEmailSentAgentWise(id, agents, isDark) {
+  const ctx = getCtx(id);
+  if (!ctx) return;
+  const rows = (agents || []).filter(a => (a.emailSentTagged || 0) > 0)
+    .sort((a, b) => (b.emailSentTagged || 0) - (a.emailSentTagged || 0));
+  ctx.chart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: rows.map(a => a.agent),
+      datasets: [{ label: 'Email Sent', data: rows.map(a => a.emailSentTagged || 0), backgroundColor: 'rgba(37,99,235,0.8)', borderRadius: 3 }]
+    },
+    options: defaultOpts('Email Sent — Agent Wise', isDark)
+  });
+}
+
 /* ── CHATBOT CHART RENDERER (inline) ── */
 function renderMiniChart(canvasId, type, labels, data, label, color, isDark) {
   const ctx = document.getElementById(canvasId)?.getContext('2d');
@@ -591,6 +608,6 @@ window.CHARTS = {
   renderPareto, renderDailyTrend, renderQualityTrend,
   renderAgentHeatmap, renderMiniChart, renderDayWiseChart,
   renderAgentProductivity, renderBreakDuration, renderQualityRatio, renderAgentMissed, renderStatBar, renderHourlyMissed, renderFreshCallsComparison,
-  renderFacilityCallCases, renderFacilityEmailCases,
+  renderFacilityCallCases, renderFacilityEmailCases, renderEmailSentAgentWise,
   chartColors, colorPalette
 };
