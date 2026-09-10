@@ -445,7 +445,7 @@ function renderDashboard() {
     charts.renderStatBar('statChartMissed', ['Agent', 'IVR', 'Queue', 'Service'],
       [processData.agentMissedInbound || 0, processData.ivrMissed || 0, processData.queueMissed || 0, processData.serviceMissed || 0],
       ['rgba(220,38,38,0.75)', 'rgba(217,119,6,0.75)', 'rgba(124,58,237,0.75)', 'rgba(8,145,178,0.75)'], isDarkNow);
-    charts.renderStatBar('statChartMissedHours', ['Working Hours', 'Non-Working Hours'],
+    charts.renderStatBar('statChartMissedHours', ['WH', 'NWH'],
       [processData.missedWorkingHours || 0, processData.missedNonWorkingHours || 0],
       ['rgba(220,38,38,0.75)', 'rgba(107,114,128,0.75)'], isDarkNow);
     charts.renderAgentProductivity('agentProductivityChart', processData.agents, isDarkNow);
