@@ -299,7 +299,7 @@ function renderDashboard() {
   data.currentState.dateTo = origTo;
 
   const cards = buildKPICards(processData, prevData);
-  const topGroups = buildTopStatGroups(processData);
+  const topGroups = buildTopStatGroups(processData, processName);
   const attention = buildAttentionList(processData.agents);
   const label = processName || 'Overall Business Performance';
   const periodLabel = period === 'daily' ? 'Daily Snapshot' : period === 'weekly' ? 'Weekly Summary' : 'Monthly Report';
@@ -864,7 +864,7 @@ function buildKPICards(d, prevData) {
 }
 
 /* Top-of-dashboard stat groups. */
-function buildTopStatGroups(d) {
+function buildTopStatGroups(d, processName) {
   const obNoAnswer = Math.max(0, (d.outboundAll || 0) - (d.obAnswered || 0));
   return `<div class="stat-group-row">
     <div class="stat-group-card">
@@ -889,14 +889,14 @@ function buildTopStatGroups(d) {
     <div class="stat-group-card">
       <div class="stat-group-title"><i class="ti ti-clock-off"></i> Missed — Working / Non-Working Hours</div>
       <div class="stat-group-chart" id="statChartMissedHours"></div>
-    </div>
+    </div>${processName !== 'PSRI' ? `
     <div class="stat-group-card">
       <div class="stat-group-title"><i class="ti ti-mail"></i> Emails Handled</div>
       <div class="stat-group-values">
         <div class="stat-group-item"><div class="v">${d.emailSentCount || 0}</div><div class="l">Total</div></div>
         <div class="stat-group-item"><div class="v">${d.emailDuration || '—'}</div><div class="l">Duration</div></div>
       </div>
-    </div>
+    </div>` : ''}
   </div>`;
 }
 
