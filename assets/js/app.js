@@ -350,6 +350,11 @@ function renderDashboard() {
     </div>
 
     <div class="panel">
+      <div class="panel-header"><i class="ti ti-phone-pause"></i> Agent Hangup — Inbound / Outbound (≤10s)</div>
+      <div class="panel-body"><div class="chart-container chart-container-sm" id="agentHangupChart"></div></div>
+    </div>
+
+    <div class="panel">
       <div class="panel-header"><i class="ti ti-users"></i> Agent Performance</div>
       <div class="panel-body">
         ${buildAgentTable(processData.agents, processData.isOverall, processName)}
@@ -465,6 +470,7 @@ function renderDashboard() {
     charts.renderAgentProductivity('agentProductivityChart', processData.agents, isDarkNow);
     charts.renderBreakDuration('breakDurationChart', processData.agents, isDarkNow);
     charts.renderAgentMissed('agentMissedChart', processData.agents, isDarkNow);
+    charts.renderAgentHangup('agentHangupChart', processData.agents, isDarkNow);
     if (document.getElementById('emailSentAgentChart')) charts.renderEmailSentAgentWise('emailSentAgentChart', processData.agents, isDarkNow);
     animateCounters();
     observeScroll();
@@ -819,7 +825,7 @@ function buildKPICards(d, prevData) {
       label: 'Hangup Rate', icon: 'ti-phone-pause',
       value: hangupPct.toFixed(1) + '%',
       status: pctStatus(hangupPct, { good: 3, warn: 7, higherIsBetter: false }),
-      sub: `${d.totalHangup || 0} calls ≤10s · Target ≤3%`
+      sub: `${d.hangupIB || 0} IB · ${d.hangupOB || 0} OB ≤10s · Target ≤3%`
     },
     {
       label: 'OB Answer Rate', icon: 'ti-phone-call',

@@ -371,6 +371,34 @@ function renderAgentMissed(id, agents, isDark) {
   });
 }
 
+/* ── AGENT HANGUP — INBOUND / OUTBOUND (calls hung up within 10s) ── */
+function renderAgentHangup(id, agents, isDark) {
+  const ctx = getCtx(id);
+  if (!ctx) return;
+  const textColor = isDark ? '#b0b5c0' : '#6b7280';
+  const sorted = [...agents].filter(a => (a.hangupIB || 0) + (a.hangupOB || 0) > 0)
+    .sort((a, b) => (b.hangupIB + b.hangupOB) - (a.hangupIB + a.hangupOB));
+  ctx.chart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: sorted.map(a => a.agent),
+      datasets: [
+        { label: 'Hangup (Inbound)', data: sorted.map(a => a.hangupIB || 0), backgroundColor: 'rgba(220,38,38,0.75)', borderRadius: 3, datalabels: { anchor: 'center', align: 'center', color: '#fff' } },
+        { label: 'Hangup (Outbound)', data: sorted.map(a => a.hangupOB || 0), backgroundColor: 'rgba(234,88,12,0.75)', borderRadius: 3, datalabels: { anchor: 'center', align: 'center', color: '#fff' } }
+      ]
+    },
+    options: {
+      ...defaultOpts('Agent Hangup', isDark),
+      indexAxis: 'y',
+      plugins: { ...defaultOpts('Agent Hangup', isDark).plugins, legend: { position: 'bottom', labels: { color: textColor, font: { size: 10 } } } },
+      scales: {
+        x: { stacked: true, beginAtZero: true, ticks: { color: textColor, font: { size: 10 }, precision: 0 }, grid: { display: false } },
+        y: { stacked: true, ticks: { color: textColor, font: { size: 10 } }, grid: { display: false } }
+      }
+    }
+  });
+}
+
 /* ── CALL QUALITY RATIO — AGENT WISE (from quality_audit) ── */
 function renderQualityRatio(id, quality, isDark) {
   const ctx = getCtx(id);
@@ -607,7 +635,7 @@ window.CHARTS = {
   renderTrendChart, renderProcessComparison, renderAgentRanking,
   renderPareto, renderDailyTrend, renderQualityTrend,
   renderAgentHeatmap, renderMiniChart, renderDayWiseChart,
-  renderAgentProductivity, renderBreakDuration, renderQualityRatio, renderAgentMissed, renderStatBar, renderHourlyMissed, renderFreshCallsComparison,
+  renderAgentProductivity, renderBreakDuration, renderQualityRatio, renderAgentMissed, renderAgentHangup, renderStatBar, renderHourlyMissed, renderFreshCallsComparison,
   renderFacilityCallCases, renderFacilityEmailCases, renderEmailSentAgentWise,
   chartColors, colorPalette
 };
