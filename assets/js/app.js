@@ -372,19 +372,21 @@ function renderDashboard() {
         <div class="panel-header"><i class="ti ti-plug-connected-x"></i> Downtime — from Form Submissions</div>
         <div class="panel-body" id="downtimeInsightsBody"><div style="text-align:center;padding:20px;color:var(--muted);">Loading…</div></div>
       </div>
-    </div>
-
-    <div class="panel">
-      <div class="panel-header"><i class="ti ti-star"></i> Call Quality Ratio — Agent Wise</div>
-      <div class="panel-body" id="qualityInsightsBody"><div style="text-align:center;padding:20px;color:var(--muted);">Loading…</div></div>
     </div>` : ''}
 
-    ${['ResMed', 'LOTS'].includes(processName) ? `
-    <div class="panel">
-      <div class="panel-header"><i class="ti ti-heart-handshake"></i> Appreciation &amp; Escalation — Agent Wise</div>
-      <div class="panel-body">
-        ${buildAppreciationEscalationTable(processData.agents)}
+    ${processName ? `
+    <div class="grid-2">
+      <div class="panel">
+        <div class="panel-header"><i class="ti ti-star"></i> Call Quality Ratio — Agent Wise</div>
+        <div class="panel-body" id="qualityInsightsBody"><div style="text-align:center;padding:20px;color:var(--muted);">Loading…</div></div>
       </div>
+      ${['ResMed', 'LOTS'].includes(processName) ? `
+      <div class="panel">
+        <div class="panel-header"><i class="ti ti-heart-handshake"></i> Appreciation &amp; Escalation — Agent Wise</div>
+        <div class="panel-body">
+          ${buildAppreciationEscalationTable(processData.agents)}
+        </div>
+      </div>` : ''}
     </div>` : ''}
 
     ${processName === 'ResMed' ? `
