@@ -399,35 +399,26 @@ function renderAgentHangup(id, agents, isDark) {
   });
 }
 
-/* ── TRAINING DURATION — AGENT WISE, STACKED BY TYPE (from training_tracker) ── */
+/* ── TRAINING DURATION — AGENT WISE TOTAL (type breakdown stays in the table below) ── */
 function renderTrainingByAgent(id, training, isDark) {
   const ctx = getCtx(id);
   if (!ctx) return;
   const textColor = isDark ? '#b0b5c0' : '#6b7280';
-  const rows = training || [];
-  const agents = [...new Set(rows.map(t => t.agent))];
-  const categories = [...new Set(rows.map(t => t.category))];
-  const byAgentCat = new Map(rows.map(t => [`${t.agent}||${t.category}`, t.durationSec]));
-  const order = agents
-    .map(a => ({ a, total: categories.reduce((s, c) => s + (byAgentCat.get(`${a}||${c}`) || 0), 0) }))
-    .sort((x, y) => y.total - x.total)
-    .map(o => o.a);
-  const datasets = categories.map((cat, i) => ({
-    label: cat,
-    data: order.map(a => Math.round((byAgentCat.get(`${a}||${cat}`) || 0) / 60)),
-    backgroundColor: colorPalette[i % colorPalette.length],
-    borderRadius: 3,
-    datalabels: { anchor: 'center', align: 'center', color: '#fff', font: { size: 8 }, formatter: v => v ? v + 'm' : '' }
-  }));
+  const totals = new Map();
+  (training || []).forEach(t => totals.set(t.agent, (totals.get(t.agent) || 0) + t.durationSec));
+  const sorted = [...totals.entries()].sort((a, b) => b[1] - a[1]);
   ctx.chart = new Chart(ctx, {
     type: 'bar',
-    data: { labels: order, datasets },
+    data: {
+      labels: sorted.map(([agent]) => agent),
+      datasets: [{ label: 'Training Duration', data: sorted.map(([, sec]) => Math.round(sec / 60)), backgroundColor: 'rgba(37,99,235,0.8)', borderRadius: 3 }]
+    },
     options: {
       ...defaultOpts('Training Duration by Agent', isDark),
-      plugins: { ...defaultOpts('Training Duration by Agent', isDark).plugins, legend: { position: 'bottom', labels: { color: textColor, font: { size: 9 } } } },
+      plugins: { ...defaultOpts('Training Duration by Agent', isDark).plugins, legend: { display: false }, datalabels: { anchor: 'end', align: 'end', offset: 2, color: textColor, font: { size: 9, weight: '600' }, formatter: v => v ? v + 'm' : '' } },
       scales: {
-        x: { stacked: true, ticks: { color: textColor, font: { size: 10 } }, grid: { display: false } },
-        y: { stacked: true, beginAtZero: true, ticks: { color: textColor, font: { size: 10 }, callback: v => v + 'm' }, grid: { display: false } }
+        x: { ticks: { color: textColor, font: { size: 10 } }, grid: { display: false } },
+        y: { beginAtZero: true, ticks: { color: textColor, font: { size: 10 }, callback: v => v + 'm' }, grid: { display: false } }
       }
     }
   });
