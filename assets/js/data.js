@@ -283,13 +283,22 @@ function agentName(r) {
 const NON_AGENT_LABELS = new Set([
   'Emergency', 'Insurance', 'Ambulance', 'Reception',
   'Hospital lines', 'Hospital Lines', 'PSRI team', 'PSRI Team', 'Team',
-  'Testing', 'Test', 'Testin', 'POSTMAN_TEST'
+  'Testing', 'Test', 'Testin', 'POSTMAN_TEST',
+  // PSRI department/extension labels turned up by the Aug 2026 agent-name audit --
+  // no structural prefix (trans_/underscore) to catch these automatically.
+  'A Block OPD Extension ground floor', 'Corporate desk', 'Dialysis Billing',
+  'Echo Lab', 'Harshita PHC Lab', 'TPA Dispatch Extension'
 ]);
 function isTransferPseudoAgent(name) {
   const n = String(name || '').trim();
   if (!n) return false;
-  if (/^trans/i.test(n)) return true;
+  // "trans_"/"tarns_" (the latter a real typo found in PSRI's data, e.g.
+  // "Tarns_MRD (Mr. Pradeep)") both mean a call transferred to a department.
+  if (/^t[ra][ra]ns/i.test(n)) return true;
   if (/_/.test(n)) return true;
+  // A parenthesis reliably marks a department/coordinator descriptor ("Mr. Manav
+  // (IHLD dept. coordinator)") rather than a person's name in this data.
+  if (/\(/.test(n)) return true;
   if (NON_AGENT_LABELS.has(n)) return true;
   return false;
 }
