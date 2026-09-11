@@ -688,13 +688,21 @@ function aggregateTrackerInsights(rows) {
   const hourlyMissed = rows.filter(r => r.metric_type === 'hourly_missed').map(r => ({
     hour: Number(r.score), type: r.category || 'Unspecified', count: Number(r.value) || 0
   }));
-  // Merge the two independently-sourced series (CDR notes vs CRM logging) onto
-  // a single agent axis -- either side can have agents the other doesn't.
-  const cdrByAgent = new Map(rows.filter(r => r.metric_type === 'fresh_calls_cdr').map(r => [r.agent_name, Number(r.value) || 0]));
+  // Merge the independently-sourced series (CDR notes vs CRM logging) onto a
+  // single agent axis -- either side can have agents the other doesn't. CDR
+  // notes carry two distinct "Fresh" flavors (Fresh Inbound Call vs OB on
+  // missed call - Fresh Call, i.e. a callback on a missed call) -- kept split
+  // so the chart can show that breakdown, not just a combined CDR total.
+  const ibFreshByAgent = new Map();
+  const callbackFreshByAgent = new Map();
+  rows.filter(r => r.metric_type === 'fresh_calls_cdr').forEach(r => {
+    const map = r.category === 'Call Back on Missed' ? callbackFreshByAgent : ibFreshByAgent;
+    map.set(r.agent_name, (map.get(r.agent_name) || 0) + (Number(r.value) || 0));
+  });
   const crmByAgent = new Map(rows.filter(r => r.metric_type === 'fresh_calls_crm').map(r => [r.agent_name, Number(r.value) || 0]));
-  const freshAgents = [...new Set([...cdrByAgent.keys(), ...crmByAgent.keys()])].filter(a => !isTransferPseudoAgent(a)).sort();
+  const freshAgents = [...new Set([...ibFreshByAgent.keys(), ...callbackFreshByAgent.keys(), ...crmByAgent.keys()])].filter(a => !isTransferPseudoAgent(a)).sort();
   const freshCallsComparison = freshAgents.map(agent => ({
-    agent, cdrCount: cdrByAgent.get(agent) || 0, crmCount: crmByAgent.get(agent) || 0
+    agent, ibFreshCount: ibFreshByAgent.get(agent) || 0, callbackFreshCount: callbackFreshByAgent.get(agent) || 0, crmCount: crmByAgent.get(agent) || 0
   }));
   // Agent-wise "STg tagging" case count (from CDR notes) -- Facility only.
   const stgTagging = rows.filter(r => r.metric_type === 'stg_tagging').map(r => ({

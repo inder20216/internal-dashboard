@@ -564,19 +564,36 @@ function renderFreshCallsComparison(id, freshCallsComparison, isDark) {
   const ctx = getCtx(id);
   if (!ctx) return;
   const textColor = isDark ? '#b0b5c0' : '#6b7280';
-  const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
   const rows = freshCallsComparison || [];
+  // CDR side is a stack of its two note flavors (Fresh Inbound + Call Back on
+  // Missed) so the total shows as one prominent label above the stack, with
+  // each flavor's own smaller count inside its segment. CRM stays a separate
+  // plain bar next to it (own "stack" name so it isn't merged into the CDR stack).
   ctx.chart = new Chart(ctx, {
     type: 'bar',
     data: {
       labels: rows.map(r => r.agent),
       datasets: [
-        { label: 'Fresh Calls (CDR Notes)', data: rows.map(r => r.cdrCount), backgroundColor: 'rgba(37,99,235,0.75)', borderRadius: 3 },
-        { label: 'Fresh CRM Case (Logged)', data: rows.map(r => r.crmCount), backgroundColor: 'rgba(5,150,105,0.75)', borderRadius: 3 }
+        {
+          label: 'Fresh Inbound', data: rows.map(r => r.ibFreshCount), backgroundColor: 'rgba(37,99,235,0.75)', stack: 'cdr', borderRadius: 3,
+          datalabels: { anchor: 'center', align: 'center', color: '#fff', font: { size: 8 }, formatter: v => v || '' }
+        },
+        {
+          label: 'Call Back on Missed', data: rows.map(r => r.callbackFreshCount), backgroundColor: 'rgba(124,58,237,0.75)', stack: 'cdr', borderRadius: 3,
+          datalabels: {
+            anchor: 'end', align: 'end', offset: 2, color: textColor, font: { size: 9, weight: '600' },
+            formatter: (v, dctx) => { const r = rows[dctx.dataIndex]; const total = (r.ibFreshCount || 0) + (r.callbackFreshCount || 0); return total || ''; }
+          }
+        },
+        {
+          label: 'Fresh CRM Case (Logged)', data: rows.map(r => r.crmCount), backgroundColor: 'rgba(5,150,105,0.75)', stack: 'crm', borderRadius: 3,
+          datalabels: { anchor: 'end', align: 'end', offset: 2, color: textColor, font: { size: 9, weight: '600' }, formatter: v => v || '' }
+        }
       ]
     },
     options: {
       ...defaultOpts('Fresh Calls vs CRM Logged', isDark),
+      layout: { padding: { top: 24 } },
       scales: {
         x: { ticks: { color: textColor, font: { size: 9.5 } }, grid: { display: false } },
         y: { beginAtZero: true, ticks: { color: textColor, font: { size: 10 } }, grid: { display: false } }
