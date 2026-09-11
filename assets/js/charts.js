@@ -350,13 +350,17 @@ function renderAgentMissed(id, agents, isDark) {
   const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
   const sorted = [...agents].filter(a => (a.agentMissedIb || 0) + (a.agentMissedOb || 0) > 0)
     .sort((a, b) => (b.agentMissedIb + b.agentMissedOb) - (a.agentMissedIb + a.agentMissedOb));
+  // % is out of that side's own total handled -- IB missed / (IB answered + IB
+  // missed), OB missed / total OB dialed -- not out of the other side's volume.
+  const ibLabel = (v, ctx) => { const a = sorted[ctx.dataIndex]; const denom = a.totalCalls || 1; return v ? `${v} (${Math.round(v / denom * 100)}%)` : ''; };
+  const obLabel = (v, ctx) => { const a = sorted[ctx.dataIndex]; const denom = a.outboundAll || 1; return v ? `${v} (${Math.round(v / denom * 100)}%)` : ''; };
   ctx.chart = new Chart(ctx, {
     type: 'bar',
     data: {
       labels: sorted.map(a => a.agent),
       datasets: [
-        { label: 'Missed (Inbound)', data: sorted.map(a => a.agentMissedIb || 0), backgroundColor: 'rgba(220,38,38,0.75)', borderRadius: 3, datalabels: { anchor: 'center', align: 'center', color: '#fff' } },
-        { label: 'Missed (Outbound)', data: sorted.map(a => a.agentMissedOb || 0), backgroundColor: 'rgba(234,88,12,0.75)', borderRadius: 3, datalabels: { anchor: 'center', align: 'center', color: '#fff' } }
+        { label: 'Missed (Inbound)', data: sorted.map(a => a.agentMissedIb || 0), backgroundColor: 'rgba(220,38,38,0.75)', borderRadius: 3, datalabels: { anchor: 'end', align: 'end', color: textColor, font: { size: 9, weight: '600' }, formatter: ibLabel } },
+        { label: 'Missed (Outbound)', data: sorted.map(a => a.agentMissedOb || 0), backgroundColor: 'rgba(234,88,12,0.75)', borderRadius: 3, datalabels: { anchor: 'end', align: 'end', color: textColor, font: { size: 9, weight: '600' }, formatter: obLabel } }
       ]
     },
     options: {
@@ -364,8 +368,8 @@ function renderAgentMissed(id, agents, isDark) {
       indexAxis: 'y',
       plugins: { ...defaultOpts('Agent Missed', isDark).plugins, legend: { position: 'bottom', labels: { color: textColor, font: { size: 10 } } } },
       scales: {
-        x: { stacked: true, beginAtZero: true, ticks: { color: textColor, font: { size: 10 }, precision: 0 }, grid: { display: false } },
-        y: { stacked: true, ticks: { color: textColor, font: { size: 10 } }, grid: { display: false } }
+        x: { beginAtZero: true, ticks: { color: textColor, font: { size: 10 }, precision: 0 }, grid: { display: false } },
+        y: { ticks: { color: textColor, font: { size: 10 } }, grid: { display: false } }
       }
     }
   });

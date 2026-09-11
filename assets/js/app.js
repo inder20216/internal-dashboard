@@ -300,7 +300,6 @@ function renderDashboard() {
 
   const cards = buildKPICards(processData, prevData);
   const topGroups = buildTopStatGroups(processData, processName);
-  const attention = buildAttentionList(processData.agents);
   const label = processName || 'Overall Business Performance';
   const periodLabel = period === 'daily' ? 'Daily Snapshot' : period === 'weekly' ? 'Weekly Summary' : 'Monthly Report';
 
@@ -327,8 +326,6 @@ function renderDashboard() {
     </div>
 
     ${topGroups}
-
-    ${attention}
 
     <div class="panel">
       <div class="panel-header"><i class="ti ti-chart-bar"></i> Agent Productivity — Inbound Answered + Outbound + Email</div>
@@ -921,21 +918,6 @@ function buildHighlightsStrip(facts) {
     ${top.map(f => `<div class="highlight-pill ${typeColor[f.type] || 'blue'}">
       <i class="ti ${f.icon}"></i>
       <div><strong>${f.title}</strong><span>${f.desc}</span></div>
-    </div>`).join('')}
-  </div>`;
-}
-
-/* Compact "needs attention" list — top 3 agents by missed rate */
-function buildAttentionList(agents) {
-  if (!agents || !agents.length) return '';
-  const flagged = [...agents].filter(a => a.totalCalls > 0 && a.missedRate > 0).sort((a, b) => b.missedRate - a.missedRate).slice(0, 3);
-  if (!flagged.length) return '';
-  return `<div class="attention-list">
-    <div class="attention-list-title"><i class="ti ti-alert-triangle"></i> Needs Attention — Highest Missed Rate</div>
-    ${flagged.map(a => `<div class="attention-item">
-      <span class="attention-agent">${a.agent}</span>
-      <span class="attention-metric">${(a.missedRate * 100).toFixed(1)}% missed (${a.agentMissedIb}/${a.totalCalls})</span>
-      <span class="insight-badge ${a.missedRate > 0.1 ? 'red' : 'amber'}">${a.missedRate > 0.1 ? 'High' : 'Watch'}</span>
     </div>`).join('')}
   </div>`;
 }
