@@ -442,7 +442,11 @@ function aggregateProcess(rows, processName) {
     ahtOutbound: ahtObAnswered > 0 ? secondsToHms(ahtObTTSec / ahtObAnswered) : '—',
     ahtInboundSec: ahtIbAnswered > 0 ? Math.round(ahtIbTTSec / ahtIbAnswered) : 0,
     ahtOutboundSec: ahtObAnswered > 0 ? Math.round(ahtObTTSec / ahtObAnswered) : 0,
-    emailSentCount: sumEmailSentCount(daily),
+    // Matches Agent Productivity's "Email" bar exactly (sum of each agent's
+    // emailsHandled) rather than sumEmailSentCount(), which only counts real
+    // tagged-email data and shows 0 for processes without Outlook tagging
+    // access even when agents clearly have email-related work via CRM counts.
+    emailSentCount: agents.reduce((sum, a) => sum + (a.emailsHandled || 0), 0),
     emailDuration,
     /* Quality */
     hangupIB, hangupOB, totalHangup,
