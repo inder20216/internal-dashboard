@@ -365,11 +365,10 @@ function renderAgentMissed(id, agents, isDark) {
     },
     options: {
       ...defaultOpts('Agent Missed', isDark),
-      indexAxis: 'y',
       plugins: { ...defaultOpts('Agent Missed', isDark).plugins, legend: { position: 'bottom', labels: { color: textColor, font: { size: 10 } } } },
       scales: {
-        x: { beginAtZero: true, ticks: { color: textColor, font: { size: 10 }, precision: 0 }, grid: { display: false } },
-        y: { ticks: { color: textColor, font: { size: 10 } }, grid: { display: false } }
+        x: { ticks: { color: textColor, font: { size: 10 } }, grid: { display: false } },
+        y: { beginAtZero: true, ticks: { color: textColor, font: { size: 10 }, precision: 0 }, grid: { display: false } }
       }
     }
   });
@@ -393,11 +392,10 @@ function renderAgentHangup(id, agents, isDark) {
     },
     options: {
       ...defaultOpts('Agent Hangup', isDark),
-      indexAxis: 'y',
       plugins: { ...defaultOpts('Agent Hangup', isDark).plugins, legend: { position: 'bottom', labels: { color: textColor, font: { size: 10 } } } },
       scales: {
-        x: { stacked: true, beginAtZero: true, ticks: { color: textColor, font: { size: 10 }, precision: 0 }, grid: { display: false } },
-        y: { stacked: true, ticks: { color: textColor, font: { size: 10 } }, grid: { display: false } }
+        x: { stacked: true, ticks: { color: textColor, font: { size: 10 } }, grid: { display: false } },
+        y: { stacked: true, beginAtZero: true, ticks: { color: textColor, font: { size: 10 }, precision: 0 }, grid: { display: false } }
       }
     }
   });
