@@ -909,9 +909,6 @@ function buildTopStatGroups(d, processName) {
     <div class="stat-group-card">
       <div class="stat-group-title"><i class="ti ti-mail"></i> Emails Handled</div>
       <div style="font-size:26px;font-weight:800;letter-spacing:-0.02em;line-height:1;">${d.emailSentCount || 0}</div>
-      <div class="stat-group-values" style="margin-top:6px;">
-        <div class="stat-group-item"><div class="v">0</div><div class="l">Duration</div></div>
-      </div>
     </div>` : ''}
   </div>`;
 }
