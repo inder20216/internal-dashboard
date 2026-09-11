@@ -347,11 +347,6 @@ function renderDashboard() {
     </div>
 
     <div class="panel">
-      <div class="panel-header"><i class="ti ti-phone-pause"></i> Agent Hangup — Inbound / Outbound (≤10s)</div>
-      <div class="panel-body"><div class="chart-container chart-container-sm" id="agentHangupChart"></div></div>
-    </div>
-
-    <div class="panel">
       <div class="panel-header"><i class="ti ti-users"></i> Agent Performance</div>
       <div class="panel-body">
         ${buildAgentTable(processData.agents, processData.isOverall, processName)}
@@ -408,11 +403,18 @@ function renderDashboard() {
       <div class="panel-body" style="height:300px;"><canvas id="hourlyMissedChart"></canvas></div>
     </div>` : ''}
 
-    ${processName === 'LOTS' ? `
-    <div class="panel">
-      <div class="panel-header"><i class="ti ti-git-compare"></i> Fresh Calls — CDR Notes vs CRM Logged</div>
-      <div class="panel-body" style="height:280px;"><canvas id="freshCallsChart"></canvas></div>
-    </div>` : ''}
+    <div class="grid-2">
+      ${processData.agents.some(a => (a.hangupIB || 0) + (a.hangupOB || 0) > 0) ? `
+      <div class="panel">
+        <div class="panel-header"><i class="ti ti-phone-pause"></i> Agent Hangup — Inbound / Outbound (≤10s)</div>
+        <div class="panel-body"><div class="chart-container chart-container-sm" id="agentHangupChart"></div></div>
+      </div>` : ''}
+      ${processName === 'LOTS' ? `
+      <div class="panel">
+        <div class="panel-header"><i class="ti ti-git-compare"></i> Fresh Calls — CDR Notes vs CRM Logged</div>
+        <div class="panel-body"><div class="chart-container chart-container-sm" id="freshCallsChart"></div></div>
+      </div>` : ''}
+    </div>
 
     ${['Facility', 'VMM', 'Nihon', 'Infres'].includes(processName) ? `
     <div class="grid-2">
@@ -467,7 +469,7 @@ function renderDashboard() {
     charts.renderAgentProductivity('agentProductivityChart', processData.agents, isDarkNow);
     charts.renderBreakDuration('breakDurationChart', processData.agents, isDarkNow);
     charts.renderAgentMissed('agentMissedChart', processData.agents, isDarkNow);
-    charts.renderAgentHangup('agentHangupChart', processData.agents, isDarkNow);
+    if (document.getElementById('agentHangupChart')) charts.renderAgentHangup('agentHangupChart', processData.agents, isDarkNow);
     if (document.getElementById('emailSentAgentChart')) charts.renderEmailSentAgentWise('emailSentAgentChart', processData.agents, isDarkNow);
     animateCounters();
     observeScroll();
