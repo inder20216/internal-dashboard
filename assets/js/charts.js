@@ -429,6 +429,33 @@ function renderTrainingByAgent(id, training, isDark) {
   });
 }
 
+/* ── APPRECIATION & ESCALATION — AGENT WISE (per-column detail stays in the table below) ── */
+function renderAppreciationEscalation(id, agents, isDark) {
+  const ctx = getCtx(id);
+  if (!ctx) return;
+  const textColor = isDark ? '#b0b5c0' : '#6b7280';
+  const sorted = (agents || []).filter(a => (a.appreciationCount || 0) + (a.escalationCount || 0) > 0)
+    .sort((a, b) => (b.appreciationCount || 0) - (a.appreciationCount || 0));
+  ctx.chart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: sorted.map(a => a.agent),
+      datasets: [
+        { label: 'Appreciation', data: sorted.map(a => a.appreciationCount || 0), backgroundColor: 'rgba(5,150,105,0.8)', borderRadius: 3, datalabels: { anchor: 'center', align: 'center', color: '#fff', font: { size: 9, weight: '600' }, formatter: v => v || '' } },
+        { label: 'Escalation', data: sorted.map(a => a.escalationCount || 0), backgroundColor: 'rgba(220,38,38,0.8)', borderRadius: 3, datalabels: { anchor: 'center', align: 'center', color: '#fff', font: { size: 9, weight: '600' }, formatter: v => v || '' } }
+      ]
+    },
+    options: {
+      ...defaultOpts('Appreciation & Escalation by Agent', isDark),
+      plugins: { ...defaultOpts('Appreciation & Escalation by Agent', isDark).plugins, legend: { position: 'bottom', labels: { color: textColor, font: { size: 10 } } } },
+      scales: {
+        x: { ticks: { color: textColor, font: { size: 10 } }, grid: { display: false } },
+        y: { beginAtZero: true, ticks: { color: textColor, font: { size: 10 }, precision: 0 }, grid: { display: false } }
+      }
+    }
+  });
+}
+
 /* ── DOWNTIME — AGENT WISE TOTAL (reason breakdown stays in the table below) ── */
 function renderDowntimeByAgent(id, downtime, isDark) {
   const ctx = getCtx(id);
@@ -702,7 +729,7 @@ window.CHARTS = {
   renderTrendChart, renderProcessComparison, renderAgentRanking,
   renderPareto, renderDailyTrend, renderQualityTrend,
   renderAgentHeatmap, renderMiniChart, renderDayWiseChart,
-  renderAgentProductivity, renderBreakDuration, renderQualityRatio, renderAgentMissed, renderAgentHangup, renderTrainingByAgent, renderDowntimeByAgent, renderStatBar, renderHourlyMissed, renderFreshCallsComparison,
+  renderAgentProductivity, renderBreakDuration, renderQualityRatio, renderAgentMissed, renderAgentHangup, renderTrainingByAgent, renderDowntimeByAgent, renderAppreciationEscalation, renderStatBar, renderHourlyMissed, renderFreshCallsComparison,
   renderFacilityCallCases, renderFacilityEmailCases, renderEmailSentAgentWise,
   chartColors, colorPalette
 };

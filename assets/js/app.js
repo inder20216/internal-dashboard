@@ -384,6 +384,7 @@ function renderDashboard() {
       <div class="panel">
         <div class="panel-header"><i class="ti ti-heart-handshake"></i> Appreciation &amp; Escalation — Agent Wise</div>
         <div class="panel-body">
+          <div class="chart-container chart-container-sm" id="appreciationEscalationChart"></div>
           ${buildAppreciationEscalationTable(processData.agents)}
         </div>
       </div>` : ''}
@@ -473,6 +474,7 @@ function renderDashboard() {
     charts.renderAgentMissed('agentMissedChart', processData.agents, isDarkNow);
     if (document.getElementById('agentHangupChart')) charts.renderAgentHangup('agentHangupChart', processData.agents, isDarkNow);
     if (document.getElementById('emailSentAgentChart')) charts.renderEmailSentAgentWise('emailSentAgentChart', processData.agents, isDarkNow);
+    if (document.getElementById('appreciationEscalationChart')) charts.renderAppreciationEscalation('appreciationEscalationChart', processData.agents, isDarkNow);
     animateCounters();
     observeScroll();
     resolveCharts();
