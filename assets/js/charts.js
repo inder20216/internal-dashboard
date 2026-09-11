@@ -571,14 +571,13 @@ function renderFreshCallsComparison(id, freshCallsComparison, isDark) {
   ctx.chart = new Chart(ctx, {
     type: 'bar',
     data: {
-      labels: rows.map(r => r.agent),
+      // Multi-line tick: agent name + their IB/Missed split shown as a subtitle
+      // under the axis, rather than crowding the bar's own datalabel.
+      labels: rows.map(r => [r.agent, `(IB-${r.ibFreshCount || 0}/Missed-${r.callbackFreshCount || 0})`]),
       datasets: [
         {
           label: 'Fresh Calls (CDR Notes)', data: rows.map(r => (r.ibFreshCount || 0) + (r.callbackFreshCount || 0)), backgroundColor: 'rgba(37,99,235,0.75)', borderRadius: 3,
-          datalabels: {
-            anchor: 'end', align: 'end', offset: 2, color: textColor, font: { size: 9, weight: '600' },
-            formatter: (v, dctx) => { const r = rows[dctx.dataIndex]; return v ? `${v} (IB-${r.ibFreshCount || 0}/Missed-${r.callbackFreshCount || 0})` : ''; }
-          }
+          datalabels: { anchor: 'end', align: 'end', offset: 2, color: textColor, font: { size: 9, weight: '600' }, formatter: v => v || '' }
         },
         {
           label: 'Fresh CRM Case (Logged)', data: rows.map(r => r.crmCount), backgroundColor: 'rgba(5,150,105,0.75)', borderRadius: 3,
