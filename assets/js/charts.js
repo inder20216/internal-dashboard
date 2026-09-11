@@ -415,10 +415,13 @@ function renderTrainingByAgent(id, training, isDark) {
     },
     options: {
       ...defaultOpts('Training Duration by Agent', isDark),
-      plugins: { ...defaultOpts('Training Duration by Agent', isDark).plugins, legend: { display: false }, datalabels: { anchor: 'end', align: 'end', offset: 2, color: textColor, font: { size: 9, weight: '600' }, formatter: v => v ? v + 'm' : '' } },
+      // Reserve headroom above the tallest bar or its datalabel gets clipped
+      // by the canvas edge (happened with the previous no-padding layout).
+      layout: { padding: { top: 24 } },
+      plugins: { ...defaultOpts('Training Duration by Agent', isDark).plugins, legend: { display: false }, datalabels: { anchor: 'end', align: 'end', offset: 2, color: textColor, font: { size: 9, weight: '600' }, formatter: v => v ? secondsToHms(v * 60) : '' } },
       scales: {
         x: { ticks: { color: textColor, font: { size: 10 } }, grid: { display: false } },
-        y: { beginAtZero: true, ticks: { color: textColor, font: { size: 10 }, callback: v => v + 'm' }, grid: { display: false } }
+        y: { beginAtZero: true, ticks: { color: textColor, font: { size: 10 }, callback: v => secondsToHms(v * 60) }, grid: { display: false } }
       }
     }
   });

@@ -1021,13 +1021,6 @@ function buildAgentTable(agents, isOverall, processName) {
   </div>`;
 }
 
-function secondsToHm(sec) {
-  const s = Math.max(0, Math.round(sec || 0));
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  return `${h}h ${m}m`;
-}
-
 /* Agent-wise + type-wise training duration. Source is a UNION of training_tracker
    (historical Excel backfill + whatever form submissions exist) and login_events
    (agents can select the same reason-level statuses as the form's Type of Training
@@ -1045,7 +1038,7 @@ function buildTrainingInsights(training) {
       <div class="stat-group-card">
         <div class="stat-group-title"><i class="ti ti-clock"></i> Total Training Duration (All Agents)</div>
         <div class="stat-group-values">
-          <div class="stat-group-item"><div class="v">${secondsToHm(totalSec)}</div><div class="l">Total Duration</div></div>
+          <div class="stat-group-item"><div class="v">${secondsToHms(totalSec)}</div><div class="l">Total Duration</div></div>
           <div class="stat-group-item"><div class="v">${totalCount}</div><div class="l">Sessions</div></div>
         </div>
       </div>
@@ -1054,7 +1047,7 @@ function buildTrainingInsights(training) {
     <div class="table-wrap">
       <table>
         <thead><tr><th>Agent</th><th>Training Type</th><th>Sessions</th><th>Total Duration</th></tr></thead>
-        <tbody>${rows.map(t => `<tr><td>${t.agent}</td><td>${t.category}</td><td>${t.count}</td><td>${secondsToHm(t.durationSec)}</td></tr>`).join('')}</tbody>
+        <tbody>${rows.map(t => `<tr><td>${t.agent}</td><td>${t.category}</td><td>${t.count}</td><td>${secondsToHms(t.durationSec)}</td></tr>`).join('')}</tbody>
       </table>
     </div>`;
 }
@@ -1087,14 +1080,14 @@ function buildDowntimeInsights(downtime) {
       <div class="stat-group-card">
         <div class="stat-group-title"><i class="ti ti-clock"></i> Total Downtime</div>
         <div class="stat-group-values">
-          <div class="stat-group-item"><div class="v">${secondsToHm(totalSec)}</div><div class="l">Total Duration</div></div>
+          <div class="stat-group-item"><div class="v">${secondsToHms(totalSec)}</div><div class="l">Total Duration</div></div>
         </div>
       </div>
     </div>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Agent</th><th>Reason</th><th>Instances</th><th>Total Duration</th></tr></thead>
-        <tbody>${rows.map(d => `<tr><td>${d.agent}</td><td>${d.category}</td><td>${d.count}</td><td>${secondsToHm(d.durationSec)}</td></tr>`).join('')}</tbody>
+        <tbody>${rows.map(d => `<tr><td>${d.agent}</td><td>${d.category}</td><td>${d.count}</td><td>${secondsToHms(d.durationSec)}</td></tr>`).join('')}</tbody>
       </table>
     </div>`;
 }
