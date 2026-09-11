@@ -485,7 +485,10 @@ function renderDashboard() {
       const downtimeEl = document.getElementById('downtimeInsightsBody');
       const conversionEl = document.getElementById('conversionInsightsBody');
       const obActivityEl = document.getElementById('obActivityInsightsBody');
-      if (trainingEl) trainingEl.innerHTML = buildTrainingInsights(insights.training);
+      if (trainingEl) {
+        trainingEl.innerHTML = buildTrainingInsights(insights.training);
+        if (insights.training && insights.training.length) window.CHARTS.renderTrainingByAgent('trainingByAgentChart', insights.training, isDarkNow);
+      }
       if (qualityEl) {
         qualityEl.innerHTML = buildQualityInsights(insights.quality);
         if (insights.quality && insights.quality.length) window.CHARTS.renderQualityRatio('qualityRatioChart', insights.quality, isDarkNow);
@@ -1047,6 +1050,7 @@ function buildTrainingInsights(training) {
         </div>
       </div>
     </div>
+    <div class="chart-container" id="trainingByAgentChart" style="height:${Math.max(200, new Set(training.map(t => t.agent)).size * 40)}px;margin-bottom:14px;"></div>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Agent</th><th>Training Type</th><th>Sessions</th><th>Total Duration</th></tr></thead>

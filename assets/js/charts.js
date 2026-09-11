@@ -399,6 +399,40 @@ function renderAgentHangup(id, agents, isDark) {
   });
 }
 
+/* ── TRAINING DURATION — AGENT WISE, STACKED BY TYPE (from training_tracker) ── */
+function renderTrainingByAgent(id, training, isDark) {
+  const ctx = getCtx(id);
+  if (!ctx) return;
+  const textColor = isDark ? '#b0b5c0' : '#6b7280';
+  const rows = training || [];
+  const agents = [...new Set(rows.map(t => t.agent))];
+  const categories = [...new Set(rows.map(t => t.category))];
+  const byAgentCat = new Map(rows.map(t => [`${t.agent}||${t.category}`, t.durationSec]));
+  const order = agents
+    .map(a => ({ a, total: categories.reduce((s, c) => s + (byAgentCat.get(`${a}||${c}`) || 0), 0) }))
+    .sort((x, y) => y.total - x.total)
+    .map(o => o.a);
+  const datasets = categories.map((cat, i) => ({
+    label: cat,
+    data: order.map(a => Math.round((byAgentCat.get(`${a}||${cat}`) || 0) / 60)),
+    backgroundColor: colorPalette[i % colorPalette.length],
+    borderRadius: 3,
+    datalabels: { anchor: 'center', align: 'center', color: '#fff', font: { size: 8 }, formatter: v => v ? v + 'm' : '' }
+  }));
+  ctx.chart = new Chart(ctx, {
+    type: 'bar',
+    data: { labels: order, datasets },
+    options: {
+      ...defaultOpts('Training Duration by Agent', isDark),
+      plugins: { ...defaultOpts('Training Duration by Agent', isDark).plugins, legend: { position: 'bottom', labels: { color: textColor, font: { size: 9 } } } },
+      scales: {
+        x: { stacked: true, ticks: { color: textColor, font: { size: 10 } }, grid: { display: false } },
+        y: { stacked: true, beginAtZero: true, ticks: { color: textColor, font: { size: 10 }, callback: v => v + 'm' }, grid: { display: false } }
+      }
+    }
+  });
+}
+
 /* ── CALL QUALITY RATIO — AGENT WISE (from quality_audit) ── */
 function renderQualityRatio(id, quality, isDark) {
   const ctx = getCtx(id);
@@ -635,7 +669,7 @@ window.CHARTS = {
   renderTrendChart, renderProcessComparison, renderAgentRanking,
   renderPareto, renderDailyTrend, renderQualityTrend,
   renderAgentHeatmap, renderMiniChart, renderDayWiseChart,
-  renderAgentProductivity, renderBreakDuration, renderQualityRatio, renderAgentMissed, renderAgentHangup, renderStatBar, renderHourlyMissed, renderFreshCallsComparison,
+  renderAgentProductivity, renderBreakDuration, renderQualityRatio, renderAgentMissed, renderAgentHangup, renderTrainingByAgent, renderStatBar, renderHourlyMissed, renderFreshCallsComparison,
   renderFacilityCallCases, renderFacilityEmailCases, renderEmailSentAgentWise,
   chartColors, colorPalette
 };
