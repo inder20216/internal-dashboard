@@ -218,7 +218,7 @@ body {
   gap: 12px;
 }
 .topbar-left { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-.sidebar-toggle { display: none; }
+.sidebar-toggle { display: flex; }
 .topbar-breadcrumb { font-size: 14px; font-weight: 700; color: var(--text); }
 .topbar-right { display: flex; align-items: center; gap: 8px; margin-left: auto; flex-wrap: wrap; justify-content: flex-end; }
 .date-range { display: flex; align-items: center; gap: 6px; }
