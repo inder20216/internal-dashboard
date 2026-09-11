@@ -252,7 +252,9 @@ const AGENT_ALIASES = {
   PSRI: {
     'Abhishek': 'Abhishek Sharma',
     'Monika': 'Monika Rani',
+    'Anchal': 'Anchal Singh',
     'Anchal singh': 'Anchal Singh',
+    'Kavneet': 'Kavneet Kaur',
     'Shivani': 'Shivani khandelwal',
     'Shivani Khandelwal': 'Shivani khandelwal'
   }
@@ -715,7 +717,7 @@ function aggregateTrackerInsights(rows) {
   // Agent-wise total Appointments (Booked+Cancelled+Rescheduled+Walkin summed)
   // from crm_daily_summary.extra's JSON fields -- PSRI only.
   const psriAppointments = rows.filter(r => r.metric_type === 'psri_appointments').map(r => ({
-    agent: r.agent_name, count: Number(r.value) || 0
+    agent: normalizeAgentName(r.process_name, r.agent_name), count: Number(r.value) || 0
   }));
   return { training, quality, downtime, conversions, obActivity, hourlyMissed, freshCallsComparison, stgTagging, psriAppointments };
 }
