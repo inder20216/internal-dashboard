@@ -429,6 +429,32 @@ function renderTrainingByAgent(id, training, isDark) {
   });
 }
 
+/* ── DOWNTIME — AGENT WISE TOTAL (reason breakdown stays in the table below) ── */
+function renderDowntimeByAgent(id, downtime, isDark) {
+  const ctx = getCtx(id);
+  if (!ctx) return;
+  const textColor = isDark ? '#b0b5c0' : '#6b7280';
+  const totals = new Map();
+  (downtime || []).forEach(d => totals.set(d.agent, (totals.get(d.agent) || 0) + d.durationSec));
+  const sorted = [...totals.entries()].sort((a, b) => b[1] - a[1]);
+  ctx.chart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: sorted.map(([agent]) => agent),
+      datasets: [{ label: 'Downtime', data: sorted.map(([, sec]) => Math.round(sec / 60)), backgroundColor: 'rgba(220,38,38,0.8)', borderRadius: 3 }]
+    },
+    options: {
+      ...defaultOpts('Downtime by Agent', isDark),
+      layout: { padding: { top: 24 } },
+      plugins: { ...defaultOpts('Downtime by Agent', isDark).plugins, legend: { display: false }, datalabels: { anchor: 'end', align: 'end', offset: 2, color: textColor, font: { size: 9, weight: '600' }, formatter: v => v ? secondsToHms(v * 60) : '' } },
+      scales: {
+        x: { ticks: { color: textColor, font: { size: 10 } }, grid: { display: false } },
+        y: { beginAtZero: true, ticks: { color: textColor, font: { size: 10 }, callback: v => secondsToHms(v * 60) }, grid: { display: false } }
+      }
+    }
+  });
+}
+
 /* ── CALL QUALITY RATIO — AGENT WISE (from quality_audit) ── */
 function renderQualityRatio(id, quality, isDark) {
   const ctx = getCtx(id);
@@ -665,7 +691,7 @@ window.CHARTS = {
   renderTrendChart, renderProcessComparison, renderAgentRanking,
   renderPareto, renderDailyTrend, renderQualityTrend,
   renderAgentHeatmap, renderMiniChart, renderDayWiseChart,
-  renderAgentProductivity, renderBreakDuration, renderQualityRatio, renderAgentMissed, renderAgentHangup, renderTrainingByAgent, renderStatBar, renderHourlyMissed, renderFreshCallsComparison,
+  renderAgentProductivity, renderBreakDuration, renderQualityRatio, renderAgentMissed, renderAgentHangup, renderTrainingByAgent, renderDowntimeByAgent, renderStatBar, renderHourlyMissed, renderFreshCallsComparison,
   renderFacilityCallCases, renderFacilityEmailCases, renderEmailSentAgentWise,
   chartColors, colorPalette
 };

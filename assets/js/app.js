@@ -369,14 +369,14 @@ function renderDashboard() {
       </div>
 
       <div class="panel">
-        <div class="panel-header"><i class="ti ti-star"></i> Call Quality Ratio — Agent Wise</div>
-        <div class="panel-body" id="qualityInsightsBody"><div style="text-align:center;padding:20px;color:var(--muted);">Loading…</div></div>
+        <div class="panel-header"><i class="ti ti-plug-connected-x"></i> Downtime — from Form Submissions</div>
+        <div class="panel-body" id="downtimeInsightsBody"><div style="text-align:center;padding:20px;color:var(--muted);">Loading…</div></div>
       </div>
     </div>
 
     <div class="panel">
-      <div class="panel-header"><i class="ti ti-plug-connected-x"></i> Downtime — from Form Submissions</div>
-      <div class="panel-body" id="downtimeInsightsBody"><div style="text-align:center;padding:20px;color:var(--muted);">Loading…</div></div>
+      <div class="panel-header"><i class="ti ti-star"></i> Call Quality Ratio — Agent Wise</div>
+      <div class="panel-body" id="qualityInsightsBody"><div style="text-align:center;padding:20px;color:var(--muted);">Loading…</div></div>
     </div>` : ''}
 
     ${['ResMed', 'LOTS'].includes(processName) ? `
@@ -492,7 +492,10 @@ function renderDashboard() {
         qualityEl.innerHTML = buildQualityInsights(insights.quality);
         if (insights.quality && insights.quality.length) window.CHARTS.renderQualityRatio('qualityRatioChart', insights.quality, isDarkNow);
       }
-      if (downtimeEl) downtimeEl.innerHTML = buildDowntimeInsights(insights.downtime);
+      if (downtimeEl) {
+        downtimeEl.innerHTML = buildDowntimeInsights(insights.downtime);
+        if (insights.downtime && insights.downtime.length) window.CHARTS.renderDowntimeByAgent('downtimeByAgentChart', insights.downtime, isDarkNow);
+      }
       if (conversionEl) conversionEl.innerHTML = buildConversionInsights(insights.conversions);
       if (obActivityEl) obActivityEl.innerHTML = buildObActivityInsights(insights.obActivity);
       if (document.getElementById('hourlyMissedChart')) window.CHARTS.renderHourlyMissed('hourlyMissedChart', insights.hourlyMissed, isDarkNow);
@@ -1068,6 +1071,7 @@ function buildDowntimeInsights(downtime) {
         </div>
       </div>
     </div>
+    <div class="chart-container chart-container-sm" id="downtimeByAgentChart" style="margin-bottom:14px;"></div>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Agent</th><th>Reason</th><th>Instances</th><th>Total Duration</th></tr></thead>
