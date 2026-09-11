@@ -475,7 +475,7 @@ function aggregateAgents(rows, includeProcess) {
       agent, sip: r.SIP || '', process: proc,
       inboundAnswered: 0, outboundAll: 0, obAnswered: 0, emailsHandled: 0,
       agentMissed: 0, agentMissedIb: 0, agentMissedOb: 0, customerMissed: 0,
-      hangupIB: 0, hangupOB: 0, crmCall: 0, crmEmail: 0,
+      hangupIB: 0, hangupOB: 0, crmCall: 0, crmEmail: 0, crmTotalCases: 0,
       nonTrading: 0, closedCases: 0, partialClosedCases: 0,
       appreciationCount: 0, escalationCount: 0,
       crmEscalationOpen: 0, crmEscalationPendingField: 0, crmEscalationPendingRhc: 0,
@@ -497,6 +497,10 @@ function aggregateAgents(rows, includeProcess) {
     cur.hangupOB += toNumber(r["Call Hangup With in 10 Sec-OB"]);
     cur.crmCall += toNumber(r["CRM(Call)"]);
     cur.crmEmail += toNumber(r["CRM(E-Mail)"]);
+    // PSRI's CRM source only reports a combined total ("Case Logged Counts"),
+    // not a Call/E-Mail split like LOTS/Infres/VMM/Nihon do -- kept as its own
+    // field rather than folded into crmCall so it isn't double-counted anywhere.
+    cur.crmTotalCases += toNumber(r["Case Logged Counts"]);
     cur.nonTrading += toNumber(r["Non Trading"]);
     cur.closedCases += toNumber(r["Closed"]);
     cur.partialClosedCases += toNumber(r["Partial Closed"]);
