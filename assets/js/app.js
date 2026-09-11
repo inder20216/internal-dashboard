@@ -451,11 +451,14 @@ function renderDashboard() {
       [processData.ibTalkTimeSec || 0, processData.obTalkTimeSec || 0],
       ['rgba(37,99,235,0.75)', 'rgba(234,88,12,0.75)'], isDarkNow, v => secondsToHms(v));
     const missedDetailVals = [processData.agentMissedInbound || 0, processData.ivrMissed || 0, processData.queueMissed || 0, processData.serviceMissed || 0];
-    const missedDetailTotal = missedDetailVals.reduce((a, b) => a + b, 0) || 1;
+    // % is out of Total Inbound Calls (matches IB Bifurcation's "Total"), not
+    // out of the sum of these 4 missed types -- e.g. 3 agent-missed out of 84
+    // total inbound calls is 4%, not 10% (which would be 3 out of 31 total missed).
+    const missedDetailDenominator = processData.totalCalls || 1;
     charts.renderStatBar('statChartMissed', ['Agent', 'IVR', 'Queue', 'Service'],
       missedDetailVals,
       ['rgba(220,38,38,0.75)', 'rgba(217,119,6,0.75)', 'rgba(124,58,237,0.75)', 'rgba(8,145,178,0.75)'], isDarkNow,
-      v => `${v} (${Math.round(v / missedDetailTotal * 100)}%)`);
+      v => `${v} (${Math.round(v / missedDetailDenominator * 100)}%)`);
     charts.renderStatBar('statChartMissedHours', ['WH', 'NWH'],
       [processData.missedWorkingHours || 0, processData.missedNonWorkingHours || 0],
       ['rgba(220,38,38,0.75)', 'rgba(107,114,128,0.75)'], isDarkNow);
