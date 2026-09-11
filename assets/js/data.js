@@ -238,12 +238,21 @@ function emailHandled(r) {
 // source tables spell these differently too (resmed_conversion uses first names
 // only, e.g. "Avijit" instead of "Avijit Dey") — all normalized to the full name.
 const RESMED_AGENT_ALLOWLIST = new Set(['Gulshan Khan', 'Kumkum', 'Avijit Dey', 'Sagarika Bose']);
-const RESMED_AGENT_ALIASES = {
-  'Admin': 'Sagarika Bose', 'Sagarika': 'Sagarika Bose',
-  'Gulshan': 'Gulshan Khan', 'Avijit': 'Avijit Dey'
+// Per-process short-name/misspelling -> canonical-name maps. ResMed's picks the
+// full name; other processes pick whichever spelling has the higher row count
+// (e.g. Baxter's "Rashmi" has far more rows across trackers than "Rashmi Gusain").
+const AGENT_ALIASES = {
+  ResMed: {
+    'Admin': 'Sagarika Bose', 'Sagarika': 'Sagarika Bose',
+    'Gulshan': 'Gulshan Khan', 'Avijit': 'Avijit Dey'
+  },
+  Baxter: {
+    'Rashmi Gusain': 'Rashmi'
+  }
 };
-function normalizeResmedAgent(processName, rawAgentName) {
-  if (processName === 'ResMed' && RESMED_AGENT_ALIASES[rawAgentName]) return RESMED_AGENT_ALIASES[rawAgentName];
+function normalizeAgentName(processName, rawAgentName) {
+  const map = AGENT_ALIASES[processName];
+  if (map && map[rawAgentName]) return map[rawAgentName];
   return rawAgentName;
 }
 function passesResmedAllowlist(processName, agentDisplayName) {
@@ -252,7 +261,7 @@ function passesResmedAllowlist(processName, agentDisplayName) {
 
 function agentName(r) {
   const raw = r.Agent || r["Agent Mapped"] || 'Unassigned';
-  return normalizeResmedAgent(r["Process Name"], raw);
+  return normalizeAgentName(r["Process Name"], raw);
 }
 
 // Queue/department/system labels that show up in the raw CDR data as if they
@@ -637,22 +646,22 @@ async function fetchTrackerInsights(processName, from, to) {
 
 function aggregateTrackerInsights(rows) {
   const training = rows.filter(r => r.metric_type === 'training').map(r => ({
-    agent: normalizeResmedAgent(r.process_name, r.agent_name), process: r.process_name, category: r.category || 'Unspecified',
+    agent: normalizeAgentName(r.process_name, r.agent_name), process: r.process_name, category: r.category || 'Unspecified',
     durationSec: Number(r.value) || 0, count: Number(r.cnt) || 0
   })).filter(o => passesResmedAllowlist(o.process, o.agent));
   const quality = rows.filter(r => r.metric_type === 'quality').map(r => ({
-    agent: normalizeResmedAgent(r.process_name, r.agent_name), process: r.process_name, avgPercentage: Number(r.score) || 0,
+    agent: normalizeAgentName(r.process_name, r.agent_name), process: r.process_name, avgPercentage: Number(r.score) || 0,
     totalScore: Number(r.value) || 0, count: Number(r.cnt) || 0
   })).filter(o => passesResmedAllowlist(o.process, o.agent));
   const downtime = rows.filter(r => r.metric_type === 'downtime').map(r => ({
-    agent: normalizeResmedAgent(r.process_name, r.agent_name), process: r.process_name, category: r.category || 'Unspecified',
+    agent: normalizeAgentName(r.process_name, r.agent_name), process: r.process_name, category: r.category || 'Unspecified',
     durationSec: Number(r.value) || 0, count: Number(r.cnt) || 0
   })).filter(o => passesResmedAllowlist(o.process, o.agent));
   const conversions = rows.filter(r => r.metric_type === 'conversion').map(r => ({
-    agent: normalizeResmedAgent(r.process_name, r.agent_name), process: r.process_name, category: r.category || 'Unspecified', count: Number(r.cnt) || 0
+    agent: normalizeAgentName(r.process_name, r.agent_name), process: r.process_name, category: r.category || 'Unspecified', count: Number(r.cnt) || 0
   })).filter(o => passesResmedAllowlist(o.process, o.agent));
   const obActivity = rows.filter(r => r.metric_type === 'ob_activity').map(r => ({
-    agent: normalizeResmedAgent(r.process_name, r.agent_name), process: r.process_name, category: r.category || 'Unspecified',
+    agent: normalizeAgentName(r.process_name, r.agent_name), process: r.process_name, category: r.category || 'Unspecified',
     connected: Number(r.value) || 0, total: Number(r.cnt) || 0
   })).filter(o => passesResmedAllowlist(o.process, o.agent));
   // score carries the hour here (category is the missed-disposition type instead).
