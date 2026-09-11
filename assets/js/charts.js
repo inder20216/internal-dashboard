@@ -571,9 +571,9 @@ function renderFreshCallsComparison(id, freshCallsComparison, isDark) {
   ctx.chart = new Chart(ctx, {
     type: 'bar',
     data: {
-      // Multi-line tick: agent name + their IB/Missed split shown as a subtitle
+      // Multi-line tick: agent name + their IB/CB split shown as a subtitle
       // under the axis, rather than crowding the bar's own datalabel.
-      labels: rows.map(r => [r.agent, `(IB-${r.ibFreshCount || 0}/Missed-${r.callbackFreshCount || 0})`]),
+      labels: rows.map(r => [r.agent, `(IB-${r.ibFreshCount || 0}/CB-${r.callbackFreshCount || 0})`]),
       datasets: [
         {
           label: 'Fresh Calls (CDR Notes)', data: rows.map(r => (r.ibFreshCount || 0) + (r.callbackFreshCount || 0)), backgroundColor: 'rgba(37,99,235,0.75)', borderRadius: 3,
