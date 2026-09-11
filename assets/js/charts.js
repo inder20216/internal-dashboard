@@ -359,8 +359,8 @@ function renderAgentMissed(id, agents, isDark) {
     data: {
       labels: sorted.map(a => a.agent),
       datasets: [
-        { label: 'Missed (Inbound)', data: sorted.map(a => a.agentMissedIb || 0), backgroundColor: 'rgba(220,38,38,0.75)', borderRadius: 3, datalabels: { anchor: 'end', align: 'end', color: textColor, font: { size: 9, weight: '600' }, formatter: ibLabel } },
-        { label: 'Missed (Outbound)', data: sorted.map(a => a.agentMissedOb || 0), backgroundColor: 'rgba(234,88,12,0.75)', borderRadius: 3, datalabels: { anchor: 'end', align: 'end', color: textColor, font: { size: 9, weight: '600' }, formatter: obLabel } }
+        { label: 'Missed (Inbound)', data: sorted.map(a => a.agentMissedIb || 0), backgroundColor: 'rgba(220,38,38,0.75)', borderRadius: 3, datalabels: { anchor: 'center', align: 'center', color: '#fff', font: { size: 9, weight: '600' }, formatter: ibLabel } },
+        { label: 'Missed (Outbound)', data: sorted.map(a => a.agentMissedOb || 0), backgroundColor: 'rgba(234,88,12,0.75)', borderRadius: 3, datalabels: { anchor: 'center', align: 'center', color: '#fff', font: { size: 9, weight: '600' }, formatter: obLabel } }
       ]
     },
     options: {
