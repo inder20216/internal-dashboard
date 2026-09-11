@@ -569,7 +569,7 @@ function renderFreshCallsComparison(id, freshCallsComparison, isDark) {
   ctx.chart = new Chart(ctx, {
     type: 'bar',
     data: {
-      labels: rows.map(r => r.date),
+      labels: rows.map(r => r.agent),
       datasets: [
         { label: 'Fresh Calls (CDR Notes)', data: rows.map(r => r.cdrCount), backgroundColor: 'rgba(37,99,235,0.75)', borderRadius: 3 },
         { label: 'Fresh CRM Case (Logged)', data: rows.map(r => r.crmCount), backgroundColor: 'rgba(5,150,105,0.75)', borderRadius: 3 }

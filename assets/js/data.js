@@ -688,13 +688,13 @@ function aggregateTrackerInsights(rows) {
   const hourlyMissed = rows.filter(r => r.metric_type === 'hourly_missed').map(r => ({
     hour: Number(r.score), type: r.category || 'Unspecified', count: Number(r.value) || 0
   }));
-  // Merge the two independently-dated series (CDR notes vs CRM logging) onto a
-  // single date axis -- either side can have days the other doesn't.
-  const cdrByDate = new Map(rows.filter(r => r.metric_type === 'fresh_calls_cdr').map(r => [r.category, Number(r.value) || 0]));
-  const crmByDate = new Map(rows.filter(r => r.metric_type === 'fresh_calls_crm').map(r => [r.category, Number(r.value) || 0]));
-  const freshDates = [...new Set([...cdrByDate.keys(), ...crmByDate.keys()])].sort();
-  const freshCallsComparison = freshDates.map(date => ({
-    date, cdrCount: cdrByDate.get(date) || 0, crmCount: crmByDate.get(date) || 0
+  // Merge the two independently-sourced series (CDR notes vs CRM logging) onto
+  // a single agent axis -- either side can have agents the other doesn't.
+  const cdrByAgent = new Map(rows.filter(r => r.metric_type === 'fresh_calls_cdr').map(r => [r.agent_name, Number(r.value) || 0]));
+  const crmByAgent = new Map(rows.filter(r => r.metric_type === 'fresh_calls_crm').map(r => [r.agent_name, Number(r.value) || 0]));
+  const freshAgents = [...new Set([...cdrByAgent.keys(), ...crmByAgent.keys()])].filter(a => !isTransferPseudoAgent(a)).sort();
+  const freshCallsComparison = freshAgents.map(agent => ({
+    agent, cdrCount: cdrByAgent.get(agent) || 0, crmCount: crmByAgent.get(agent) || 0
   }));
   // Agent-wise "STg tagging" case count (from CDR notes) -- Facility only.
   const stgTagging = rows.filter(r => r.metric_type === 'stg_tagging').map(r => ({
