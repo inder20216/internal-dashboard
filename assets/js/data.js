@@ -674,22 +674,22 @@ function aggregateTrackerInsights(rows) {
   const training = rows.filter(r => r.metric_type === 'training').map(r => ({
     agent: normalizeAgentName(r.process_name, r.agent_name), process: r.process_name, category: r.category || 'Unspecified',
     durationSec: Number(r.value) || 0, count: Number(r.cnt) || 0
-  })).filter(o => passesResmedAllowlist(o.process, o.agent));
+  })).filter(o => passesResmedAllowlist(o.process, o.agent) && !isTransferPseudoAgent(o.agent));
   const quality = rows.filter(r => r.metric_type === 'quality').map(r => ({
     agent: normalizeAgentName(r.process_name, r.agent_name), process: r.process_name, avgPercentage: Number(r.score) || 0,
     totalScore: Number(r.value) || 0, count: Number(r.cnt) || 0
-  })).filter(o => passesResmedAllowlist(o.process, o.agent));
+  })).filter(o => passesResmedAllowlist(o.process, o.agent) && !isTransferPseudoAgent(o.agent));
   const downtime = rows.filter(r => r.metric_type === 'downtime').map(r => ({
     agent: normalizeAgentName(r.process_name, r.agent_name), process: r.process_name, category: r.category || 'Unspecified',
     durationSec: Number(r.value) || 0, count: Number(r.cnt) || 0
-  })).filter(o => passesResmedAllowlist(o.process, o.agent));
+  })).filter(o => passesResmedAllowlist(o.process, o.agent) && !isTransferPseudoAgent(o.agent));
   const conversions = rows.filter(r => r.metric_type === 'conversion').map(r => ({
     agent: normalizeAgentName(r.process_name, r.agent_name), process: r.process_name, category: r.category || 'Unspecified', count: Number(r.cnt) || 0
-  })).filter(o => passesResmedAllowlist(o.process, o.agent));
+  })).filter(o => passesResmedAllowlist(o.process, o.agent) && !isTransferPseudoAgent(o.agent));
   const obActivity = rows.filter(r => r.metric_type === 'ob_activity').map(r => ({
     agent: normalizeAgentName(r.process_name, r.agent_name), process: r.process_name, category: r.category || 'Unspecified',
     connected: Number(r.value) || 0, total: Number(r.cnt) || 0
-  })).filter(o => passesResmedAllowlist(o.process, o.agent));
+  })).filter(o => passesResmedAllowlist(o.process, o.agent) && !isTransferPseudoAgent(o.agent));
   // score carries the hour here (category is the missed-disposition type instead).
   const hourlyMissed = rows.filter(r => r.metric_type === 'hourly_missed').map(r => ({
     hour: Number(r.score), type: r.category || 'Unspecified', count: Number(r.value) || 0
@@ -713,12 +713,12 @@ function aggregateTrackerInsights(rows) {
   // Agent-wise "STg tagging" case count (from CDR notes) -- Facility only.
   const stgTagging = rows.filter(r => r.metric_type === 'stg_tagging').map(r => ({
     agent: r.agent_name, process: r.process_name, count: Number(r.value) || 0, calls: Number(r.cnt) || 0
-  }));
+  })).filter(o => !isTransferPseudoAgent(o.agent));
   // Agent-wise total Appointments (Booked+Cancelled+Rescheduled+Walkin summed)
   // from crm_daily_summary.extra's JSON fields -- PSRI only.
   const psriAppointments = rows.filter(r => r.metric_type === 'psri_appointments').map(r => ({
     agent: normalizeAgentName(r.process_name, r.agent_name), count: Number(r.value) || 0
-  }));
+  })).filter(o => !isTransferPseudoAgent(o.agent));
   return { training, quality, downtime, conversions, obActivity, hourlyMissed, freshCallsComparison, stgTagging, psriAppointments };
 }
 
