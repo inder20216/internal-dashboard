@@ -248,6 +248,13 @@ const AGENT_ALIASES = {
   },
   Baxter: {
     'Rashmi Gusain': 'Rashmi'
+  },
+  PSRI: {
+    'Abhishek': 'Abhishek Sharma',
+    'Monika': 'Monika Rani',
+    'Anchal singh': 'Anchal Singh',
+    'Shivani': 'Shivani khandelwal',
+    'Shivani Khandelwal': 'Shivani khandelwal'
   }
 };
 function normalizeAgentName(processName, rawAgentName) {
