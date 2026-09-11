@@ -644,8 +644,12 @@ const INSIGHTS_ENDPOINTS = [
 ];
 
 async function fetchTrackerInsights(processName, from, to) {
+  // tracker-psri-appointments is PSRI-only (reads crm_daily_summary.extra's
+  // Appt_* JSON fields, which only PSRI populates) -- calling it for every
+  // other process would just be a guaranteed-to-error wasted request.
+  const endpoints = processName === 'PSRI' ? [...INSIGHTS_ENDPOINTS, 'tracker-psri-appointments'] : INSIGHTS_ENDPOINTS;
   try {
-    const results = await Promise.all(INSIGHTS_ENDPOINTS.map(async (endpoint) => {
+    const results = await Promise.all(endpoints.map(async (endpoint) => {
       try {
         const url = `${INSIGHTS_BASE}${endpoint}?process=${encodeURIComponent(processName)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
         const res = await fetch(url);
@@ -660,7 +664,7 @@ async function fetchTrackerInsights(processName, from, to) {
     return aggregateTrackerInsights(results.flat());
   } catch (err) {
     console.error('fetchTrackerInsights failed:', err);
-    return { training: [], quality: [], downtime: [], conversions: [], obActivity: [], hourlyMissed: [], freshCallsComparison: [], stgTagging: [] };
+    return { training: [], quality: [], downtime: [], conversions: [], obActivity: [], hourlyMissed: [], freshCallsComparison: [], stgTagging: [], psriAppointments: [] };
   }
 }
 
@@ -708,7 +712,12 @@ function aggregateTrackerInsights(rows) {
   const stgTagging = rows.filter(r => r.metric_type === 'stg_tagging').map(r => ({
     agent: r.agent_name, process: r.process_name, count: Number(r.value) || 0, calls: Number(r.cnt) || 0
   }));
-  return { training, quality, downtime, conversions, obActivity, hourlyMissed, freshCallsComparison, stgTagging };
+  // Agent-wise total Appointments (Booked+Cancelled+Rescheduled+Walkin summed)
+  // from crm_daily_summary.extra's JSON fields -- PSRI only.
+  const psriAppointments = rows.filter(r => r.metric_type === 'psri_appointments').map(r => ({
+    agent: r.agent_name, count: Number(r.value) || 0
+  }));
+  return { training, quality, downtime, conversions, obActivity, hourlyMissed, freshCallsComparison, stgTagging, psriAppointments };
 }
 
 /* ── EXPORT GLOBALLY ── */

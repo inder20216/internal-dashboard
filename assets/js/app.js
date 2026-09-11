@@ -406,6 +406,12 @@ function renderDashboard() {
       <div class="panel-body" style="height:300px;"><canvas id="hourlyMissedChart"></canvas></div>
     </div>` : ''}
 
+    ${processName === 'PSRI' ? `
+    <div class="panel">
+      <div class="panel-header"><i class="ti ti-calendar-event"></i> IB Calls vs CRM Cases vs Appointments — Agent Wise</div>
+      <div class="panel-body" style="height:300px;"><canvas id="ibCasesAppointmentsChart"></canvas></div>
+    </div>` : ''}
+
     <div class="grid-2">
       ${processData.agents.some(a => (a.hangupIB || 0) + (a.hangupOB || 0) > 0) ? `
       <div class="panel">
@@ -506,6 +512,7 @@ function renderDashboard() {
       if (document.getElementById('freshCallsChart')) window.CHARTS.renderFreshCallsComparison('freshCallsChart', insights.freshCallsComparison, isDarkNow);
       if (document.getElementById('facilityCallCasesChart')) window.CHARTS.renderFacilityCallCases('facilityCallCasesChart', processData.agents, insights.stgTagging, isDarkNow);
       if (document.getElementById('facilityEmailCasesChart')) window.CHARTS.renderFacilityEmailCases('facilityEmailCasesChart', processData.agents, isDarkNow);
+      if (document.getElementById('ibCasesAppointmentsChart')) window.CHARTS.renderIBCasesAppointments('ibCasesAppointmentsChart', processData.agents, insights.psriAppointments, isDarkNow);
     })
     : Promise.resolve();
 
