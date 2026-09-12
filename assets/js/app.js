@@ -391,17 +391,16 @@ function renderDashboard() {
     </div>` : ''}
 
     ${processName === 'ResMed' ? `
-    <div class="panel">
-      <div class="panel-header"><i class="ti ti-phone-outgoing"></i> Outbound Activity — Agent &amp; Activity Wise Connectivity</div>
-      <div class="panel-body" id="obActivityInsightsBody"><div style="text-align:center;padding:20px;color:var(--muted);">Loading…</div></div>
-    </div>
-
-    <div class="panel">
-      <div class="panel-header">
-        <i class="ti ti-shopping-cart"></i> Conversions — Product &amp; Agent Wise
-        <span id="conversionTotalBadge" style="margin-left:auto;color:var(--muted);font-weight:600;"></span>
+    <div class="grid-2">
+      <div class="panel">
+        <div class="panel-header"><i class="ti ti-phone-outgoing"></i> Outbound Activity — Agent &amp; Activity Wise Connectivity</div>
+        <div class="panel-body" id="obActivityInsightsBody"><div style="text-align:center;padding:20px;color:var(--muted);">Loading…</div></div>
       </div>
-      <div class="panel-body" style="height:260px;"><canvas id="conversionsChart"></canvas></div>
+
+      <div class="panel">
+        <div class="panel-header"><i class="ti ti-shopping-cart"></i> Conversions — Product &amp; Agent Wise</div>
+        <div class="panel-body" id="conversionInsightsBody"><div style="text-align:center;padding:20px;color:var(--muted);">Loading…</div></div>
+      </div>
     </div>
 
     <div class="panel">
@@ -496,6 +495,7 @@ function renderDashboard() {
       const trainingEl = document.getElementById('trainingInsightsBody');
       const qualityEl = document.getElementById('qualityInsightsBody');
       const downtimeEl = document.getElementById('downtimeInsightsBody');
+      const conversionEl = document.getElementById('conversionInsightsBody');
       const obActivityEl = document.getElementById('obActivityInsightsBody');
       if (trainingEl) {
         trainingEl.innerHTML = buildTrainingInsights(insights.training);
@@ -509,12 +509,7 @@ function renderDashboard() {
         downtimeEl.innerHTML = buildDowntimeInsights(insights.downtime);
         if (insights.downtime && insights.downtime.length) window.CHARTS.renderDowntimeByAgent('downtimeByAgentChart', insights.downtime, isDarkNow);
       }
-      if (document.getElementById('conversionsChart')) window.CHARTS.renderConversions('conversionsChart', insights.conversions, isDarkNow);
-      const conversionTotalBadge = document.getElementById('conversionTotalBadge');
-      if (conversionTotalBadge) {
-        const total = (insights.conversions || []).reduce((s, c) => s + c.count, 0);
-        conversionTotalBadge.textContent = total ? `Total: ${total}` : '';
-      }
+      if (conversionEl) conversionEl.innerHTML = buildConversionInsights(insights.conversions);
       if (obActivityEl) obActivityEl.innerHTML = buildObActivityInsights(insights.obActivity);
       // Live email counts (from email_tagged_daily, no next-day lag) override the
       // Sheet-sourced emailsHandled per agent wherever they're available, feeding
@@ -1114,19 +1109,79 @@ function buildDowntimeInsights(downtime) {
     </div>`;
 }
 
+/* Product + agent wise Conversions (ResMed only), from resmed_conversion via
+   the tracker-insights webhook. */
+function buildConversionInsights(conversions) {
+  if (!conversions || !conversions.length) return '<div style="text-align:center;padding:30px;color:var(--muted);">No conversions logged for this range.</div>';
+  const byProduct = new Map();
+  conversions.forEach(c => byProduct.set(c.category, (byProduct.get(c.category) || 0) + c.count));
+  const productCards = [...byProduct.entries()].sort((a, b) => b[1] - a[1])
+    .map(([product, count]) => `<div class="stat-group-item"><div class="v">${count}</div><div class="l">${product}</div></div>`).join('');
+  const totalCount = conversions.reduce((s, c) => s + c.count, 0);
+  const rows = [...conversions].sort((a, b) => b.count - a.count);
+  return `
+    <div class="stat-group-row" style="margin-bottom:14px;">
+      <div class="stat-group-card">
+        <div class="stat-group-title"><i class="ti ti-shopping-cart"></i> Total Conversions</div>
+        <div class="stat-group-values">
+          <div class="stat-group-item"><div class="v">${totalCount}</div><div class="l">Total</div></div>
+        </div>
+      </div>
+      <div class="stat-group-card">
+        <div class="stat-group-title"><i class="ti ti-tag"></i> By Product</div>
+        <div class="stat-group-values">${productCards}</div>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Agent</th><th>Product</th><th>Conversions</th></tr></thead>
+        <tbody>${rows.map(c => `<tr><td>${c.agent}</td><td>${c.category}</td><td>${c.count}</td></tr>`).join('')}</tbody>
+      </table>
+    </div>`;
+}
+
 /* Agent + activity wise outbound connectivity (ResMed only), parsed from
    call_disposition's note field ("Activity,Status") via the tracker-insights
    webhook. "Connected" = disposition = 'Answer' (the same objective definition
    used everywhere else), not the free-text status in the note. */
 function buildObActivityInsights(obActivity) {
   if (!obActivity || !obActivity.length) return '<div style="text-align:center;padding:30px;color:var(--muted);">No outbound activity logged for this range.</div>';
-  const rows = [...obActivity].sort((a, b) => b.total - a.total);
-  return `<div class="table-wrap">
-    <table>
-      <thead><tr><th>Agent</th><th>Activity</th><th>Total</th><th>Connected</th><th>Connectivity %</th></tr></thead>
-      <tbody>${rows.map(r => `<tr><td>${r.agent}</td><td>${r.category}</td><td>${r.total}</td><td>${r.connected}</td><td>${r.total > 0 ? (r.connected / r.total * 100).toFixed(1) : '0.0'}%</td></tr>`).join('')}</tbody>
-    </table>
-  </div>`;
+  const pct = (connected, total) => total > 0 ? (connected / total * 100).toFixed(1) : '0.0';
+
+  // By Activity Type -- totals across all agents, so you can see which
+  // activity type gets worked the most / connects best, independent of agent.
+  const byType = new Map();
+  obActivity.forEach(r => {
+    const cur = byType.get(r.category) || { category: r.category, total: 0, connected: 0 };
+    cur.total += r.total; cur.connected += r.connected;
+    byType.set(r.category, cur);
+  });
+  const typeRows = [...byType.values()].sort((a, b) => b.total - a.total);
+
+  // Agent + Activity detail, grouped by agent (A-Z), each agent's own
+  // activities sorted by volume, with a bold Total row per agent.
+  const agents = [...new Set(obActivity.map(r => r.agent))].sort((a, b) => a.localeCompare(b));
+  const detailRows = agents.map(agent => {
+    const rows = obActivity.filter(r => r.agent === agent).sort((a, b) => b.total - a.total);
+    const agentTotal = rows.reduce((s, r) => s + r.total, 0);
+    const agentConnected = rows.reduce((s, r) => s + r.connected, 0);
+    return rows.map(r => `<tr><td>${r.agent}</td><td>${r.category}</td><td>${r.total}</td><td>${r.connected}</td><td>${pct(r.connected, r.total)}%</td></tr>`).join('')
+      + `<tr style="font-weight:700;background:var(--surface2);"><td>${agent} — Total</td><td></td><td>${agentTotal}</td><td>${agentConnected}</td><td>${pct(agentConnected, agentTotal)}%</td></tr>`;
+  }).join('');
+
+  return `
+    <div class="table-wrap" style="margin-bottom:14px;">
+      <table>
+        <thead><tr><th>Activity</th><th>Total</th><th>Connected</th><th>Connectivity %</th></tr></thead>
+        <tbody>${typeRows.map(t => `<tr><td>${t.category}</td><td>${t.total}</td><td>${t.connected}</td><td>${pct(t.connected, t.total)}%</td></tr>`).join('')}</tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Agent</th><th>Activity</th><th>Total</th><th>Connected</th><th>Connectivity %</th></tr></thead>
+        <tbody>${detailRows}</tbody>
+      </table>
+    </div>`;
 }
 
 function buildClosedPartialTable(agents) {
