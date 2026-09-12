@@ -646,7 +646,8 @@ async function fetchData() {
 const INSIGHTS_BASE = "https://inder20216.app.n8n.cloud/webhook/";
 const INSIGHTS_ENDPOINTS = [
   'tracker-training', 'tracker-quality', 'tracker-downtime', 'tracker-conversion',
-  'tracker-ob-activity', 'tracker-hourly', 'tracker-fresh-calls', 'tracker-stg-tagging'
+  'tracker-ob-activity', 'tracker-hourly', 'tracker-fresh-calls', 'tracker-stg-tagging',
+  'tracker-email-productivity'
 ];
 
 async function fetchTrackerInsights(processName, from, to) {
@@ -670,7 +671,7 @@ async function fetchTrackerInsights(processName, from, to) {
     return aggregateTrackerInsights(results.flat());
   } catch (err) {
     console.error('fetchTrackerInsights failed:', err);
-    return { training: [], quality: [], downtime: [], conversions: [], obActivity: [], hourlyMissed: [], freshCallsComparison: [], stgTagging: [], psriAppointments: [] };
+    return { training: [], quality: [], downtime: [], conversions: [], obActivity: [], hourlyMissed: [], freshCallsComparison: [], stgTagging: [], psriAppointments: [], emailProductivity: [] };
   }
 }
 
@@ -723,7 +724,16 @@ function aggregateTrackerInsights(rows) {
   const psriAppointments = rows.filter(r => r.metric_type === 'psri_appointments').map(r => ({
     agent: normalizeAgentName(r.process_name, r.agent_name), count: Number(r.value) || 0
   })).filter(o => !isTransferPseudoAgent(o.agent));
-  return { training, quality, downtime, conversions, obActivity, hourlyMissed, freshCallsComparison, stgTagging, psriAppointments };
+  // Live agent-wise Email Productivity (email_tagged_daily), queried directly
+  // rather than via the combined_summary daily-job pipeline -- that pipeline
+  // processes "yesterday" once a day, so today's/very-recent submissions were
+  // invisible on the dashboard until the next morning's run. This endpoint has
+  // no such lag.
+  const emailProductivity = rows.filter(r => r.metric_type === 'email_productivity').map(r => ({
+    agent: normalizeAgentName(r.process_name, r.agent_name), process: r.process_name,
+    totalEmails: Number(r.value) || 0, daysLogged: Number(r.cnt) || 0
+  })).filter(o => !isTransferPseudoAgent(o.agent));
+  return { training, quality, downtime, conversions, obActivity, hourlyMissed, freshCallsComparison, stgTagging, psriAppointments, emailProductivity };
 }
 
 /* ── EXPORT GLOBALLY ── */

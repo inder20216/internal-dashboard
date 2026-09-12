@@ -412,6 +412,12 @@ function renderDashboard() {
       <div class="panel-body" style="height:300px;"><canvas id="ibCasesAppointmentsChart"></canvas></div>
     </div>` : ''}
 
+    ${['Baxter', 'ResMed', 'Infres', 'VMM', 'Nihon'].includes(processName) ? `
+    <div class="panel">
+      <div class="panel-header"><i class="ti ti-mail"></i> Email Productivity — Agent Wise (Live)</div>
+      <div class="panel-body" id="emailProductivityInsightsBody"><div style="text-align:center;padding:20px;color:var(--muted);">Loading…</div></div>
+    </div>` : ''}
+
     <div class="grid-2">
       ${processData.agents.some(a => (a.hangupIB || 0) + (a.hangupOB || 0) > 0) ? `
       <div class="panel">
@@ -494,6 +500,7 @@ function renderDashboard() {
       const downtimeEl = document.getElementById('downtimeInsightsBody');
       const conversionEl = document.getElementById('conversionInsightsBody');
       const obActivityEl = document.getElementById('obActivityInsightsBody');
+      const emailProductivityEl = document.getElementById('emailProductivityInsightsBody');
       if (trainingEl) {
         trainingEl.innerHTML = buildTrainingInsights(insights.training);
         if (insights.training && insights.training.length) window.CHARTS.renderTrainingByAgent('trainingByAgentChart', insights.training, isDarkNow);
@@ -508,6 +515,7 @@ function renderDashboard() {
       }
       if (conversionEl) conversionEl.innerHTML = buildConversionInsights(insights.conversions);
       if (obActivityEl) obActivityEl.innerHTML = buildObActivityInsights(insights.obActivity);
+      if (emailProductivityEl) emailProductivityEl.innerHTML = buildEmailProductivityInsights(insights.emailProductivity);
       if (document.getElementById('hourlyMissedChart')) window.CHARTS.renderHourlyMissed('hourlyMissedChart', insights.hourlyMissed, isDarkNow);
       if (document.getElementById('freshCallsChart')) window.CHARTS.renderFreshCallsComparison('freshCallsChart', insights.freshCallsComparison, isDarkNow);
       if (document.getElementById('facilityCallCasesChart')) window.CHARTS.renderFacilityCallCases('facilityCallCasesChart', processData.agents, insights.stgTagging, isDarkNow);
@@ -1118,6 +1126,31 @@ function buildConversionInsights(conversions) {
       <table>
         <thead><tr><th>Agent</th><th>Product</th><th>Conversions</th></tr></thead>
         <tbody>${rows.map(c => `<tr><td>${c.agent}</td><td>${c.category}</td><td>${c.count}</td></tr>`).join('')}</tbody>
+      </table>
+    </div>`;
+}
+
+/* Agent-wise Email Productivity, live from email_tagged_daily via the
+   tracker-insights webhook -- unlike the "Emails Handled" KPI card (sourced
+   from the Sheet via the once-daily combined_summary job), this has no
+   next-day lag, so today's/very-recent submissions show up immediately. */
+function buildEmailProductivityInsights(emailProductivity) {
+  if (!emailProductivity || !emailProductivity.length) return '<div style="text-align:center;padding:30px;color:var(--muted);">No email productivity logged for this range.</div>';
+  const totalEmails = emailProductivity.reduce((s, e) => s + e.totalEmails, 0);
+  const rows = [...emailProductivity].sort((a, b) => b.totalEmails - a.totalEmails);
+  return `
+    <div class="stat-group-row" style="margin-bottom:14px;">
+      <div class="stat-group-card">
+        <div class="stat-group-title"><i class="ti ti-mail"></i> Total Emails (live)</div>
+        <div class="stat-group-values">
+          <div class="stat-group-item"><div class="v">${totalEmails}</div><div class="l">Total</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Agent</th><th>Days Logged</th><th>Total Emails</th></tr></thead>
+        <tbody>${rows.map(e => `<tr><td>${e.agent}</td><td>${e.daysLogged}</td><td>${e.totalEmails}</td></tr>`).join('')}</tbody>
       </table>
     </div>`;
 }
