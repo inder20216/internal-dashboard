@@ -104,6 +104,12 @@ function navigateTo(view) {
       }
     }
   }
+  // Period info/tabs are Dashboard-view-specific -- clear them out on other
+  // tabs so stale "Daily Snapshot · ..." text doesn't linger in the topbar.
+  if (view !== 'dashboard') {
+    const topbarPeriodInfo = document.getElementById('topbarPeriodInfo');
+    if (topbarPeriodInfo) topbarPeriodInfo.innerHTML = '';
+  }
 
   switch (view) {
     case 'dashboard': renderDashboard(); break;
@@ -303,25 +309,19 @@ function renderDashboard() {
   const label = processName || 'Overall Business Performance';
   const periodLabel = period === 'daily' ? 'Daily Snapshot' : period === 'weekly' ? 'Weekly Summary' : 'Monthly Report';
 
+  const topbarPeriodInfo = document.getElementById('topbarPeriodInfo');
+  if (topbarPeriodInfo) {
+    topbarPeriodInfo.innerHTML = `
+      <span class="tpi-label"><i class="ti ti-calendar-stats"></i> ${periodLabel} — ${label} · ${range.from} → ${range.to}</span>
+      <div class="period-tabs" style="display:flex;gap:4px;background:var(--surface2);padding:3px;border-radius:8px;border:1px solid var(--border);">
+        <button class="period-tab ${period === 'daily' ? 'active' : ''}" data-period="daily" onclick="setPeriod('daily')">Daily</button>
+        <button class="period-tab ${period === 'weekly' ? 'active' : ''}" data-period="weekly" onclick="setPeriod('weekly')">Weekly</button>
+        <button class="period-tab ${period === 'monthly' ? 'active' : ''}" data-period="monthly" onclick="setPeriod('monthly')">Monthly</button>
+      </div>`;
+  }
+
   container.innerHTML = `
     <div class="section">
-      <div class="flex flex-between flex-wrap mb-3">
-        <div>
-          <div class="section-title" style="font-size:15px;"><i class="ti ti-calendar-stats"></i> ${periodLabel}</div>
-          <div style="font-size:11px;color:var(--muted);margin-top:2px;">${label} · ${range.from} → ${range.to}</div>
-        </div>
-        <div class="period-tabs" style="display:flex;gap:4px;background:var(--surface2);padding:3px;border-radius:8px;border:1px solid var(--border);">
-          <button class="period-tab ${period === 'daily' ? 'active' : ''}" data-period="daily" onclick="setPeriod('daily')">Daily</button>
-          <button class="period-tab ${period === 'weekly' ? 'active' : ''}" data-period="weekly" onclick="setPeriod('weekly')">Weekly</button>
-          <button class="period-tab ${period === 'monthly' ? 'active' : ''}" data-period="monthly" onclick="setPeriod('monthly')">Monthly</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="section">
-      <div class="section-header">
-        <div class="section-title"><i class="ti ti-layout-dashboard"></i> Key Performance Indicators</div>
-      </div>
       <div class="kpi-grid">${cards}</div>
     </div>
 
@@ -412,11 +412,6 @@ function renderDashboard() {
       <div class="panel-body" style="height:300px;"><canvas id="ibCasesAppointmentsChart"></canvas></div>
     </div>` : ''}
 
-    ${['Baxter', 'ResMed', 'Infres', 'VMM', 'Nihon'].includes(processName) ? `
-    <div class="panel">
-      <div class="panel-header"><i class="ti ti-mail"></i> Email Productivity — Agent Wise (Live)</div>
-      <div class="panel-body" id="emailProductivityInsightsBody"><div style="text-align:center;padding:20px;color:var(--muted);">Loading…</div></div>
-    </div>` : ''}
 
     <div class="grid-2">
       ${processData.agents.some(a => (a.hangupIB || 0) + (a.hangupOB || 0) > 0) ? `
@@ -500,7 +495,6 @@ function renderDashboard() {
       const downtimeEl = document.getElementById('downtimeInsightsBody');
       const conversionEl = document.getElementById('conversionInsightsBody');
       const obActivityEl = document.getElementById('obActivityInsightsBody');
-      const emailProductivityEl = document.getElementById('emailProductivityInsightsBody');
       if (trainingEl) {
         trainingEl.innerHTML = buildTrainingInsights(insights.training);
         if (insights.training && insights.training.length) window.CHARTS.renderTrainingByAgent('trainingByAgentChart', insights.training, isDarkNow);
@@ -515,7 +509,21 @@ function renderDashboard() {
       }
       if (conversionEl) conversionEl.innerHTML = buildConversionInsights(insights.conversions);
       if (obActivityEl) obActivityEl.innerHTML = buildObActivityInsights(insights.obActivity);
-      if (emailProductivityEl) emailProductivityEl.innerHTML = buildEmailProductivityInsights(insights.emailProductivity);
+      // Live email counts (from email_tagged_daily, no next-day lag) override the
+      // Sheet-sourced emailsHandled per agent wherever they're available, feeding
+      // both the Agent Productivity chart and the Emails Handled KPI card.
+      if (insights.emailProductivity && insights.emailProductivity.length) {
+        const liveEmailByAgent = new Map(insights.emailProductivity.map(e => [e.agent, e.totalEmails]));
+        const agentsWithLiveEmail = processData.agents.map(a =>
+          liveEmailByAgent.has(a.agent) ? { ...a, emailsHandled: liveEmailByAgent.get(a.agent) } : a
+        );
+        if (document.getElementById('agentProductivityChart')) {
+          window.CHARTS.renderAgentProductivity('agentProductivityChart', agentsWithLiveEmail, isDarkNow);
+        }
+        const liveTotal = insights.emailProductivity.reduce((s, e) => s + e.totalEmails, 0);
+        const countEl = document.getElementById('emailsHandledCount');
+        if (countEl) countEl.textContent = liveTotal;
+      }
       if (document.getElementById('hourlyMissedChart')) window.CHARTS.renderHourlyMissed('hourlyMissedChart', insights.hourlyMissed, isDarkNow);
       if (document.getElementById('freshCallsChart')) window.CHARTS.renderFreshCallsComparison('freshCallsChart', insights.freshCallsComparison, isDarkNow);
       if (document.getElementById('facilityCallCasesChart')) window.CHARTS.renderFacilityCallCases('facilityCallCasesChart', processData.agents, insights.stgTagging, isDarkNow);
@@ -925,7 +933,7 @@ function buildTopStatGroups(d, processName) {
     </div>${processName !== 'PSRI' ? `
     <div class="stat-group-card">
       <div class="stat-group-title"><i class="ti ti-mail"></i> Emails Handled</div>
-      <div style="font-size:26px;font-weight:800;letter-spacing:-0.02em;line-height:1;">${d.emailSentCount || 0}</div>${processName !== 'LOTS' ? `
+      <div id="emailsHandledCount" style="font-size:26px;font-weight:800;letter-spacing:-0.02em;line-height:1;">${d.emailSentCount || 0}</div>${processName !== 'LOTS' ? `
       <div class="stat-group-values" style="margin-top:6px;">
         <div class="stat-group-item"><div class="v">0</div><div class="l">Duration</div></div>
       </div>` : ''}
@@ -1126,31 +1134,6 @@ function buildConversionInsights(conversions) {
       <table>
         <thead><tr><th>Agent</th><th>Product</th><th>Conversions</th></tr></thead>
         <tbody>${rows.map(c => `<tr><td>${c.agent}</td><td>${c.category}</td><td>${c.count}</td></tr>`).join('')}</tbody>
-      </table>
-    </div>`;
-}
-
-/* Agent-wise Email Productivity, live from email_tagged_daily via the
-   tracker-insights webhook -- unlike the "Emails Handled" KPI card (sourced
-   from the Sheet via the once-daily combined_summary job), this has no
-   next-day lag, so today's/very-recent submissions show up immediately. */
-function buildEmailProductivityInsights(emailProductivity) {
-  if (!emailProductivity || !emailProductivity.length) return '<div style="text-align:center;padding:30px;color:var(--muted);">No email productivity logged for this range.</div>';
-  const totalEmails = emailProductivity.reduce((s, e) => s + e.totalEmails, 0);
-  const rows = [...emailProductivity].sort((a, b) => b.totalEmails - a.totalEmails);
-  return `
-    <div class="stat-group-row" style="margin-bottom:14px;">
-      <div class="stat-group-card">
-        <div class="stat-group-title"><i class="ti ti-mail"></i> Total Emails (live)</div>
-        <div class="stat-group-values">
-          <div class="stat-group-item"><div class="v">${totalEmails}</div><div class="l">Total</div></div>
-        </div>
-      </div>
-    </div>
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>Agent</th><th>Days Logged</th><th>Total Emails</th></tr></thead>
-        <tbody>${rows.map(e => `<tr><td>${e.agent}</td><td>${e.daysLogged}</td><td>${e.totalEmails}</td></tr>`).join('')}</tbody>
       </table>
     </div>`;
 }

@@ -210,16 +210,18 @@ body {
 
 /* ═══ TOPBAR ═══ */
 .topbar {
-  height: var(--topbar-h); min-height: var(--topbar-h);
+  min-height: var(--topbar-h);
   background: var(--surface);
   border-bottom: 1px solid var(--border);
-  display: flex; align-items: center;
-  padding: 0 20px;
+  display: flex; align-items: center; flex-wrap: wrap;
+  padding: 10px 20px;
   gap: 12px;
 }
-.topbar-left { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.topbar-left { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .sidebar-toggle { display: flex; }
-.topbar-breadcrumb { font-size: 14px; font-weight: 700; color: var(--text); }
+.topbar-breadcrumb { font-size: 14px; font-weight: 700; color: var(--text); flex-shrink: 0; }
+.topbar-period-info { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.topbar-period-info .tpi-label { font-size: 11px; color: var(--muted); white-space: nowrap; }
 .topbar-right { display: flex; align-items: center; gap: 8px; margin-left: auto; flex-wrap: wrap; justify-content: flex-end; }
 .date-range { display: flex; align-items: center; gap: 6px; }
 .date-sep { color: var(--muted); font-size: 12px; }
