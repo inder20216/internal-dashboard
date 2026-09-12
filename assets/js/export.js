@@ -38,12 +38,23 @@ async function captureActiveView() {
   // capturing right after render grabs canvases mid-animation or still blank.
   // Every chart instance is stashed on its canvas as `.chart` (see charts.js),
   // so force each one to redraw instantly with no animation before capturing.
+  // resize() first: getCtx() in charts.js builds a brand-new <canvas> on every
+  // render (even a re-render of the same panel, e.g. the live-insights update
+  // to Agent Productivity), and Chart.js doesn't always have that canvas's
+  // true backing-store size locked in yet by the time update() runs on a page
+  // this tall with this many charts firing in the same tick -- without an
+  // explicit resize first, some of them capture as fully blank.
   el.querySelectorAll('canvas').forEach(canvas => {
-    if (canvas.chart && typeof canvas.chart.update === 'function') {
-      canvas.chart.update('none');
-    }
+    if (canvas.chart && typeof canvas.chart.resize === 'function') canvas.chart.resize();
+  });
+  el.querySelectorAll('canvas').forEach(canvas => {
+    if (canvas.chart && typeof canvas.chart.update === 'function') canvas.chart.update('none');
   });
   await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  // Extra settle time on top of the double-RAF -- a page this size with 10+
+  // charts resizing/redrawing in the same tick needs a bit more than two
+  // frames for every canvas's paint to actually land before the snapshot.
+  await new Promise(r => setTimeout(r, 150));
 
   try {
     // html2canvas defaults to the current viewport — explicitly pass the
