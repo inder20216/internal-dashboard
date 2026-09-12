@@ -289,14 +289,10 @@ function renderAgentProductivity(id, agents, isDark) {
     },
     options: {
       ...defaultOpts('Agent Productivity', isDark),
-      layout: { padding: { top: 20 } },
+      layout: { padding: { top: 24 } },
       plugins: {
         ...defaultOpts('Agent Productivity', isDark).plugins,
-        legend: { position: 'bottom', labels: { color: textColor, font: { size: 10 } } },
-        // In-bar centered labels instead of floating above the bar -- with 3
-        // grouped series of very different heights, "anchor: end" labels either
-        // clipped at the chart's top edge or collided with each other.
-        datalabels: { anchor: 'center', align: 'center', color: '#fff', font: { size: 9, weight: '600' }, formatter: dlFormatter }
+        legend: { position: 'bottom', labels: { color: textColor, font: { size: 10 } } }
       },
       scales: {
         x: { ticks: { color: textColor, font: { size: 10 } }, grid: { display: false } },
