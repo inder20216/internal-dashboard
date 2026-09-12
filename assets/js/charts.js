@@ -660,6 +660,41 @@ function renderFacilityEmailCases(id, agents, isDark) {
   });
 }
 
+/* ── CONVERSIONS — PRODUCT & AGENT WISE (ResMed only), stacked bar ── */
+function renderConversions(id, conversions, isDark) {
+  const ctx = getCtx(id);
+  if (!ctx) return;
+  const rows = conversions || [];
+  const textColor = isDark ? '#b0b5c0' : '#6b7280';
+  const agents = [...new Set(rows.map(r => r.agent))].sort();
+  const products = [...new Set(rows.map(r => r.category))].sort();
+  const byKey = new Map(rows.map(r => [`${r.agent}||${r.category}`, r.count]));
+  ctx.chart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: agents,
+      datasets: products.map((product, i) => ({
+        label: product,
+        data: agents.map(a => byKey.get(`${a}||${product}`) || 0),
+        backgroundColor: colorPalette[i % colorPalette.length],
+        borderRadius: 3
+      }))
+    },
+    options: {
+      ...defaultOpts('Conversions', isDark),
+      plugins: {
+        ...defaultOpts('Conversions', isDark).plugins,
+        legend: { position: 'bottom', labels: { color: textColor, font: { size: 10 } } },
+        datalabels: { anchor: 'center', align: 'center', color: '#fff', font: { size: 9, weight: '600' }, formatter: dlFormatter }
+      },
+      scales: {
+        x: { stacked: true, ticks: { color: textColor, font: { size: 10 } }, grid: { display: false } },
+        y: { stacked: true, beginAtZero: true, ticks: { color: textColor, font: { size: 10 } }, grid: { display: false } }
+      }
+    }
+  });
+}
+
 /* ── IB CALLS vs CRM CASES vs APPOINTMENTS — AGENT WISE (PSRI only) ── */
 function renderIBCasesAppointments(id, agents, appointments, isDark) {
   const ctx = getCtx(id);
@@ -750,6 +785,6 @@ window.CHARTS = {
   renderPareto, renderDailyTrend, renderQualityTrend,
   renderAgentHeatmap, renderMiniChart, renderDayWiseChart,
   renderAgentProductivity, renderBreakDuration, renderQualityRatio, renderAgentMissed, renderAgentHangup, renderTrainingByAgent, renderDowntimeByAgent, renderAppreciationEscalation, renderStatBar, renderHourlyMissed, renderFreshCallsComparison,
-  renderFacilityCallCases, renderFacilityEmailCases, renderEmailSentAgentWise, renderIBCasesAppointments,
+  renderFacilityCallCases, renderFacilityEmailCases, renderEmailSentAgentWise, renderIBCasesAppointments, renderConversions,
   chartColors, colorPalette
 };
