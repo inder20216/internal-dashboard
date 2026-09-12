@@ -269,15 +269,18 @@ function renderDayWiseChart(id, timeSeries, isDark) {
 function renderAgentProductivity(id, agents, isDark) {
   const ctx = getCtx(id);
   if (!ctx) return;
-  const sorted = [...agents].sort((a, b) => b.productivityTotal - a.productivityTotal);
+  // Computed live here (IB + OB + Email) rather than trusting a precomputed
+  // productivityTotal field, so it always matches whatever emailsHandled value
+  // was actually passed in (e.g. the live tracker-insights override).
+  const withTotal = agents.map(a => ({ ...a, liveTotal: (a.inboundAnswered || 0) + (a.outboundAll || 0) + (a.emailsHandled || 0) }));
+  const sorted = withTotal.sort((a, b) => b.liveTotal - a.liveTotal);
   const textColor = isDark ? '#b0b5c0' : '#6b7280';
-  const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
   ctx.chart = new Chart(ctx, {
     type: 'bar',
     data: {
       // Multi-line tick: agent name + their IB+OB+Email total, shown as a per-agent
       // KPI under the axis rather than adding a 4th "total" bar to the chart.
-      labels: sorted.map(a => [a.agent, `Total: ${a.productivityTotal}`]),
+      labels: sorted.map(a => [a.agent, `Total: ${a.liveTotal}`]),
       datasets: [
         { label: 'Inbound Answered', data: sorted.map(a => a.inboundAnswered), backgroundColor: 'rgba(37,99,235,0.75)', borderRadius: 3 },
         { label: 'Outbound All', data: sorted.map(a => a.outboundAll), backgroundColor: 'rgba(234,88,12,0.75)', borderRadius: 3 },
@@ -286,7 +289,15 @@ function renderAgentProductivity(id, agents, isDark) {
     },
     options: {
       ...defaultOpts('Agent Productivity', isDark),
-      plugins: { ...defaultOpts('Agent Productivity', isDark).plugins, legend: { position: 'bottom', labels: { color: textColor, font: { size: 10 } } } },
+      layout: { padding: { top: 20 } },
+      plugins: {
+        ...defaultOpts('Agent Productivity', isDark).plugins,
+        legend: { position: 'bottom', labels: { color: textColor, font: { size: 10 } } },
+        // In-bar centered labels instead of floating above the bar -- with 3
+        // grouped series of very different heights, "anchor: end" labels either
+        // clipped at the chart's top edge or collided with each other.
+        datalabels: { anchor: 'center', align: 'center', color: '#fff', font: { size: 9, weight: '600' }, formatter: dlFormatter }
+      },
       scales: {
         x: { ticks: { color: textColor, font: { size: 10 } }, grid: { display: false } },
         y: { beginAtZero: true, ticks: { color: textColor, font: { size: 10 }, precision: 0 }, grid: { display: false } }

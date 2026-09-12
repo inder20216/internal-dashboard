@@ -520,7 +520,11 @@ function aggregateAgents(rows, includeProcess) {
     const hrsSec = sumSecondsRaw(a.rows, "Hours");
     const breakSecTotal = sumSecondsRaw(a.rows, "Break time");
     const dayCount = new Set(a.rows.map(r => r.Date).filter(Boolean)).size || 1;
-    const breakSecForTarget = dayCount > 1 ? breakSecTotal / dayCount : breakSecTotal;
+    // Rounded to match secondsToHms's own rounding -- otherwise averaging across
+    // multiple days can leave a sub-second fractional remainder (e.g. 3600.4s)
+    // that silently flags "exactly 1 hour" as exceeding the target, even though
+    // the displayed HH:MM:SS shows exactly 1:00:00.
+    const breakSecForTarget = Math.round(dayCount > 1 ? breakSecTotal / dayCount : breakSecTotal);
     return {
       ...a,
       productivityTotal: a.inboundAnswered + a.outboundAll + a.emailsHandled,
