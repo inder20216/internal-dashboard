@@ -22,6 +22,30 @@ async function captureActiveView() {
   const isDarkNow = document.documentElement.getAttribute('data-theme') === 'dark';
   const bodyBg = getComputedStyle(document.body).backgroundColor;
 
+  // .app-shell (height:100vh, overflow:hidden), .main-content (overflow:hidden)
+  // and .page-container (overflow-y:auto) all clip their content to the current
+  // viewport -- passing scrollHeight to html2canvas only sizes the OUTPUT
+  // canvas, it doesn't undo that clipping, since html2canvas lays out and
+  // renders a real clone of this DOM+CSS. Without this, anything below the
+  // visible fold on a long dashboard silently never made it into the image.
+  // Walk every ancestor up to <body> and neutralize overflow/height so the
+  // full content can actually lay out, then restore it all afterward.
+  const ancestorPrevStyles = [];
+  let ancestor = el.parentElement;
+  while (ancestor && ancestor !== document.body) {
+    ancestorPrevStyles.push({
+      node: ancestor,
+      overflow: ancestor.style.overflow, overflowX: ancestor.style.overflowX, overflowY: ancestor.style.overflowY,
+      height: ancestor.style.height, maxHeight: ancestor.style.maxHeight
+    });
+    ancestor.style.overflow = 'visible';
+    ancestor.style.overflowX = 'visible';
+    ancestor.style.overflowY = 'visible';
+    ancestor.style.height = 'auto';
+    ancestor.style.maxHeight = 'none';
+    ancestor = ancestor.parentElement;
+  }
+
   // Cards/panels fade in via a CSS animation on render — force them to their
   // final state before capturing, otherwise a capture triggered soon after a
   // (re)render grabs them mid-fade (washed out / partially transparent).
@@ -75,6 +99,13 @@ async function captureActiveView() {
       node.style.opacity = opacity;
       node.style.transform = transform;
       node.style.animation = animation;
+    });
+    ancestorPrevStyles.forEach(({ node, overflow, overflowX, overflowY, height, maxHeight }) => {
+      node.style.overflow = overflow;
+      node.style.overflowX = overflowX;
+      node.style.overflowY = overflowY;
+      node.style.height = height;
+      node.style.maxHeight = maxHeight;
     });
   }
 }
