@@ -853,7 +853,7 @@ function buildKPICards(d, prevData) {
       label: 'Missed Call %', icon: 'ti-phone-x',
       value: missedPct.toFixed(1) + '%',
       status: pctStatus(missedPct, { good: 5, warn: 10, higherIsBetter: false }),
-      sub: `${d.missedWorkingHours || 0} missed (working hours) of ${d.totalCalls || 0} offered · Target ≤5%`
+      sub: `${d.missedWorkingHours || 0} missed of ${d.ibOfferedWorkingHours || 0} offered (working hours) · Target ≤5%`
     },
     {
       label: 'Hangup Rate', icon: 'ti-phone-pause',

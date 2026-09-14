@@ -380,6 +380,11 @@ function aggregateProcess(rows, processName) {
   // hours (no agent logged in) isn't attributable to any one agent either.
   const missedWorkingHours = sumProcessDayConstant(daily, "Missed Working Hours");
   const missedNonWorkingHours = sumProcessDayConstant(daily, "Missed Non-Working Hours");
+  // Working-hours-only version of totalCalls (Step12) -- the correct
+  // denominator for a working-hours-scoped Missed Call %, since totalCalls
+  // includes calls that arrived outside working hours too.
+  const ibOfferedWorkingHours = sumProcessDayConstant(daily, "IB Offered Working Hours");
+  const ibOfferedNonWorkingHours = sumProcessDayConstant(daily, "IB Offered Non-Working Hours");
 
   /* Time metrics — these fields arrive as "HH:MM:SS" strings, so they must be
      summed per-row via sumSecondsRaw(), not sumNumber() (which can't parse them). */
@@ -424,15 +429,15 @@ function aggregateProcess(rows, processName) {
     productivityTotal: ib + ob + email,
     /* Missed */
     totalMissed, agentMissed: agentMissedIb + agentMissedOb, agentMissedInbound: agentMissedIb, customerMissed,
-    // Missed Call % is scoped to working-hours misses only -- a call that came
-    // in outside working hours (no agent logged in to answer it) shouldn't
-    // count against the team's missed-call rate the same way a genuinely
-    // missable working-hours call does.
-    missedCallPercent: totalCalls > 0 ? missedWorkingHours / totalCalls : 0,
+    // Missed Call % is scoped to working hours on both sides -- a call that
+    // arrived outside working hours (no agent logged in) shouldn't count as a
+    // missed call OR as an offered call in this ratio, since it was never
+    // genuinely answerable in the first place.
+    missedCallPercent: ibOfferedWorkingHours > 0 ? missedWorkingHours / ibOfferedWorkingHours : 0,
     agentMissedPercent: totalCalls > 0 ? (agentMissedIb + agentMissedOb) / totalCalls : 0,
     customerMissedPercent: ob > 0 ? customerMissed / ob : 0,
     queueMissed, ivrMissed, serviceMissed,
-    missedWorkingHours, missedNonWorkingHours,
+    missedWorkingHours, missedNonWorkingHours, ibOfferedWorkingHours, ibOfferedNonWorkingHours,
     /* Time */
     shrinkage: loginSec > 0 ? breakSec / loginSec : 0,
     occupancy: workSec > 0 ? talkSec / workSec : 0,
