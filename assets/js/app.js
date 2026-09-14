@@ -847,6 +847,7 @@ function buildKPICards(d, prevData) {
   const missedPct = (d.missedCallPercent || 0) * 100;
   const hangupPct = (d.hangupRate || 0) * 100;
   const obAnsPct = (d.obAnswerPercent || 0) * 100;
+  const sla15sPct = (d.sla15sPercent || 0) * 100;
 
   const statusCards = [
     {
@@ -866,6 +867,12 @@ function buildKPICards(d, prevData) {
       value: obAnsPct.toFixed(1) + '%',
       status: pctStatus(obAnsPct, { good: 40, warn: 25, higherIsBetter: true }),
       sub: `Target ≥40%`
+    },
+    {
+      label: 'SLA — Answered ≤15s', icon: 'ti-clock-bolt',
+      value: sla15sPct.toFixed(1) + '%',
+      status: pctStatus(sla15sPct, { good: 70, warn: 50, higherIsBetter: true }),
+      sub: `${d.sla15sAnsweredWorkingHours || 0} of ${d.ibAnsweredWorkingHours || 0} answered ≤15s (working hours) · Target ≥70%`
     }
   ];
 

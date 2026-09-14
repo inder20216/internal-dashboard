@@ -385,6 +385,12 @@ function aggregateProcess(rows, processName) {
   // includes calls that arrived outside working hours too.
   const ibOfferedWorkingHours = sumProcessDayConstant(daily, "IB Offered Working Hours");
   const ibOfferedNonWorkingHours = sumProcessDayConstant(daily, "IB Offered Non-Working Hours");
+  // SLA (Step13) -- of the calls actually answered during working hours, how
+  // many had a pick time (ring_start_time -> start_time) of 15 seconds or
+  // less. Denominator is answered-only, not offered -- a call that was never
+  // picked up has no pick time to measure.
+  const ibAnsweredWorkingHours = sumProcessDayConstant(daily, "IB Answered Working Hours");
+  const sla15sAnsweredWorkingHours = sumProcessDayConstant(daily, "SLA 15s Answered Working Hours");
 
   /* Time metrics — these fields arrive as "HH:MM:SS" strings, so they must be
      summed per-row via sumSecondsRaw(), not sumNumber() (which can't parse them). */
@@ -438,6 +444,8 @@ function aggregateProcess(rows, processName) {
     customerMissedPercent: ob > 0 ? customerMissed / ob : 0,
     queueMissed, ivrMissed, serviceMissed,
     missedWorkingHours, missedNonWorkingHours, ibOfferedWorkingHours, ibOfferedNonWorkingHours,
+    ibAnsweredWorkingHours, sla15sAnsweredWorkingHours,
+    sla15sPercent: ibAnsweredWorkingHours > 0 ? sla15sAnsweredWorkingHours / ibAnsweredWorkingHours : 0,
     /* Time */
     shrinkage: loginSec > 0 ? breakSec / loginSec : 0,
     occupancy: workSec > 0 ? talkSec / workSec : 0,
