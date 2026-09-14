@@ -58,27 +58,36 @@ async function captureActiveView() {
     node.style.transform = 'none';
   });
 
-  // Chart.js draws each canvas with its own animation (750ms+ by default) —
-  // capturing right after render grabs canvases mid-animation or still blank.
-  // Every chart instance is stashed as `.chart` on the canvas's 2D CONTEXT
+  // html2canvas re-implements CSS layout/paint from scratch rather than using
+  // the browser's real renderer, and reliably capturing a *live* <canvas> that
+  // way (animation timing, backing-store size, its own cloning quirks) is a
+  // known weak point -- exactly what caused the last two rounds of blank
+  // charts. Sidestepping it entirely: bake every chart to a static image
+  // ourselves first (Chart.js's own toBase64Image(), reading the exact pixels
+  // already correctly on screen), swap it in for the live canvas, and let
+  // html2canvas just screenshot a plain <img> -- something it handles well.
+  // Every chart instance is stashed as `.chart` on the canvas's 2D context
   // (see charts.js: `ctx.chart = new Chart(ctx, ...)`), not on the <canvas>
-  // element itself -- `canvas.chart` is always undefined, a bug that made this
-  // whole force-redraw step a silent no-op since it was first written. Fixed
-  // by reading it off canvas.getContext('2d') instead, which returns the same
-  // cached context object charts.js already attached `.chart` to.
+  // element itself.
+  const canvasSwaps = [];
   el.querySelectorAll('canvas').forEach(canvas => {
     const chart = canvas.getContext('2d').chart;
-    if (chart && typeof chart.resize === 'function') chart.resize();
+    if (!chart || typeof chart.toBase64Image !== 'function') return;
+    if (typeof chart.resize === 'function') chart.resize();
+    if (typeof chart.update === 'function') chart.update('none'); // instant, final state -- no animation frame to wait on
+    const rect = canvas.getBoundingClientRect();
+    const img = document.createElement('img');
+    img.src = chart.toBase64Image();
+    img.style.width = rect.width + 'px';
+    img.style.height = rect.height + 'px';
+    img.style.display = 'block';
+    canvas.parentNode.insertBefore(img, canvas);
+    canvasSwaps.push({ canvas, img, prevDisplay: canvas.style.display });
+    canvas.style.display = 'none';
   });
-  el.querySelectorAll('canvas').forEach(canvas => {
-    const chart = canvas.getContext('2d').chart;
-    if (chart && typeof chart.update === 'function') chart.update('none');
-  });
-  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-  // Extra settle time on top of the double-RAF -- a page this size with 10+
-  // charts resizing/redrawing in the same tick needs a bit more than two
-  // frames for every canvas's paint to actually land before the snapshot.
-  await new Promise(r => setTimeout(r, 150));
+  // Let the swapped-in <img> elements actually finish decoding before handing
+  // the page to html2canvas.
+  await Promise.all(canvasSwaps.map(({ img }) => img.decode().catch(() => {})));
 
   try {
     // html2canvas defaults to the current viewport — explicitly pass the
@@ -95,6 +104,10 @@ async function captureActiveView() {
       scrollY: 0
     });
   } finally {
+    canvasSwaps.forEach(({ canvas, img, prevDisplay }) => {
+      img.remove();
+      canvas.style.display = prevDisplay;
+    });
     prevStyles.forEach(({ node, opacity, transform, animation }) => {
       node.style.opacity = opacity;
       node.style.transform = transform;
