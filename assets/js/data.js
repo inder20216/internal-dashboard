@@ -424,7 +424,11 @@ function aggregateProcess(rows, processName) {
     productivityTotal: ib + ob + email,
     /* Missed */
     totalMissed, agentMissed: agentMissedIb + agentMissedOb, agentMissedInbound: agentMissedIb, customerMissed,
-    missedCallPercent: totalCalls > 0 ? totalMissed / totalCalls : 0,
+    // Missed Call % is scoped to working-hours misses only -- a call that came
+    // in outside working hours (no agent logged in to answer it) shouldn't
+    // count against the team's missed-call rate the same way a genuinely
+    // missable working-hours call does.
+    missedCallPercent: totalCalls > 0 ? missedWorkingHours / totalCalls : 0,
     agentMissedPercent: totalCalls > 0 ? (agentMissedIb + agentMissedOb) / totalCalls : 0,
     customerMissedPercent: ob > 0 ? customerMissed / ob : 0,
     queueMissed, ivrMissed, serviceMissed,
@@ -434,7 +438,10 @@ function aggregateProcess(rows, processName) {
     occupancy: workSec > 0 ? talkSec / workSec : 0,
     productivity: loginSec > 0 ? workSec / loginSec : 0,
     aht: avgSeconds(daily, "AHT", "AHT (formatted)"),
-    apt: avgSeconds(daily, "APT", "APT (formatted)"),
+    // Pick time is a per-agent metric like AHT -- a transfer/forwarded/queue
+    // pseudo-agent row isn't a real person picking up a call, so it shouldn't
+    // pull the process-wide average around.
+    apt: avgSeconds(daily.filter(r => !isTransferPseudoAgent(agentName(r))), "APT", "APT (formatted)"),
     ibTalkTime: sumSeconds(daily, "IB TT", "IB TT (formatted)"),
     obTalkTime: sumSeconds(daily, "OB TT", "OB TT (formatted)"),
     ibTalkTimeSec: ahtIbTTSec,
