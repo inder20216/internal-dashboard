@@ -60,19 +60,19 @@ async function captureActiveView() {
 
   // Chart.js draws each canvas with its own animation (750ms+ by default) —
   // capturing right after render grabs canvases mid-animation or still blank.
-  // Every chart instance is stashed on its canvas as `.chart` (see charts.js),
-  // so force each one to redraw instantly with no animation before capturing.
-  // resize() first: getCtx() in charts.js builds a brand-new <canvas> on every
-  // render (even a re-render of the same panel, e.g. the live-insights update
-  // to Agent Productivity), and Chart.js doesn't always have that canvas's
-  // true backing-store size locked in yet by the time update() runs on a page
-  // this tall with this many charts firing in the same tick -- without an
-  // explicit resize first, some of them capture as fully blank.
+  // Every chart instance is stashed as `.chart` on the canvas's 2D CONTEXT
+  // (see charts.js: `ctx.chart = new Chart(ctx, ...)`), not on the <canvas>
+  // element itself -- `canvas.chart` is always undefined, a bug that made this
+  // whole force-redraw step a silent no-op since it was first written. Fixed
+  // by reading it off canvas.getContext('2d') instead, which returns the same
+  // cached context object charts.js already attached `.chart` to.
   el.querySelectorAll('canvas').forEach(canvas => {
-    if (canvas.chart && typeof canvas.chart.resize === 'function') canvas.chart.resize();
+    const chart = canvas.getContext('2d').chart;
+    if (chart && typeof chart.resize === 'function') chart.resize();
   });
   el.querySelectorAll('canvas').forEach(canvas => {
-    if (canvas.chart && typeof canvas.chart.update === 'function') canvas.chart.update('none');
+    const chart = canvas.getContext('2d').chart;
+    if (chart && typeof chart.update === 'function') chart.update('none');
   });
   await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
   // Extra settle time on top of the double-RAF -- a page this size with 10+
