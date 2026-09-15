@@ -391,16 +391,14 @@ function renderDashboard() {
     </div>` : ''}
 
     ${processName === 'ResMed' ? `
-    <div class="grid-2">
-      <div class="panel">
-        <div class="panel-header"><i class="ti ti-phone-outgoing"></i> Outbound Activity — Agent &amp; Activity Wise Connectivity</div>
-        <div class="panel-body" id="obActivityInsightsBody"><div style="text-align:center;padding:20px;color:var(--muted);">Loading…</div></div>
-      </div>
+    <div class="panel">
+      <div class="panel-header"><i class="ti ti-phone-outgoing"></i> Outbound Activity — Agent &amp; Activity Wise Connectivity</div>
+      <div class="panel-body" id="obActivityInsightsBody"><div style="text-align:center;padding:20px;color:var(--muted);">Loading…</div></div>
+    </div>
 
-      <div class="panel">
-        <div class="panel-header"><i class="ti ti-shopping-cart"></i> Conversions — Product &amp; Agent Wise</div>
-        <div class="panel-body" id="conversionInsightsBody"><div style="text-align:center;padding:20px;color:var(--muted);">Loading…</div></div>
-      </div>
+    <div class="panel">
+      <div class="panel-header"><i class="ti ti-shopping-cart"></i> Conversions — Product &amp; Agent Wise</div>
+      <div class="panel-body" id="conversionInsightsBody"><div style="text-align:center;padding:20px;color:var(--muted);">Loading…</div></div>
     </div>
 
     <div class="panel">
@@ -1159,44 +1157,44 @@ function buildConversionInsights(conversions) {
    used everywhere else), not the free-text status in the note. */
 function buildObActivityInsights(obActivity) {
   if (!obActivity || !obActivity.length) return '<div style="text-align:center;padding:30px;color:var(--muted);">No outbound activity logged for this range.</div>';
-  const agents = [...new Set(obActivity.map(r => r.agent))].sort((a, b) => a.localeCompare(b));
 
   // Chart-container skeleton only -- renderObActivityCharts() (called right
   // after this HTML is injected) does the actual grouping + Chart.js render,
-  // same two-step pattern as Training/Quality/Downtime above.
+  // same two-step pattern as Training/Quality/Downtime above. Both charts sit
+  // side by side in one row -- by-activity-type on the left, all agents
+  // summarized in a single chart on the right (not one chart per agent).
   return `
-    <div class="stat-group-card" style="margin-bottom:14px;">
-      <div class="stat-group-title">By Activity Type — All Agents</div>
-      <div class="stat-group-chart" id="obActivityTypeChart" style="height:260px;"></div>
-    </div>
     <div class="stat-group-row">
-      ${agents.map((agent, i) => `
       <div class="stat-group-card">
-        <div class="stat-group-title">${agent}</div>
-        <div class="stat-group-chart" id="obActivityAgentChart-${i}" style="height:260px;"></div>
-      </div>`).join('')}
+        <div class="stat-group-title">By Activity Type — All Agents</div>
+        <div class="stat-group-chart" id="obActivityTypeChart" style="height:280px;"></div>
+      </div>
+      <div class="stat-group-card">
+        <div class="stat-group-title">By Agent — All Activities</div>
+        <div class="stat-group-chart" id="obActivityAgentChart" style="height:280px;"></div>
+      </div>
     </div>`;
 }
 
-/* Groups obActivity rows (by type across all agents, and per-agent) and
-   renders the Total/Connected/Connectivity% combo chart for each -- must run
-   after buildObActivityInsights()'s HTML is already in the DOM. */
+/* Groups obActivity rows two ways -- by activity type across all agents, and
+   by agent across all their activities -- and renders one combo chart for
+   each. Must run after buildObActivityInsights()'s HTML is already in the DOM. */
 function renderObActivityCharts(obActivity, isDark) {
   if (!obActivity || !obActivity.length) return;
 
   const byType = new Map();
+  const byAgent = new Map();
   obActivity.forEach(r => {
-    const cur = byType.get(r.category) || { category: r.category, total: 0, connected: 0 };
-    cur.total += r.total; cur.connected += r.connected;
-    byType.set(r.category, cur);
+    const t = byType.get(r.category) || { category: r.category, total: 0, connected: 0 };
+    t.total += r.total; t.connected += r.connected;
+    byType.set(r.category, t);
+
+    const a = byAgent.get(r.agent) || { category: r.agent, total: 0, connected: 0 };
+    a.total += r.total; a.connected += r.connected;
+    byAgent.set(r.agent, a);
   });
   window.CHARTS.renderObActivityCombo('obActivityTypeChart', [...byType.values()], isDark, 'By Activity Type');
-
-  const agents = [...new Set(obActivity.map(r => r.agent))].sort((a, b) => a.localeCompare(b));
-  agents.forEach((agent, i) => {
-    const rows = obActivity.filter(r => r.agent === agent).map(r => ({ category: r.category, total: r.total, connected: r.connected }));
-    window.CHARTS.renderObActivityCombo(`obActivityAgentChart-${i}`, rows, isDark, agent);
-  });
+  window.CHARTS.renderObActivityCombo('obActivityAgentChart', [...byAgent.values()], isDark, 'By Agent');
 }
 
 function buildClosedPartialTable(agents) {
