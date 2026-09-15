@@ -704,6 +704,52 @@ function renderEmailSentAgentWise(id, agents, isDark) {
   });
 }
 
+/* ── OUTBOUND ACTIVITY — Total/Connected bars + Connectivity % line, dual axis ──
+   rows: [{ category, total, connected }, ...] */
+function renderObActivityCombo(id, rows, isDark, title) {
+  const ctx = getCtx(id);
+  if (!ctx) return;
+  const sorted = [...rows].sort((a, b) => b.total - a.total);
+  const labels = sorted.map(r => r.category);
+  const totals = sorted.map(r => r.total);
+  const connected = sorted.map(r => r.connected);
+  const connectivity = sorted.map(r => r.total > 0 ? (r.connected / r.total) * 100 : 0);
+  const textColor = isDark ? '#b0b5c0' : '#6b7280';
+
+  ctx.chart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Total', data: totals, backgroundColor: chartColors.orange, borderRadius: 2, yAxisID: 'y',
+          datalabels: { anchor: 'end', align: 'end', offset: 2, clamp: true, color: textColor, font: { size: 9, weight: '700' }, formatter: dlFormatter }
+        },
+        {
+          label: 'Connected', data: connected, backgroundColor: '#9ca3af', borderRadius: 2, yAxisID: 'y',
+          datalabels: { anchor: 'end', align: 'end', offset: 2, clamp: true, color: textColor, font: { size: 9, weight: '700' }, formatter: dlFormatter }
+        },
+        {
+          label: 'Connectivity %', data: connectivity, type: 'line',
+          borderColor: chartColors.amber, backgroundColor: 'transparent', borderWidth: 2,
+          pointRadius: 3, pointBackgroundColor: chartColors.amber, tension: 0.3,
+          yAxisID: 'y1',
+          datalabels: { align: 'top', offset: 4, clamp: true, color: chartColors.amber, font: { size: 9, weight: '700' }, formatter: v => v.toFixed(0) + '%' }
+        }
+      ]
+    },
+    options: {
+      ...defaultOpts(title, isDark),
+      plugins: { ...defaultOpts(title, isDark).plugins, legend: { position: 'bottom', labels: { color: textColor, font: { size: 10 }, boxWidth: 12, padding: 8 } } },
+      scales: {
+        x: { ticks: { color: textColor, font: { size: 9 }, maxRotation: 40, minRotation: 0 }, grid: { display: false } },
+        y: { beginAtZero: true, ticks: { color: textColor, font: { size: 9 } }, grid: { display: false } },
+        y1: { beginAtZero: true, max: 120, position: 'right', ticks: { color: chartColors.amber, font: { size: 9 }, callback: v => v + '%' }, grid: { display: false } }
+      }
+    }
+  });
+}
+
 /* ── CHATBOT CHART RENDERER (inline) ── */
 function renderMiniChart(canvasId, type, labels, data, label, color, isDark) {
   const ctx = document.getElementById(canvasId)?.getContext('2d');
@@ -758,5 +804,6 @@ window.CHARTS = {
   renderAgentHeatmap, renderMiniChart, renderDayWiseChart,
   renderAgentProductivity, renderBreakDuration, renderQualityRatio, renderAgentMissed, renderAgentHangup, renderTrainingByAgent, renderDowntimeByAgent, renderAppreciationEscalation, renderStatBar, renderHourlyMissed, renderFreshCallsComparison,
   renderFacilityCallCases, renderFacilityEmailCases, renderEmailSentAgentWise, renderIBCasesAppointments,
+  renderObActivityCombo,
   chartColors, colorPalette
 };

@@ -466,11 +466,14 @@ function renderDashboard() {
     charts.renderStatBar('statChartAHTTotal', ['IB Total', 'OB Total'],
       [processData.ibTalkTimeSec || 0, processData.obTalkTimeSec || 0],
       ['rgba(37,99,235,0.75)', 'rgba(234,88,12,0.75)'], isDarkNow, v => secondsToHms(v));
-    const missedDetailVals = [processData.agentMissedInbound || 0, processData.ivrMissed || 0, processData.queueMissed || 0, processData.serviceMissed || 0];
-    // % is out of Total Inbound Calls (matches IB Bifurcation's "Total"), not
-    // out of the sum of these 4 missed types -- e.g. 3 agent-missed out of 84
-    // total inbound calls is 4%, not 10% (which would be 3 out of 31 total missed).
-    const missedDetailDenominator = processData.totalCalls || 1;
+    // Working-hours-only, same scoping as Missed Call % -- a call that arrived
+    // when nobody was supposed to be working isn't a real Agent/IVR/Queue/
+    // Service failure to attribute.
+    const missedDetailVals = [processData.agentMissedIbWh || 0, processData.ivrMissedWh || 0, processData.queueMissedWh || 0, processData.serviceMissedWh || 0];
+    // % is out of IB Offered (Working Hours) -- the working-hours-scoped
+    // denominator, not the sum of these 4 missed types -- e.g. 3 agent-missed
+    // out of 84 working-hours-offered calls is 4%, not 10%.
+    const missedDetailDenominator = processData.ibOfferedWorkingHours || 1;
     charts.renderStatBar('statChartMissed', ['Agent', 'IVR', 'Queue', 'Service'],
       missedDetailVals,
       ['rgba(220,38,38,0.75)', 'rgba(217,119,6,0.75)', 'rgba(124,58,237,0.75)', 'rgba(8,145,178,0.75)'], isDarkNow,
@@ -510,7 +513,10 @@ function renderDashboard() {
         if (insights.downtime && insights.downtime.length) window.CHARTS.renderDowntimeByAgent('downtimeByAgentChart', insights.downtime, isDarkNow);
       }
       if (conversionEl) conversionEl.innerHTML = buildConversionInsights(insights.conversions);
-      if (obActivityEl) obActivityEl.innerHTML = buildObActivityInsights(insights.obActivity);
+      if (obActivityEl) {
+        obActivityEl.innerHTML = buildObActivityInsights(insights.obActivity);
+        if (insights.obActivity && insights.obActivity.length) renderObActivityCharts(insights.obActivity, isDarkNow);
+      }
       // Live email counts (from email_tagged_daily, no next-day lag) override the
       // Sheet-sourced emailsHandled per agent wherever they're available, feeding
       // both the Agent Productivity chart and the Emails Handled KPI card.
@@ -933,7 +939,7 @@ function buildTopStatGroups(d, processName) {
       </div>
     </div>
     <div class="stat-group-card">
-      <div class="stat-group-title"><i class="ti ti-phone-x"></i> Missed Details</div>
+      <div class="stat-group-title"><i class="ti ti-phone-x"></i> Missed Details (Working Hours)</div>
       <div class="stat-group-chart" id="statChartMissed"></div>
     </div>
     <div class="stat-group-card">
@@ -1153,42 +1159,44 @@ function buildConversionInsights(conversions) {
    used everywhere else), not the free-text status in the note. */
 function buildObActivityInsights(obActivity) {
   if (!obActivity || !obActivity.length) return '<div style="text-align:center;padding:30px;color:var(--muted);">No outbound activity logged for this range.</div>';
-  const pct = (connected, total) => total > 0 ? (connected / total * 100).toFixed(1) : '0.0';
+  const agents = [...new Set(obActivity.map(r => r.agent))].sort((a, b) => a.localeCompare(b));
 
-  // By Activity Type -- totals across all agents, so you can see which
-  // activity type gets worked the most / connects best, independent of agent.
+  // Chart-container skeleton only -- renderObActivityCharts() (called right
+  // after this HTML is injected) does the actual grouping + Chart.js render,
+  // same two-step pattern as Training/Quality/Downtime above.
+  return `
+    <div class="stat-group-card" style="margin-bottom:14px;">
+      <div class="stat-group-title">By Activity Type — All Agents</div>
+      <div class="stat-group-chart" id="obActivityTypeChart" style="height:260px;"></div>
+    </div>
+    <div class="stat-group-row">
+      ${agents.map((agent, i) => `
+      <div class="stat-group-card">
+        <div class="stat-group-title">${agent}</div>
+        <div class="stat-group-chart" id="obActivityAgentChart-${i}" style="height:260px;"></div>
+      </div>`).join('')}
+    </div>`;
+}
+
+/* Groups obActivity rows (by type across all agents, and per-agent) and
+   renders the Total/Connected/Connectivity% combo chart for each -- must run
+   after buildObActivityInsights()'s HTML is already in the DOM. */
+function renderObActivityCharts(obActivity, isDark) {
+  if (!obActivity || !obActivity.length) return;
+
   const byType = new Map();
   obActivity.forEach(r => {
     const cur = byType.get(r.category) || { category: r.category, total: 0, connected: 0 };
     cur.total += r.total; cur.connected += r.connected;
     byType.set(r.category, cur);
   });
-  const typeRows = [...byType.values()].sort((a, b) => b.total - a.total);
+  window.CHARTS.renderObActivityCombo('obActivityTypeChart', [...byType.values()], isDark, 'By Activity Type');
 
-  // Agent + Activity detail, grouped by agent (A-Z), each agent's own
-  // activities sorted by volume, with a bold Total row per agent.
   const agents = [...new Set(obActivity.map(r => r.agent))].sort((a, b) => a.localeCompare(b));
-  const detailRows = agents.map(agent => {
-    const rows = obActivity.filter(r => r.agent === agent).sort((a, b) => b.total - a.total);
-    const agentTotal = rows.reduce((s, r) => s + r.total, 0);
-    const agentConnected = rows.reduce((s, r) => s + r.connected, 0);
-    return rows.map(r => `<tr><td>${r.agent}</td><td>${r.category}</td><td>${r.total}</td><td>${r.connected}</td><td>${pct(r.connected, r.total)}%</td></tr>`).join('')
-      + `<tr style="font-weight:700;background:var(--surface2);"><td>${agent} — Total</td><td></td><td>${agentTotal}</td><td>${agentConnected}</td><td>${pct(agentConnected, agentTotal)}%</td></tr>`;
-  }).join('');
-
-  return `
-    <div class="table-wrap" style="margin-bottom:14px;">
-      <table>
-        <thead><tr><th>Activity</th><th>Total</th><th>Connected</th><th>Connectivity %</th></tr></thead>
-        <tbody>${typeRows.map(t => `<tr><td>${t.category}</td><td>${t.total}</td><td>${t.connected}</td><td>${pct(t.connected, t.total)}%</td></tr>`).join('')}</tbody>
-      </table>
-    </div>
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>Agent</th><th>Activity</th><th>Total</th><th>Connected</th><th>Connectivity %</th></tr></thead>
-        <tbody>${detailRows}</tbody>
-      </table>
-    </div>`;
+  agents.forEach((agent, i) => {
+    const rows = obActivity.filter(r => r.agent === agent).map(r => ({ category: r.category, total: r.total, connected: r.connected }));
+    window.CHARTS.renderObActivityCombo(`obActivityAgentChart-${i}`, rows, isDark, agent);
+  });
 }
 
 function buildClosedPartialTable(agents) {

@@ -376,6 +376,14 @@ function aggregateProcess(rows, processName) {
   const queueMissed = sumProcessDayConstant(daily, "Queue Missed");
   const ivrMissed = sumProcessDayConstant(daily, "IVR Missed");
   const serviceMissed = sumProcessDayConstant(daily, "Service Missed");
+  // Working-hours-only versions (Step14/15) -- the Missed Details card is
+  // scoped to working hours only, same reasoning as Missed Call % above: a
+  // call that arrived when nobody was supposed to be working isn't a real
+  // service failure to attribute to Agent/IVR/Queue/Service.
+  const queueMissedWh = sumProcessDayConstant(daily, "Queue Missed (WH)");
+  const ivrMissedWh = sumProcessDayConstant(daily, "IVR Missed (WH)");
+  const serviceMissedWh = sumProcessDayConstant(daily, "Service Missed (WH)");
+  const agentMissedIbWh = sumNumber(daily, "Agent Missed IB (WH)");
   // Same process-day-constant pattern — a call that came in outside working
   // hours (no agent logged in) isn't attributable to any one agent either.
   const missedWorkingHours = sumProcessDayConstant(daily, "Missed Working Hours");
@@ -443,6 +451,7 @@ function aggregateProcess(rows, processName) {
     agentMissedPercent: totalCalls > 0 ? (agentMissedIb + agentMissedOb) / totalCalls : 0,
     customerMissedPercent: ob > 0 ? customerMissed / ob : 0,
     queueMissed, ivrMissed, serviceMissed,
+    queueMissedWh, ivrMissedWh, serviceMissedWh, agentMissedIbWh,
     missedWorkingHours, missedNonWorkingHours, ibOfferedWorkingHours, ibOfferedNonWorkingHours,
     ibAnsweredWorkingHours, sla15sAnsweredWorkingHours,
     sla15sPercent: ibAnsweredWorkingHours > 0 ? sla15sAnsweredWorkingHours / ibAnsweredWorkingHours : 0,
