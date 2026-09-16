@@ -704,7 +704,8 @@ function renderEmailSentAgentWise(id, agents, isDark) {
   });
 }
 
-/* ── OUTBOUND ACTIVITY — Total/Connected bars + Connectivity % line, dual axis ──
+/* ── OUTBOUND ACTIVITY — Total/Connected bars, connectivity % labeled on the
+   Connected bar itself instead of a separate line series ──
    rows: [{ category, total, connected }, ...] */
 function renderObActivityCombo(id, rows, isDark, title) {
   const ctx = getCtx(id);
@@ -713,7 +714,7 @@ function renderObActivityCombo(id, rows, isDark, title) {
   const labels = sorted.map(r => r.category);
   const totals = sorted.map(r => r.total);
   const connected = sorted.map(r => r.connected);
-  const connectivity = sorted.map(r => r.total > 0 ? (r.connected / r.total) * 100 : 0);
+  const pct = (c, t) => t > 0 ? Math.round((c / t) * 100) : 0;
   const textColor = isDark ? '#b0b5c0' : '#6b7280';
 
   ctx.chart = new Chart(ctx, {
@@ -722,29 +723,25 @@ function renderObActivityCombo(id, rows, isDark, title) {
       labels,
       datasets: [
         {
-          label: 'Total', data: totals, backgroundColor: chartColors.orange, borderRadius: 2, yAxisID: 'y',
+          label: 'Total', data: totals, backgroundColor: chartColors.orange, borderRadius: 2,
           datalabels: { anchor: 'end', align: 'end', offset: 2, clamp: true, color: textColor, font: { size: 9, weight: '700' }, formatter: dlFormatter }
         },
         {
-          label: 'Connected', data: connected, backgroundColor: '#9ca3af', borderRadius: 2, yAxisID: 'y',
-          datalabels: { anchor: 'end', align: 'end', offset: 2, clamp: true, color: textColor, font: { size: 9, weight: '700' }, formatter: dlFormatter }
-        },
-        {
-          label: 'Connectivity %', data: connectivity, type: 'line',
-          borderColor: chartColors.amber, backgroundColor: 'transparent', borderWidth: 2,
-          pointRadius: 3, pointBackgroundColor: chartColors.amber, tension: 0.3,
-          yAxisID: 'y1',
-          datalabels: { align: 'top', offset: 4, clamp: true, color: chartColors.amber, font: { size: 9, weight: '700' }, formatter: v => v.toFixed(0) + '%' }
+          label: 'Connected', data: connected, backgroundColor: '#9ca3af', borderRadius: 2,
+          datalabels: {
+            anchor: 'end', align: 'end', offset: 2, clamp: true, color: chartColors.amber, font: { size: 9, weight: '700' },
+            formatter: (v, ctx) => v === 0 ? '' : `${v} (${pct(v, totals[ctx.dataIndex])}%)`
+          }
         }
       ]
     },
     options: {
       ...defaultOpts(title, isDark),
+      layout: { padding: { top: 16 } },
       plugins: { ...defaultOpts(title, isDark).plugins, legend: { position: 'bottom', labels: { color: textColor, font: { size: 10 }, boxWidth: 12, padding: 8 } } },
       scales: {
         x: { ticks: { color: textColor, font: { size: 9 }, maxRotation: 40, minRotation: 0 }, grid: { display: false } },
-        y: { beginAtZero: true, ticks: { color: textColor, font: { size: 9 } }, grid: { display: false } },
-        y1: { beginAtZero: true, max: 120, position: 'right', ticks: { color: chartColors.amber, font: { size: 9 }, callback: v => v + '%' }, grid: { display: false } }
+        y: { beginAtZero: true, ticks: { color: textColor, font: { size: 9 } }, grid: { display: false } }
       }
     }
   });
