@@ -504,7 +504,7 @@ function aggregateAgents(rows, includeProcess) {
       agent, sip: r.SIP || '', process: proc,
       inboundAnswered: 0, outboundAll: 0, obAnswered: 0, emailsHandled: 0,
       agentMissed: 0, agentMissedIb: 0, agentMissedOb: 0, customerMissed: 0,
-      hangupIB: 0, hangupOB: 0, crmCall: 0, crmEmail: 0, crmTotalCases: 0, crmInboundCases: 0,
+      hangupIB: 0, hangupOB: 0, crmCall: 0, crmEmail: 0, crmTotalCases: 0, crmInboundCases: 0, crmOutboundCases: 0,
       nonTrading: 0, closedCases: 0, partialClosedCases: 0,
       appreciationCount: 0, escalationCount: 0,
       crmEscalationOpen: 0, crmEscalationPendingField: 0, crmEscalationPendingRhc: 0,
@@ -534,6 +534,7 @@ function aggregateAgents(rows, includeProcess) {
     // both inbound and outbound calls) -- used for the IB Calls vs CRM Cases
     // vs Appointments chart, which should only count inbound-originated cases.
     cur.crmInboundCases += toNumber(r["CRM Inbound Cases"]);
+    cur.crmOutboundCases += toNumber(r["CRM Outbound Cases"]);
     cur.nonTrading += toNumber(r["Non Trading"]);
     cur.closedCases += toNumber(r["Closed"]);
     cur.partialClosedCases += toNumber(r["Partial Closed"]);
