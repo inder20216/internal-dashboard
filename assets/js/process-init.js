@@ -25,15 +25,26 @@
   });
   if (!authorized) return; // gate is showing sign-in / access-denied UI
 
+  const access = window.AUTH.access;
+  // Admins keep the full dataset -- their switcher below lets them jump to
+  // any process from here, so they still need every process's rows. Everyone
+  // else is permanently locked to one process, so filter server-side instead
+  // of downloading the whole ~13MB company-wide payload just to show one.
+  const filterProcess = access.role === 'admin' ? null : proc;
+
   setLoad(15, 'Connecting to API...');
   try {
-    await window.APP_DATA.fetchData();
+    await window.APP_DATA.fetchData(filterProcess);
     setLoad(55, 'Processing data...');
 
     const processList = window.APP_DATA.processList;
     // "Facility" is a synthetic combined process (Infres/VMM/Nihon) -- it never
     // appears as a real "Process Name" value, so it won't be in processList.
-    const isValidProcess = proc === 'Facility' || processList.includes(proc);
+    // For a filtered (non-admin) fetch, the webhook already scoped the rows to
+    // just this process, so any non-empty result is by definition valid.
+    const isValidProcess = filterProcess
+      ? window.APP_DATA.allRows.length > 0
+      : (proc === 'Facility' || processList.includes(proc));
 
     if (!proc || !isValidProcess) {
       fail(proc
@@ -56,7 +67,6 @@
     // every process instead -- previously they had no way back except editing
     // the URL by hand once they'd jumped here from admin.html's "Jump to a
     // process" selector, which navigates away rather than filtering in place.
-    const access = window.AUTH.access;
     const switcherEl = document.getElementById('processSwitcher');
     if (switcherEl && access.role === 'admin') {
       const allProcesses = [...processList, 'Facility'].sort();
@@ -65,9 +75,12 @@
       switcherEl.innerHTML = `<select class="form-select w-full" id="adminProcessSwitcherSelect" onchange="const v=this.value; location.href = v==='__admin__' ? 'admin.html' : 'process.html?process='+encodeURIComponent(v);">${options.join('')}</select>`;
       switcherEl.style.display = 'flex';
     } else if (switcherEl && access.processes.length > 1) {
-      switcherEl.innerHTML = access.processes.map(p =>
-        `<a class="process-switch-item ${p === proc ? 'active' : ''}" href="process.html?process=${encodeURIComponent(p)}">${p}</a>`
-      ).join('');
+      // Dropdown instead of a row of pill buttons -- with several processes
+      // assigned, the buttons pushed the rest of the topbar into a cramped,
+      // compacted layout. A single select stays a fixed width regardless of
+      // how many processes the user has access to.
+      const options = access.processes.map(p => `<option value="${p}" ${p === proc ? 'selected' : ''}>${p}</option>`);
+      switcherEl.innerHTML = `<select class="form-select w-full" id="userProcessSwitcherSelect" onchange="location.href='process.html?process='+encodeURIComponent(this.value);">${options.join('')}</select>`;
       switcherEl.style.display = 'flex';
     }
 

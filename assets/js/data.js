@@ -661,13 +661,23 @@ function computeSixSigma(processData) {
   return { dpm, sigmaLevel, yield: yield_, defects, opportunities, dpmo: dpm };
 }
 
-/* ── FETCH ── */
-async function fetchData() {
-  const res = await fetch(API_URL);
+/* ── FETCH ──
+   processFilter, when given, asks the webhook to return only that process's
+   rows (or Infres+VMM+Nihon for "Facility") instead of the full ~13MB
+   company-wide dataset -- used by process.html for non-admin single-process
+   users, since they never need any other process's data. Admin/cross-process
+   callers (admin.html, refreshData for admins) omit it and get everything,
+   same as before. */
+async function fetchData(processFilter) {
+  const url = processFilter ? `${API_URL}?process=${encodeURIComponent(processFilter)}` : API_URL;
+  const res = await fetch(url);
   if (!res.ok) throw new Error(`API ${res.status}`);
   const data = await res.json();
   allRows = Array.isArray(data) ? data : (Array.isArray(data.data) ? data.data : []);
-  if (!allRows.length) throw new Error('No data');
+  // A filtered fetch legitimately returning zero rows means "this process has
+  // no data" (handled by the caller as a not-found case), not a real failure --
+  // only the unfiltered case should hard-fail on an empty result.
+  if (!allRows.length && !processFilter) throw new Error('No data');
   processList = [...new Set(allRows.map(r => r["Process Name"]).filter(Boolean))].sort();
   APP_DATA.allRows = allRows;
   APP_DATA.processList = processList;

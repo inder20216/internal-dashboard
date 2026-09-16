@@ -168,7 +168,12 @@ function refreshData() {
   (async () => {
     try {
       const prevProcess = window.APP_DATA.currentState.selectedProcess;
-      await window.APP_DATA.fetchData();
+      // Preserve the same server-side process filter process-init.js applied
+      // on load -- admins/admin.html still get the full dataset (userProcess
+      // is only ever set on process.html for non-admins), everyone else keeps
+      // getting just their own process instead of re-downloading everything.
+      const filterProcess = window.AUTH.access.role === 'admin' ? null : window.APP_DATA.currentState.userProcess;
+      await window.APP_DATA.fetchData(filterProcess);
       window.APP_DATA.currentState.selectedProcess = prevProcess;
       populateProcessDropdowns();
       const pf = document.getElementById('globalProcessFilter');
