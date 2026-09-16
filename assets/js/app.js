@@ -380,7 +380,7 @@ function renderDashboard() {
         <div class="panel-header"><i class="ti ti-star"></i> Call Quality Ratio — Agent Wise</div>
         <div class="panel-body" id="qualityInsightsBody"><div style="text-align:center;padding:20px;color:var(--muted);">Loading…</div></div>
       </div>
-      ${['ResMed', 'LOTS'].includes(processName) ? `
+      ${['ResMed', 'LOTS', 'PSRI'].includes(processName) ? `
       <div class="panel">
         <div class="panel-header"><i class="ti ti-heart-handshake"></i> Appreciation &amp; Escalation — Agent Wise</div>
         <div class="panel-body">

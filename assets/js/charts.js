@@ -672,14 +672,16 @@ function renderIBCasesAppointments(id, agents, appointments, isDark) {
   const ctx = getCtx(id);
   if (!ctx) return;
   const apptByAgent = new Map((appointments || []).map(a => [a.agent, a.count]));
-  const rows = (agents || []).filter(a => (a.inboundAnswered || 0) + (a.crmTotalCases || 0) + (apptByAgent.get(a.agent) || 0) > 0);
+  const rows = (agents || []).filter(a => (a.inboundAnswered || 0) + (a.crmInboundCases || 0) + (apptByAgent.get(a.agent) || 0) > 0);
   ctx.chart = new Chart(ctx, {
     type: 'bar',
     data: {
       labels: rows.map(a => a.agent),
       datasets: [
         { label: 'IB Calls Answered', data: rows.map(a => a.inboundAnswered || 0), backgroundColor: 'rgba(37,99,235,0.8)', borderRadius: 3 },
-        { label: 'CRM Cases Logged', data: rows.map(a => a.crmTotalCases || 0), backgroundColor: 'rgba(220,38,38,0.8)', borderRadius: 3 },
+        // Inbound-only, not the blended Total_Cases (which also includes
+        // outbound-originated CRM cases) -- this chart is specifically IB vs CRM vs Appointments.
+        { label: 'CRM Cases Logged', data: rows.map(a => a.crmInboundCases || 0), backgroundColor: 'rgba(220,38,38,0.8)', borderRadius: 3 },
         { label: 'Appointments', data: rows.map(a => apptByAgent.get(a.agent) || 0), backgroundColor: 'rgba(5,150,105,0.8)', borderRadius: 3 }
       ]
     },
