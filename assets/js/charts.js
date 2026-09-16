@@ -599,22 +599,25 @@ function renderFreshCallsComparison(id, freshCallsComparison, isDark) {
   if (!ctx) return;
   const textColor = isDark ? '#b0b5c0' : '#6b7280';
   const rows = freshCallsComparison || [];
-  // CDR side is one solid bar (Fresh Inbound + Call Back on Missed combined),
-  // with the IB/Missed split shown only in the datalabel text, not as separate
-  // stacked colors. CRM Case Logged stays a separate bar alongside it.
+  // Fresh Inbound and Call Back on Missed are now separate bars (previously
+  // combined into one "Fresh Calls (CDR Notes)" bar with the split only shown
+  // as text) -- CRM Case Logged is call-only (case_logged_call), excluding
+  // email cases, so it's a fair comparison against CDR-sourced call notes.
   ctx.chart = new Chart(ctx, {
     type: 'bar',
     data: {
-      // Multi-line tick: agent name + their IB/CB split shown as a subtitle
-      // under the axis, rather than crowding the bar's own datalabel.
-      labels: rows.map(r => [r.agent, `(IB-${r.ibFreshCount || 0}/CB-${r.callbackFreshCount || 0})`]),
+      labels: rows.map(r => r.agent),
       datasets: [
         {
-          label: 'Fresh Calls (CDR Notes)', data: rows.map(r => (r.ibFreshCount || 0) + (r.callbackFreshCount || 0)), backgroundColor: 'rgba(37,99,235,0.75)', borderRadius: 3,
+          label: 'Fresh Inbound', data: rows.map(r => r.ibFreshCount || 0), backgroundColor: 'rgba(37,99,235,0.75)', borderRadius: 3,
           datalabels: { anchor: 'end', align: 'end', offset: 2, color: textColor, font: { size: 9, weight: '600' }, formatter: v => v || '' }
         },
         {
-          label: 'Fresh CRM Case (Logged)', data: rows.map(r => r.crmCount), backgroundColor: 'rgba(5,150,105,0.75)', borderRadius: 3,
+          label: 'Call Back on Missed', data: rows.map(r => r.callbackFreshCount || 0), backgroundColor: 'rgba(217,119,6,0.75)', borderRadius: 3,
+          datalabels: { anchor: 'end', align: 'end', offset: 2, color: textColor, font: { size: 9, weight: '600' }, formatter: v => v || '' }
+        },
+        {
+          label: 'Fresh CRM Case (Logged, Call only)', data: rows.map(r => r.crmCount), backgroundColor: 'rgba(5,150,105,0.75)', borderRadius: 3,
           datalabels: { anchor: 'end', align: 'end', offset: 2, color: textColor, font: { size: 9, weight: '600' }, formatter: v => v || '' }
         }
       ]
