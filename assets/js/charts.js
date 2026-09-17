@@ -823,7 +823,7 @@ function renderHstCountsByLeadSource(id, hstRows, isDark) {
 /* Chart 2: Follow Up Status, Not Closed records. Grouped Agent (outer) ->
    Lead Source (inner), single "Not Closed" series. */
 function renderHstFollowUpStatus(id, hstRows, isDark) {
-  renderHstNestedBar(id, hstRows, isDark, 'Not Closed', 'agent', 'leadSource', 'Not Closed', chartColors.red, 'HST Follow Up Status');
+  renderHstNestedBar(id, hstRows, isDark, 'Not Closed', 'agent', 'leadSource', 'Not Closed', chartColors.red, 'HST Follow Up Status', true);
 }
 
 /* Chart 3: Closed — Conversion Issues, grouped by issue category with one
