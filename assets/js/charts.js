@@ -758,60 +758,66 @@ function renderObActivityCombo(id, rows, isDark, title) {
 /* ── HST FULFILMENT (ResMed only) ──
    hstRows: [{ date, agent, leadSource, status, conversionIssue }, ...] */
 
-/* Shared builder for both Chart 1 (Closed) and Chart 2 (Not Closed) -- same
-   shape, grouped by Lead Source with one series per agent, just filtered to
-   a different status. */
-function renderHstStatusByLeadSource(id, hstRows, isDark, status, title) {
+/* Shared builder for both Chart 1 (Closed, grouped Lead Source -> Agent) and
+   Chart 2 (Not Closed, grouped Agent -> Lead Source) -- matches the source
+   Excel PivotCharts exactly: a single series with a nested/compound category
+   axis, not one color per agent. Chart.js merges consecutive bars that share
+   the same outer label into one spanning header when labels are passed as
+   [outer, inner] pairs, same as Excel's two-level category axis. */
+function renderHstNestedBar(id, hstRows, isDark, status, outerKey, innerKey, seriesLabel, seriesColor, title) {
   const ctx = getCtx(id);
   if (!ctx) return;
   const textColor = isDark ? '#b0b5c0' : '#6b7280';
   const rows = (hstRows || []).filter(r => r.status === status);
-  const agents = [...new Set(rows.map(r => r.agent))].sort();
-  const leadSources = [...new Set(rows.map(r => r.leadSource))].sort((a, b) => {
-    const countA = rows.filter(r => r.leadSource === a).length;
-    const countB = rows.filter(r => r.leadSource === b).length;
-    return countB - countA;
-  });
+
   const counts = new Map();
   rows.forEach(r => {
-    const key = r.leadSource + '||' + r.agent;
+    const key = r[outerKey] + '||' + r[innerKey];
     counts.set(key, (counts.get(key) || 0) + 1);
+  });
+  const outerTotals = new Map();
+  rows.forEach(r => outerTotals.set(r[outerKey], (outerTotals.get(r[outerKey]) || 0) + 1));
+  const outerValues = [...outerTotals.keys()].sort((a, b) => outerTotals.get(b) - outerTotals.get(a));
+
+  const bars = [];
+  outerValues.forEach(outerVal => {
+    const inners = [...new Set(rows.filter(r => r[outerKey] === outerVal).map(r => r[innerKey]))].sort();
+    inners.forEach(innerVal => {
+      bars.push({ outerVal, innerVal, count: counts.get(outerVal + '||' + innerVal) || 0 });
+    });
   });
 
   ctx.chart = new Chart(ctx, {
     type: 'bar',
     data: {
-      labels: leadSources,
-      datasets: agents.map((agent, i) => ({
-        label: agent,
-        data: leadSources.map(ls => counts.get(ls + '||' + agent) || 0),
-        backgroundColor: colorPalette[i % colorPalette.length],
-        borderRadius: 3,
+      labels: bars.map(b => [b.outerVal, b.innerVal]),
+      datasets: [{
+        label: seriesLabel, data: bars.map(b => b.count),
+        backgroundColor: seriesColor, borderRadius: 3,
         datalabels: { anchor: 'end', align: 'end', offset: 2, clamp: true, color: textColor, font: { size: 9, weight: '600' }, formatter: dlFormatter }
-      }))
+      }]
     },
     options: {
       ...defaultOpts(title, isDark),
-      plugins: { ...defaultOpts(title, isDark).plugins, legend: { position: 'bottom', labels: { color: textColor, font: { size: 10 }, boxWidth: 12, padding: 8 } } },
+      plugins: { ...defaultOpts(title, isDark).plugins, legend: { display: false } },
       scales: {
-        x: { ticks: { color: textColor, font: { size: 9 }, maxRotation: 40, minRotation: 0 }, grid: { display: false } },
+        x: { ticks: { color: textColor, font: { size: 9 }, autoSkip: false }, grid: { display: false } },
         y: { beginAtZero: true, ticks: { color: textColor, font: { size: 9 } }, grid: { display: false } }
       }
     }
   });
 }
 
-/* Chart 1: HST Counts — Lead Source wise, Closed records only, grouped bars
-   with one series per agent. */
+/* Chart 1: HST Counts — Lead Source wise, Closed records only. Grouped
+   Lead Source (outer) -> Agent (inner), single "Total" series. */
 function renderHstCountsByLeadSource(id, hstRows, isDark) {
-  renderHstStatusByLeadSource(id, hstRows, isDark, 'Closed', 'HST Counts — Lead Source Wise');
+  renderHstNestedBar(id, hstRows, isDark, 'Closed', 'leadSource', 'agent', 'Total', chartColors.purple, 'HST Counts — Lead Source Wise');
 }
 
-/* Chart 2: Follow Up Status — Not Closed records, same grouped-by-Lead-Source
-   shape as Chart 1, agent name + lead source both visible directly in the
-   chart (no separate summary bar or detail table). */
+/* Chart 2: Follow Up Status, Not Closed records. Grouped Agent (outer) ->
+   Lead Source (inner), single "Not Closed" series. */
 function renderHstFollowUpStatus(id, hstRows, isDark) {
-  renderHstStatusByLeadSource(id, hstRows, isDark, 'Not Closed', 'HST Follow Up Status — Not Closed, Lead Source Wise');
+  renderHstNestedBar(id, hstRows, isDark, 'Not Closed', 'agent', 'leadSource', 'Not Closed', chartColors.red, 'HST Follow Up Status');
 }
 
 /* Chart 3: Closed — Conversion Issues, grouped by issue category with one
