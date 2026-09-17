@@ -599,10 +599,9 @@ function renderFreshCallsComparison(id, freshCallsComparison, isDark) {
   if (!ctx) return;
   const textColor = isDark ? '#b0b5c0' : '#6b7280';
   const rows = freshCallsComparison || [];
-  // Fresh Inbound and Call Back on Missed are now separate bars (previously
-  // combined into one "Fresh Calls (CDR Notes)" bar with the split only shown
-  // as text) -- CRM Case Logged is call-only (case_logged_call), excluding
-  // email cases, so it's a fair comparison against CDR-sourced call notes.
+  // Both CDR-side (Fresh Inbound / Call Back on Missed) and CRM-side (cases
+  // logged) are now split the same way -- 4 bars total -- instead of the CRM
+  // side being one combined total, so IB and CB compare directly on both sides.
   ctx.chart = new Chart(ctx, {
     type: 'bar',
     data: {
@@ -617,7 +616,11 @@ function renderFreshCallsComparison(id, freshCallsComparison, isDark) {
           datalabels: { anchor: 'end', align: 'end', offset: 2, color: textColor, font: { size: 9, weight: '600' }, formatter: v => v || '' }
         },
         {
-          label: 'Fresh CRM Case (Logged, Call only)', data: rows.map(r => r.crmCount), backgroundColor: 'rgba(5,150,105,0.75)', borderRadius: 3,
+          label: 'CRM Case Logged (Inbound)', data: rows.map(r => r.crmIbCount || 0), backgroundColor: 'rgba(5,150,105,0.75)', borderRadius: 3,
+          datalabels: { anchor: 'end', align: 'end', offset: 2, color: textColor, font: { size: 9, weight: '600' }, formatter: v => v || '' }
+        },
+        {
+          label: 'CRM Case Logged (Call Back)', data: rows.map(r => r.crmCbCount || 0), backgroundColor: 'rgba(124,58,237,0.75)', borderRadius: 3,
           datalabels: { anchor: 'end', align: 'end', offset: 2, color: textColor, font: { size: 9, weight: '600' }, formatter: v => v || '' }
         }
       ]

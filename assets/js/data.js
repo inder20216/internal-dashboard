@@ -758,10 +758,16 @@ function aggregateTrackerInsights(rows) {
     const map = r.category === 'Call Back on Missed' ? callbackFreshByAgent : ibFreshByAgent;
     map.set(r.agent_name, (map.get(r.agent_name) || 0) + (Number(r.value) || 0));
   });
-  const crmByAgent = new Map(rows.filter(r => r.metric_type === 'fresh_calls_crm').map(r => [r.agent_name, Number(r.value) || 0]));
-  const freshAgents = [...new Set([...ibFreshByAgent.keys(), ...callbackFreshByAgent.keys(), ...crmByAgent.keys()])].filter(a => !isTransferPseudoAgent(a)).sort();
+  const crmIbByAgent = new Map();
+  const crmCbByAgent = new Map();
+  rows.filter(r => r.metric_type === 'fresh_calls_crm').forEach(r => {
+    const map = r.category === 'Call Back on Missed' ? crmCbByAgent : crmIbByAgent;
+    map.set(r.agent_name, (map.get(r.agent_name) || 0) + (Number(r.value) || 0));
+  });
+  const freshAgents = [...new Set([...ibFreshByAgent.keys(), ...callbackFreshByAgent.keys(), ...crmIbByAgent.keys(), ...crmCbByAgent.keys()])].filter(a => !isTransferPseudoAgent(a)).sort();
   const freshCallsComparison = freshAgents.map(agent => ({
-    agent, ibFreshCount: ibFreshByAgent.get(agent) || 0, callbackFreshCount: callbackFreshByAgent.get(agent) || 0, crmCount: crmByAgent.get(agent) || 0
+    agent, ibFreshCount: ibFreshByAgent.get(agent) || 0, callbackFreshCount: callbackFreshByAgent.get(agent) || 0,
+    crmIbCount: crmIbByAgent.get(agent) || 0, crmCbCount: crmCbByAgent.get(agent) || 0
   }));
   // Agent-wise "STg tagging" case count (from CDR notes) -- Facility only.
   const stgTagging = rows.filter(r => r.metric_type === 'stg_tagging').map(r => ({
