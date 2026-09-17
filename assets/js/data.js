@@ -700,10 +700,16 @@ const INSIGHTS_ENDPOINTS = [
 
 /* HST Fulfilment summary (ResMed only) -- separate fetch since its row shape
    (date/agent/leadSource/status/conversionIssue) doesn't match the generic
-   metric_type/agent_name/value shape every other tracker-insight endpoint uses. */
+   metric_type/agent_name/value shape every other tracker-insight endpoint uses.
+   from/to are optional -- omit both to get every row, unfiltered (used by the
+   two HST charts that are not scoped to the dashboard's selected date). */
 async function fetchHstSummary(from, to) {
   try {
-    const url = `${INSIGHTS_BASE}tracker-hst-summary?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
+    const params = new URLSearchParams();
+    if (from) params.set('from', from);
+    if (to) params.set('to', to);
+    const qs = params.toString();
+    const url = `${INSIGHTS_BASE}tracker-hst-summary${qs ? '?' + qs : ''}`;
     const res = await fetch(url);
     if (!res.ok) throw new Error(`tracker-hst-summary ${res.status}`);
     const data = await res.json();

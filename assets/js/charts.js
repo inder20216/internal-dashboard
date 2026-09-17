@@ -768,7 +768,7 @@ function renderHstNestedBar(id, hstRows, isDark, status, outerKey, innerKey, ser
   const ctx = getCtx(id);
   if (!ctx) return;
   const textColor = isDark ? '#b0b5c0' : '#6b7280';
-  const rows = (hstRows || []).filter(r => r.status === status);
+  const rows = status ? (hstRows || []).filter(r => r.status === status) : (hstRows || []);
 
   const counts = new Map();
   rows.forEach(r => {
@@ -808,10 +808,13 @@ function renderHstNestedBar(id, hstRows, isDark, status, outerKey, innerKey, ser
   });
 }
 
-/* Chart 1: HST Counts — Lead Source wise, Closed records only. Grouped
-   Lead Source (outer) -> Agent (inner), single "Total" series. */
+/* Chart 1: HST Counts — Lead Source wise, ALL records regardless of status
+   (matches the reference pivot's Status = (All) filter). Grouped Lead
+   Source (outer) -> Agent (inner), single "Total" series. Date-scoped to
+   the dashboard's selected range by the caller (Create Date) -- the only
+   one of the three HST charts that is. */
 function renderHstCountsByLeadSource(id, hstRows, isDark) {
-  renderHstNestedBar(id, hstRows, isDark, 'Closed', 'leadSource', 'agent', 'Total', chartColors.purple, 'HST Counts — Lead Source Wise');
+  renderHstNestedBar(id, hstRows, isDark, null, 'leadSource', 'agent', 'Total', chartColors.purple, 'HST Counts — Lead Source Wise');
 }
 
 /* Chart 2: Follow Up Status, Not Closed records. Grouped Agent (outer) ->

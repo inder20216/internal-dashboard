@@ -561,9 +561,14 @@ function renderDashboard() {
 
   // HST Fulfilment (ResMed only) -- separate fetch/render chain since its data
   // shape doesn't fit the generic tracker-insights pipeline above.
+  // Only "HST Counts -- Lead Source Wise" is scoped to the dashboard's
+  // selected date range (by Create Date); Follow Up Status and Closed --
+  // Conversion Issues always show all-time data, so fetch everything once
+  // unfiltered and date-slice client-side just for the Counts chart.
   const hstReady = processName === 'ResMed'
-    ? data.fetchHstSummary(range.from, range.to).then(hstRows => {
-      if (document.getElementById('hstCountsChart')) window.CHARTS.renderHstCountsByLeadSource('hstCountsChart', hstRows, isDarkNow);
+    ? data.fetchHstSummary().then(hstRows => {
+      const hstRowsInRange = hstRows.filter(r => r.date && r.date >= range.from && r.date <= range.to);
+      if (document.getElementById('hstCountsChart')) window.CHARTS.renderHstCountsByLeadSource('hstCountsChart', hstRowsInRange, isDarkNow);
       if (document.getElementById('hstFollowUpChart')) window.CHARTS.renderHstFollowUpStatus('hstFollowUpChart', hstRows, isDarkNow);
       if (document.getElementById('hstConversionIssuesChart')) window.CHARTS.renderHstClosedConversionIssues('hstConversionIssuesChart', hstRows, isDarkNow);
     })
