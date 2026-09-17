@@ -764,7 +764,7 @@ function renderObActivityCombo(id, rows, isDark, title) {
    axis, not one color per agent. Chart.js merges consecutive bars that share
    the same outer label into one spanning header when labels are passed as
    [outer, inner] pairs, same as Excel's two-level category axis. */
-function renderHstNestedBar(id, hstRows, isDark, status, outerKey, innerKey, seriesLabel, seriesColor, title) {
+function renderHstNestedBar(id, hstRows, isDark, status, outerKey, innerKey, seriesLabel, seriesColor, title, sortOuterByName) {
   const ctx = getCtx(id);
   if (!ctx) return;
   const textColor = isDark ? '#b0b5c0' : '#6b7280';
@@ -777,7 +777,9 @@ function renderHstNestedBar(id, hstRows, isDark, status, outerKey, innerKey, ser
   });
   const outerTotals = new Map();
   rows.forEach(r => outerTotals.set(r[outerKey], (outerTotals.get(r[outerKey]) || 0) + 1));
-  const outerValues = [...outerTotals.keys()].sort((a, b) => outerTotals.get(b) - outerTotals.get(a));
+  const outerValues = sortOuterByName
+    ? [...outerTotals.keys()].sort((a, b) => String(a).localeCompare(String(b)))
+    : [...outerTotals.keys()].sort((a, b) => outerTotals.get(b) - outerTotals.get(a));
 
   const bars = [];
   outerValues.forEach(outerVal => {
@@ -809,12 +811,13 @@ function renderHstNestedBar(id, hstRows, isDark, status, outerKey, innerKey, ser
 }
 
 /* Chart 1: HST Counts — Lead Source wise, ALL records regardless of status
-   (matches the reference pivot's Status = (All) filter). Grouped Lead
-   Source (outer) -> Agent (inner), single "Total" series. Date-scoped to
-   the dashboard's selected range by the caller (Create Date) -- the only
-   one of the three HST charts that is. */
+   (matches the reference pivot's Status = (All) filter). Grouped Agent
+   (outer, sorted alphabetically -- shown once as the spanning header) ->
+   Lead Source (inner, individual bars), single "Total" series. Date-scoped
+   to the dashboard's selected range by the caller (Create Date) -- the
+   only one of the three HST charts that is. */
 function renderHstCountsByLeadSource(id, hstRows, isDark) {
-  renderHstNestedBar(id, hstRows, isDark, null, 'leadSource', 'agent', 'Total', chartColors.purple, 'HST Counts — Lead Source Wise');
+  renderHstNestedBar(id, hstRows, isDark, null, 'agent', 'leadSource', 'Total', chartColors.purple, 'HST Counts — Lead Source Wise', true);
 }
 
 /* Chart 2: Follow Up Status, Not Closed records. Grouped Agent (outer) ->
