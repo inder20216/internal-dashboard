@@ -755,6 +755,126 @@ function renderObActivityCombo(id, rows, isDark, title) {
   });
 }
 
+/* ── HST FULFILMENT (ResMed only) ──
+   hstRows: [{ date, agent, leadSource, status, conversionIssue }, ...] */
+
+/* Chart 1: HST Counts — Lead Source wise, Closed records only, grouped bars
+   with one series per agent. */
+function renderHstCountsByLeadSource(id, hstRows, isDark) {
+  const ctx = getCtx(id);
+  if (!ctx) return;
+  const textColor = isDark ? '#b0b5c0' : '#6b7280';
+  const closed = (hstRows || []).filter(r => r.status === 'Closed');
+  const agents = [...new Set(closed.map(r => r.agent))].sort();
+  const leadSources = [...new Set(closed.map(r => r.leadSource))].sort((a, b) => {
+    const countA = closed.filter(r => r.leadSource === a).length;
+    const countB = closed.filter(r => r.leadSource === b).length;
+    return countB - countA;
+  });
+  const counts = new Map();
+  closed.forEach(r => {
+    const key = r.leadSource + '||' + r.agent;
+    counts.set(key, (counts.get(key) || 0) + 1);
+  });
+
+  ctx.chart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: leadSources,
+      datasets: agents.map((agent, i) => ({
+        label: agent,
+        data: leadSources.map(ls => counts.get(ls + '||' + agent) || 0),
+        backgroundColor: colorPalette[i % colorPalette.length],
+        borderRadius: 3,
+        datalabels: { anchor: 'end', align: 'end', offset: 2, clamp: true, color: textColor, font: { size: 9, weight: '600' }, formatter: dlFormatter }
+      }))
+    },
+    options: {
+      ...defaultOpts('HST Counts — Lead Source Wise', isDark),
+      plugins: { ...defaultOpts('HST Counts — Lead Source Wise', isDark).plugins, legend: { position: 'bottom', labels: { color: textColor, font: { size: 10 }, boxWidth: 12, padding: 8 } } },
+      scales: {
+        x: { ticks: { color: textColor, font: { size: 9 }, maxRotation: 40, minRotation: 0 }, grid: { display: false } },
+        y: { beginAtZero: true, ticks: { color: textColor, font: { size: 9 } }, grid: { display: false } }
+      }
+    }
+  });
+}
+
+/* Chart 2: Follow Up Status — total Not Closed count per agent (the detail
+   Agent x Lead Source breakdown is shown as a table alongside this, since a
+   65-bar grouped chart -- 5 agents x 13 lead sources -- isn't readable). */
+function renderHstFollowUpStatus(id, hstRows, isDark) {
+  const ctx = getCtx(id);
+  if (!ctx) return;
+  const textColor = isDark ? '#b0b5c0' : '#6b7280';
+  const notClosed = (hstRows || []).filter(r => r.status === 'Not Closed');
+  const totals = new Map();
+  notClosed.forEach(r => totals.set(r.agent, (totals.get(r.agent) || 0) + 1));
+  const sorted = [...totals.entries()].sort((a, b) => b[1] - a[1]);
+
+  ctx.chart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: sorted.map(([agent]) => agent),
+      datasets: [{
+        label: 'Not Closed', data: sorted.map(([, count]) => count),
+        backgroundColor: chartColors.red, borderRadius: 3,
+        datalabels: { anchor: 'end', align: 'end', offset: 2, clamp: true, color: textColor, font: { size: 10, weight: '700' }, formatter: dlFormatter }
+      }]
+    },
+    options: {
+      ...defaultOpts('HST Follow Up Status — Not Closed by Agent', isDark),
+      plugins: { ...defaultOpts('HST Follow Up Status — Not Closed by Agent', isDark).plugins, legend: { display: false } },
+      scales: {
+        x: { ticks: { color: textColor, font: { size: 10 } }, grid: { display: false } },
+        y: { beginAtZero: true, ticks: { color: textColor, font: { size: 9 } }, grid: { display: false } }
+      }
+    }
+  });
+}
+
+/* Chart 3: Closed — Conversion Issues, grouped by issue category with one
+   series per agent (Closed records only, blank Conversion Issue excluded). */
+function renderHstClosedConversionIssues(id, hstRows, isDark) {
+  const ctx = getCtx(id);
+  if (!ctx) return;
+  const textColor = isDark ? '#b0b5c0' : '#6b7280';
+  const rows = (hstRows || []).filter(r => r.status === 'Closed' && r.conversionIssue);
+  const agents = [...new Set(rows.map(r => r.agent))].sort();
+  const issues = [...new Set(rows.map(r => r.conversionIssue))].sort((a, b) => {
+    const countA = rows.filter(r => r.conversionIssue === a).length;
+    const countB = rows.filter(r => r.conversionIssue === b).length;
+    return countB - countA;
+  });
+  const counts = new Map();
+  rows.forEach(r => {
+    const key = r.conversionIssue + '||' + r.agent;
+    counts.set(key, (counts.get(key) || 0) + 1);
+  });
+
+  ctx.chart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: issues,
+      datasets: agents.map((agent, i) => ({
+        label: agent,
+        data: issues.map(issue => counts.get(issue + '||' + agent) || 0),
+        backgroundColor: colorPalette[i % colorPalette.length],
+        borderRadius: 3,
+        datalabels: { anchor: 'end', align: 'end', offset: 2, clamp: true, color: textColor, font: { size: 9, weight: '600' }, formatter: dlFormatter }
+      }))
+    },
+    options: {
+      ...defaultOpts('Closed — Conversion Issues', isDark),
+      plugins: { ...defaultOpts('Closed — Conversion Issues', isDark).plugins, legend: { position: 'bottom', labels: { color: textColor, font: { size: 10 }, boxWidth: 12, padding: 8 } } },
+      scales: {
+        x: { ticks: { color: textColor, font: { size: 9 }, maxRotation: 40, minRotation: 0 }, grid: { display: false } },
+        y: { beginAtZero: true, ticks: { color: textColor, font: { size: 9 } }, grid: { display: false } }
+      }
+    }
+  });
+}
+
 /* ── CHATBOT CHART RENDERER (inline) ── */
 function renderMiniChart(canvasId, type, labels, data, label, color, isDark) {
   const ctx = document.getElementById(canvasId)?.getContext('2d');
@@ -810,5 +930,6 @@ window.CHARTS = {
   renderAgentProductivity, renderBreakDuration, renderQualityRatio, renderAgentMissed, renderAgentHangup, renderTrainingByAgent, renderDowntimeByAgent, renderAppreciationEscalation, renderStatBar, renderHourlyMissed, renderFreshCallsComparison,
   renderFacilityCallCases, renderFacilityEmailCases, renderEmailSentAgentWise, renderIBCasesAppointments,
   renderObActivityCombo,
+  renderHstCountsByLeadSource, renderHstFollowUpStatus, renderHstClosedConversionIssues,
   chartColors, colorPalette
 };

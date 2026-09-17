@@ -447,6 +447,25 @@ function renderDashboard() {
     <div class="panel">
       <div class="panel-header"><i class="ti ti-send"></i> Email Sent — Agent Wise</div>
       <div class="panel-body" style="height:280px;"><canvas id="emailSentAgentChart"></canvas></div>
+    </div>` : ''}
+
+    ${processName === 'ResMed' ? `
+    <div class="panel">
+      <div class="panel-header"><i class="ti ti-bed"></i> HST Counts — Lead Source Wise</div>
+      <div class="panel-body" style="height:340px;"><canvas id="hstCountsChart"></canvas></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header"><i class="ti ti-phone-outgoing"></i> HST Follow Up Status</div>
+      <div class="panel-body">
+        <div class="chart-container chart-container-sm" id="hstFollowUpChart"></div>
+        <div id="hstFollowUpTable" style="margin-top:14px;"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header"><i class="ti ti-alert-triangle"></i> Closed — Conversion Issues</div>
+      <div class="panel-body" style="height:340px;"><canvas id="hstConversionIssuesChart"></canvas></div>
     </div>` : ''}`;
 
   // Exposes when this render's async work (chart batch + tracker-insights
@@ -543,7 +562,19 @@ function renderDashboard() {
     })
     : Promise.resolve();
 
-  data.dashboardRenderReady = Promise.all([chartsReady, insightsReady]);
+  // HST Fulfilment (ResMed only) -- separate fetch/render chain since its data
+  // shape doesn't fit the generic tracker-insights pipeline above.
+  const hstReady = processName === 'ResMed'
+    ? data.fetchHstSummary(range.from, range.to).then(hstRows => {
+      if (document.getElementById('hstCountsChart')) window.CHARTS.renderHstCountsByLeadSource('hstCountsChart', hstRows, isDarkNow);
+      if (document.getElementById('hstFollowUpChart')) window.CHARTS.renderHstFollowUpStatus('hstFollowUpChart', hstRows, isDarkNow);
+      const hstTableEl = document.getElementById('hstFollowUpTable');
+      if (hstTableEl) hstTableEl.innerHTML = buildHstFollowUpTable(hstRows);
+      if (document.getElementById('hstConversionIssuesChart')) window.CHARTS.renderHstClosedConversionIssues('hstConversionIssuesChart', hstRows, isDarkNow);
+    })
+    : Promise.resolve();
+
+  data.dashboardRenderReady = Promise.all([chartsReady, insightsReady, hstReady]);
 }
 
 /* ── AGENT BENCHMARK ── */
@@ -1260,6 +1291,28 @@ function buildAppreciationEscalationTable(agents) {
         <td>${a.crmEscalationPendingField || 0}</td>
         <td>${a.crmEscalationPendingRhc || 0}</td>
       </tr>`).join('')}</tbody>
+    </table>
+  </div>`;
+}
+
+/* Detail table backing the HST Follow Up Status chart -- Agent x Lead Source
+   Not-Closed breakdown (too many combinations for a readable grouped chart). */
+function buildHstFollowUpTable(hstRows) {
+  const notClosed = (hstRows || []).filter(r => r.status === 'Not Closed');
+  if (!notClosed.length) return '<div style="text-align:center;padding:20px;color:var(--muted);">No Not-Closed HST records for this range.</div>';
+  const counts = new Map();
+  notClosed.forEach(r => {
+    const key = r.agent + '||' + r.leadSource;
+    counts.set(key, (counts.get(key) || 0) + 1);
+  });
+  const rows = [...counts.entries()].map(([key, count]) => {
+    const [agent, leadSource] = key.split('||');
+    return { agent, leadSource, count };
+  }).sort((a, b) => a.agent.localeCompare(b.agent) || b.count - a.count);
+  return `<div class="table-wrap">
+    <table>
+      <thead><tr><th>Agent</th><th>Lead Source</th><th>Not Closed</th></tr></thead>
+      <tbody>${rows.map(r => `<tr><td>${r.agent}</td><td>${r.leadSource}</td><td>${r.count}</td></tr>`).join('')}</tbody>
     </table>
   </div>`;
 }

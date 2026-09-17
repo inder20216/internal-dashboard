@@ -698,6 +698,22 @@ const INSIGHTS_ENDPOINTS = [
   'tracker-email-productivity'
 ];
 
+/* HST Fulfilment summary (ResMed only) -- separate fetch since its row shape
+   (date/agent/leadSource/status/conversionIssue) doesn't match the generic
+   metric_type/agent_name/value shape every other tracker-insight endpoint uses. */
+async function fetchHstSummary(from, to) {
+  try {
+    const url = `${INSIGHTS_BASE}tracker-hst-summary?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`tracker-hst-summary ${res.status}`);
+    const data = await res.json();
+    return Array.isArray(data) ? data : (Array.isArray(data.data) ? data.data : []);
+  } catch (err) {
+    console.error('fetchHstSummary failed:', err);
+    return [];
+  }
+}
+
 async function fetchTrackerInsights(processName, from, to) {
   // tracker-psri-appointments is PSRI-only (reads crm_daily_summary.extra's
   // Appt_* JSON fields, which only PSRI populates) -- calling it for every
@@ -797,7 +813,7 @@ const APP_DATA = {
   fetchData, toNumber, formatPercent, excelDayToSeconds, secondsToHms,
   avgSeconds, sumSeconds, toSeconds, parseTimeToSeconds, computeDefaultRange,
   agentName, hasActivity, rowsInRange, latestActiveDate, parseLoginHour, emailHandled,
-  fetchTrackerInsights
+  fetchTrackerInsights, fetchHstSummary
 };
 // sumNumber/avgNumber/sumSecondsRaw are used internally but also exposed for app.js
 APP_DATA.sumNumber = sumNumber;
