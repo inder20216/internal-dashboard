@@ -758,12 +758,30 @@ function renderObActivityCombo(id, rows, isDark, title) {
 /* ── HST FULFILMENT (ResMed only) ──
    hstRows: [{ date, agent, leadSource, status, conversionIssue }, ...] */
 
-/* Shared builder for both Chart 1 (Closed, grouped Lead Source -> Agent) and
-   Chart 2 (Not Closed, grouped Agent -> Lead Source) -- matches the source
-   Excel PivotCharts exactly: a single series with a nested/compound category
-   axis, not one color per agent. Chart.js merges consecutive bars that share
-   the same outer label into one spanning header when labels are passed as
-   [outer, inner] pairs, same as Excel's two-level category axis. */
+/* Shared builder for both Chart 1 (grouped Lead Source -> Agent) and Chart 2
+   (grouped Agent -> Lead Source) -- matches the source Excel PivotCharts: a
+   single series, one bar per (outer, inner) combo, with the outer label
+   shown ONCE, centered under its whole group of inner bars -- not one color
+   per agent, and not the outer value repeated as a second tick line under
+   every single bar (Chart.js's array-label ticks print the same text on
+   every tick, they don't merge across ticks into a spanning header).
+
+   To get an actual spanning header this draws it manually with a per-chart
+   plugin (afterDraw): x-axis ticks carry only the inner value (single line,
+   never rotated), and the plugin centers the outer-group text beneath the
+   pixel span of that group's bars, with a bracket underline when the group
+   has more than one bar.
+
+   Every bar gets a fixed pixel width (sized to the longest inner label, so
+   short agent names and long lead-source strings both fit without
+   overlapping) inside a wrapper (id + "Wrap") that grows to fit all bars;
+   the panel-body around it scrolls horizontally (overflow-x:auto in the
+   HTML) once that exceeds the panel's width -- so labels stay horizontal
+   and fully visible instead of rotating, clipping, or disappearing.
+
+   A null-value spacer bar is inserted between groups (Chart.js leaves a gap
+   for a null data point without drawing anything) so groups are visually
+   separated by more space than the bars within a group. */
 function renderHstNestedBar(id, hstRows, isDark, status, outerKey, innerKey, seriesLabel, seriesColor, title, sortOuterByName) {
   const ctx = getCtx(id);
   if (!ctx) return;
@@ -782,31 +800,85 @@ function renderHstNestedBar(id, hstRows, isDark, status, outerKey, innerKey, ser
     : [...outerTotals.keys()].sort((a, b) => outerTotals.get(b) - outerTotals.get(a));
 
   const bars = [];
-  outerValues.forEach(outerVal => {
+  outerValues.forEach((outerVal, gi) => {
+    if (gi > 0) bars.push({ outerVal: '', innerVal: '', count: null, spacer: true });
     const inners = [...new Set(rows.filter(r => r[outerKey] === outerVal).map(r => r[innerKey]))].sort();
     inners.forEach(innerVal => {
       bars.push({ outerVal, innerVal, count: counts.get(outerVal + '||' + innerVal) || 0 });
     });
   });
 
+  // Fixed pixel width per bar, scaled to the longest inner label so it
+  // never needs to rotate or get clipped -- the wrapper (canvas's
+  // immediate parent, which Chart.js sizes itself against under
+  // responsive:true) grows to fit, and the panel-body around it scrolls
+  // horizontally once that exceeds its width.
+  const maxInnerLen = bars.reduce((m, b) => b.spacer ? m : Math.max(m, String(b.innerVal).length), 0);
+  const PER_BAR_PX = Math.max(60, maxInnerLen * 6 + 24);
+  const wrap = document.getElementById(id + 'Wrap');
+  if (wrap) {
+    const availPx = wrap.parentElement ? wrap.parentElement.clientWidth : 0;
+    wrap.style.width = Math.max(availPx, bars.length * PER_BAR_PX) + 'px';
+  }
+
+  const groupHeaderPlugin = {
+    id: 'hstGroupHeader_' + id,
+    afterDraw(chart) {
+      const c = chart.ctx;
+      const x = chart.scales.x;
+      const bottom = chart.chartArea.bottom;
+      c.save();
+      c.font = '600 9px system-ui, -apple-system, sans-serif';
+      c.fillStyle = textColor;
+      c.textAlign = 'center';
+      c.textBaseline = 'top';
+      const step = (x.getPixelForValue(Math.min(1, bars.length - 1)) - x.getPixelForValue(0)) || 40;
+      let i = 0;
+      while (i < bars.length) {
+        if (bars[i].spacer) { i++; continue; }
+        const val = bars[i].outerVal;
+        let j = i;
+        while (j + 1 < bars.length && !bars[j + 1].spacer && bars[j + 1].outerVal === val) j++;
+        const xStart = x.getPixelForValue(i);
+        const xEnd = x.getPixelForValue(j);
+        const cx = (xStart + xEnd) / 2;
+        const lineY = bottom + 20;
+        if (j > i) {
+          c.strokeStyle = textColor;
+          c.lineWidth = 1;
+          c.beginPath();
+          c.moveTo(xStart - step / 2 + 4, lineY);
+          c.lineTo(xEnd + step / 2 - 4, lineY);
+          c.stroke();
+        }
+        c.fillText(val, cx, lineY + 4);
+        i = j + 1;
+      }
+      c.restore();
+    }
+  };
+
   ctx.chart = new Chart(ctx, {
     type: 'bar',
     data: {
-      labels: bars.map(b => [b.outerVal, b.innerVal]),
+      labels: bars.map(b => b.spacer ? '' : b.innerVal),
       datasets: [{
         label: seriesLabel, data: bars.map(b => b.count),
         backgroundColor: seriesColor, borderRadius: 3,
-        datalabels: { anchor: 'end', align: 'end', offset: 2, clamp: true, color: textColor, font: { size: 9, weight: '600' }, formatter: dlFormatter }
+        categoryPercentage: 0.9, barPercentage: 0.85,
+        datalabels: { anchor: 'end', align: 'end', offset: 4, clamp: true, color: textColor, font: { size: 9, weight: '600' }, formatter: dlFormatter }
       }]
     },
     options: {
       ...defaultOpts(title, isDark),
+      layout: { padding: { top: 24, bottom: 34 } },
       plugins: { ...defaultOpts(title, isDark).plugins, legend: { display: false } },
       scales: {
-        x: { ticks: { color: textColor, font: { size: 9 }, autoSkip: false }, grid: { display: false } },
+        x: { ticks: { color: textColor, font: { size: 9 }, autoSkip: false, maxRotation: 0, minRotation: 0 }, grid: { display: false } },
         y: { beginAtZero: true, ticks: { color: textColor, font: { size: 9 } }, grid: { display: false } }
       }
-    }
+    },
+    plugins: [groupHeaderPlugin]
   });
 }
 

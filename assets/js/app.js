@@ -452,12 +452,12 @@ function renderDashboard() {
     ${processName === 'ResMed' ? `
     <div class="panel">
       <div class="panel-header"><i class="ti ti-bed"></i> HST Counts — Lead Source Wise</div>
-      <div class="panel-body" style="height:340px;"><canvas id="hstCountsChart"></canvas></div>
+      <div class="panel-body" style="height:340px; overflow-x:auto; overflow-y:hidden;"><div id="hstCountsChartWrap" style="height:100%;"><canvas id="hstCountsChart"></canvas></div></div>
     </div>
 
     <div class="panel">
       <div class="panel-header"><i class="ti ti-phone-outgoing"></i> HST Follow Up Status</div>
-      <div class="panel-body" style="height:340px;"><canvas id="hstFollowUpChart"></canvas></div>
+      <div class="panel-body" style="height:340px; overflow-x:auto; overflow-y:hidden;"><div id="hstFollowUpChartWrap" style="height:100%;"><canvas id="hstFollowUpChart"></canvas></div></div>
     </div>
 
     <div class="panel">
