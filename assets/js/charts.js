@@ -758,21 +758,22 @@ function renderObActivityCombo(id, rows, isDark, title) {
 /* ── HST FULFILMENT (ResMed only) ──
    hstRows: [{ date, agent, leadSource, status, conversionIssue }, ...] */
 
-/* Chart 1: HST Counts — Lead Source wise, Closed records only, grouped bars
-   with one series per agent. */
-function renderHstCountsByLeadSource(id, hstRows, isDark) {
+/* Shared builder for both Chart 1 (Closed) and Chart 2 (Not Closed) -- same
+   shape, grouped by Lead Source with one series per agent, just filtered to
+   a different status. */
+function renderHstStatusByLeadSource(id, hstRows, isDark, status, title) {
   const ctx = getCtx(id);
   if (!ctx) return;
   const textColor = isDark ? '#b0b5c0' : '#6b7280';
-  const closed = (hstRows || []).filter(r => r.status === 'Closed');
-  const agents = [...new Set(closed.map(r => r.agent))].sort();
-  const leadSources = [...new Set(closed.map(r => r.leadSource))].sort((a, b) => {
-    const countA = closed.filter(r => r.leadSource === a).length;
-    const countB = closed.filter(r => r.leadSource === b).length;
+  const rows = (hstRows || []).filter(r => r.status === status);
+  const agents = [...new Set(rows.map(r => r.agent))].sort();
+  const leadSources = [...new Set(rows.map(r => r.leadSource))].sort((a, b) => {
+    const countA = rows.filter(r => r.leadSource === a).length;
+    const countB = rows.filter(r => r.leadSource === b).length;
     return countB - countA;
   });
   const counts = new Map();
-  closed.forEach(r => {
+  rows.forEach(r => {
     const key = r.leadSource + '||' + r.agent;
     counts.set(key, (counts.get(key) || 0) + 1);
   });
@@ -790,8 +791,8 @@ function renderHstCountsByLeadSource(id, hstRows, isDark) {
       }))
     },
     options: {
-      ...defaultOpts('HST Counts — Lead Source Wise', isDark),
-      plugins: { ...defaultOpts('HST Counts — Lead Source Wise', isDark).plugins, legend: { position: 'bottom', labels: { color: textColor, font: { size: 10 }, boxWidth: 12, padding: 8 } } },
+      ...defaultOpts(title, isDark),
+      plugins: { ...defaultOpts(title, isDark).plugins, legend: { position: 'bottom', labels: { color: textColor, font: { size: 10 }, boxWidth: 12, padding: 8 } } },
       scales: {
         x: { ticks: { color: textColor, font: { size: 9 }, maxRotation: 40, minRotation: 0 }, grid: { display: false } },
         y: { beginAtZero: true, ticks: { color: textColor, font: { size: 9 } }, grid: { display: false } }
@@ -800,37 +801,17 @@ function renderHstCountsByLeadSource(id, hstRows, isDark) {
   });
 }
 
-/* Chart 2: Follow Up Status — total Not Closed count per agent (the detail
-   Agent x Lead Source breakdown is shown as a table alongside this, since a
-   65-bar grouped chart -- 5 agents x 13 lead sources -- isn't readable). */
-function renderHstFollowUpStatus(id, hstRows, isDark) {
-  const ctx = getCtx(id);
-  if (!ctx) return;
-  const textColor = isDark ? '#b0b5c0' : '#6b7280';
-  const notClosed = (hstRows || []).filter(r => r.status === 'Not Closed');
-  const totals = new Map();
-  notClosed.forEach(r => totals.set(r.agent, (totals.get(r.agent) || 0) + 1));
-  const sorted = [...totals.entries()].sort((a, b) => b[1] - a[1]);
+/* Chart 1: HST Counts — Lead Source wise, Closed records only, grouped bars
+   with one series per agent. */
+function renderHstCountsByLeadSource(id, hstRows, isDark) {
+  renderHstStatusByLeadSource(id, hstRows, isDark, 'Closed', 'HST Counts — Lead Source Wise');
+}
 
-  ctx.chart = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: sorted.map(([agent]) => agent),
-      datasets: [{
-        label: 'Not Closed', data: sorted.map(([, count]) => count),
-        backgroundColor: chartColors.red, borderRadius: 3,
-        datalabels: { anchor: 'end', align: 'end', offset: 2, clamp: true, color: textColor, font: { size: 10, weight: '700' }, formatter: dlFormatter }
-      }]
-    },
-    options: {
-      ...defaultOpts('HST Follow Up Status — Not Closed by Agent', isDark),
-      plugins: { ...defaultOpts('HST Follow Up Status — Not Closed by Agent', isDark).plugins, legend: { display: false } },
-      scales: {
-        x: { ticks: { color: textColor, font: { size: 10 } }, grid: { display: false } },
-        y: { beginAtZero: true, ticks: { color: textColor, font: { size: 9 } }, grid: { display: false } }
-      }
-    }
-  });
+/* Chart 2: Follow Up Status — Not Closed records, same grouped-by-Lead-Source
+   shape as Chart 1, agent name + lead source both visible directly in the
+   chart (no separate summary bar or detail table). */
+function renderHstFollowUpStatus(id, hstRows, isDark) {
+  renderHstStatusByLeadSource(id, hstRows, isDark, 'Not Closed', 'HST Follow Up Status — Not Closed, Lead Source Wise');
 }
 
 /* Chart 3: Closed — Conversion Issues, grouped by issue category with one
