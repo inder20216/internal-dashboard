@@ -782,7 +782,7 @@ function renderObActivityCombo(id, rows, isDark, title) {
    A null-value spacer bar is inserted between groups (Chart.js leaves a gap
    for a null data point without drawing anything) so groups are visually
    separated by more space than the bars within a group. */
-function renderHstNestedBar(id, hstRows, isDark, status, outerKey, innerKey, seriesLabel, seriesColor, title, sortOuterByName) {
+function renderHstNestedBar(id, hstRows, isDark, status, outerKey, innerKey, seriesLabel, seriesColor, title, sortOuterByName, rotateInner) {
   const ctx = getCtx(id);
   if (!ctx) return;
   const textColor = isDark ? '#b0b5c0' : '#6b7280';
@@ -864,7 +864,9 @@ function renderHstNestedBar(id, hstRows, isDark, status, outerKey, innerKey, ser
   ctx.chart = new Chart(ctx, {
     type: 'bar',
     data: {
-      labels: bars.map(b => b.spacer ? '' : wrapLabel(b.innerVal)),
+      // Rotated (vertical) labels read fine at full length -- no need to
+      // wrap those onto a 2nd line; only horizontal labels get wrapped.
+      labels: bars.map(b => b.spacer ? '' : (rotateInner ? b.innerVal : wrapLabel(b.innerVal))),
       datasets: [{
         label: seriesLabel, data: bars.map(b => b.count),
         backgroundColor: seriesColor, borderRadius: 3,
@@ -878,7 +880,10 @@ function renderHstNestedBar(id, hstRows, isDark, status, outerKey, innerKey, ser
       plugins: { ...defaultOpts(title, isDark).plugins, legend: { display: false } },
       scales: {
         x: {
-          ticks: { color: textColor, font: { size: 9 }, autoSkip: false, maxRotation: 0, minRotation: 0 },
+          ticks: {
+            color: textColor, font: { size: 9 }, autoSkip: false,
+            maxRotation: rotateInner ? 90 : 0, minRotation: rotateInner ? 90 : 0
+          },
           grid: { display: false, drawTicks: false },
           border: { display: false }
         },
@@ -902,7 +907,7 @@ function renderHstCountsByLeadSource(id, hstRows, isDark) {
 /* Chart 2: Follow Up Status, Not Closed records. Grouped Agent (outer) ->
    Lead Source (inner), single "Not Closed" series. */
 function renderHstFollowUpStatus(id, hstRows, isDark) {
-  renderHstNestedBar(id, hstRows, isDark, 'Not Closed', 'agent', 'leadSource', 'Not Closed', chartColors.red, 'HST Follow Up Status', true);
+  renderHstNestedBar(id, hstRows, isDark, 'Not Closed', 'agent', 'leadSource', 'Not Closed', chartColors.red, 'HST Follow Up Status', true, true);
 }
 
 /* Chart 3: Closed — Conversion Issues, grouped by issue category with one

@@ -457,7 +457,7 @@ function renderDashboard() {
 
     <div class="panel">
       <div class="panel-header"><i class="ti ti-phone-outgoing"></i> HST Follow Up Status</div>
-      <div class="panel-body" style="height:340px;"><canvas id="hstFollowUpChart"></canvas></div>
+      <div class="panel-body" style="height:460px;"><canvas id="hstFollowUpChart"></canvas></div>
     </div>
 
     <div class="panel">
