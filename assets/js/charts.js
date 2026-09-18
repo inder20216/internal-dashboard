@@ -832,7 +832,13 @@ function renderHstNestedBar(id, hstRows, isDark, status, outerKey, innerKey, ser
     afterDraw(chart) {
       const c = chart.ctx;
       const x = chart.scales.x;
-      const bottom = chart.chartArea.bottom;
+      // chart.chartArea.bottom is the axis LINE position, not the bottom of
+      // the rendered tick text -- fine for short horizontal ticks (~20px
+      // tall) but for 90-degree rotated tick text (can be 100+ px tall)
+      // that lands the header text in the middle of the tick labels.
+      // x.bottom is the actual bottom edge of the space Chart.js reserved
+      // for the (possibly rotated) tick labels -- always below all tick text.
+      const bottom = x.bottom;
       c.save();
       c.font = '600 9px system-ui, -apple-system, sans-serif';
       c.fillStyle = textColor;
@@ -852,9 +858,10 @@ function renderHstNestedBar(id, hstRows, isDark, status, outerKey, innerKey, ser
         const xStart = x.getPixelForTick(i);
         const xEnd = x.getPixelForTick(j);
         const cx = (xStart + xEnd) / 2;
-        // No underline -- just the centered group label, with extra gap
-        // below the agent-name tick row before this line starts.
-        c.fillText(val, cx, bottom + 26);
+        // No underline -- just the centered group label, with a small gap
+        // below the tick text (x.bottom already sits below the full tick
+        // label, rotated or not, so a small fixed gap is enough either way).
+        c.fillText(val, cx, bottom + 8);
         i = j + 1;
       }
       c.restore();
