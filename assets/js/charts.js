@@ -808,13 +808,25 @@ function renderHstNestedBar(id, hstRows, isDark, status, outerKey, innerKey, ser
     });
   });
 
-  // Fixed pixel width per bar, scaled to the longest inner label so it
-  // never needs to rotate or get clipped -- the wrapper (canvas's
-  // immediate parent, which Chart.js sizes itself against under
-  // responsive:true) grows to fit, and the panel-body around it scrolls
-  // horizontally once that exceeds its width.
-  const maxInnerLen = bars.reduce((m, b) => b.spacer ? m : Math.max(m, String(b.innerVal).length), 0);
-  const PER_BAR_PX = Math.max(60, maxInnerLen * 6 + 24);
+  // Fixed pixel width per bar, capped so long labels (e.g. lead source
+  // names) wrap onto a 2nd line instead of ballooning the chart width --
+  // only the bar COUNT should ever grow the chart past the panel (in which
+  // case the panel-body scrolls horizontally), never a single long label.
+  const WRAP_CHARS = 14;
+  const wrapLabel = (s) => {
+    const str = String(s || '');
+    if (str.length <= WRAP_CHARS) return str;
+    const words = str.split(' ');
+    const lines = [];
+    let cur = '';
+    words.forEach(w => {
+      if (cur && (cur + ' ' + w).length > WRAP_CHARS) { lines.push(cur); cur = w; }
+      else cur = cur ? cur + ' ' + w : w;
+    });
+    if (cur) lines.push(cur);
+    return lines;
+  };
+  const PER_BAR_PX = 68;
   const wrap = document.getElementById(id + 'Wrap');
   if (wrap) {
     const availPx = wrap.parentElement ? wrap.parentElement.clientWidth : 0;
@@ -866,7 +878,7 @@ function renderHstNestedBar(id, hstRows, isDark, status, outerKey, innerKey, ser
   ctx.chart = new Chart(ctx, {
     type: 'bar',
     data: {
-      labels: bars.map(b => b.spacer ? '' : b.innerVal),
+      labels: bars.map(b => b.spacer ? '' : wrapLabel(b.innerVal)),
       datasets: [{
         label: seriesLabel, data: bars.map(b => b.count),
         backgroundColor: seriesColor, borderRadius: 3,
