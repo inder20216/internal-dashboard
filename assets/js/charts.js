@@ -918,12 +918,17 @@ function renderHstFollowUpStatus(id, hstRows, isDark) {
 }
 
 /* Chart 3: Closed — Conversion Issues, grouped by issue category with one
-   series per agent (Closed records only, blank Conversion Issue excluded). */
+   series per agent. r.status === 'Closed' is the broad bucket (Irrelevant/
+   Junk/NA also collapse into it) -- this chart additionally requires the
+   literal raw HST Patient Status text to be exactly "Closed", since a
+   Conversion Issue only makes sense for a genuinely closed-out lead, not
+   one dumped into the bucket for other reasons. Blank Conversion Issue
+   still excluded. */
 function renderHstClosedConversionIssues(id, hstRows, isDark) {
   const ctx = getCtx(id);
   if (!ctx) return;
   const textColor = isDark ? '#b0b5c0' : '#6b7280';
-  const rows = (hstRows || []).filter(r => r.status === 'Closed' && r.conversionIssue);
+  const rows = (hstRows || []).filter(r => r.status === 'Closed' && r.rawHstStatus === 'Closed' && r.conversionIssue);
   const agents = [...new Set(rows.map(r => r.agent))].sort();
   const issues = [...new Set(rows.map(r => r.conversionIssue))].sort((a, b) => {
     const countA = rows.filter(r => r.conversionIssue === a).length;
@@ -950,6 +955,10 @@ function renderHstClosedConversionIssues(id, hstRows, isDark) {
     },
     options: {
       ...defaultOpts('Closed — Conversion Issues', isDark),
+      // Top padding so the datalabel on the tallest bar (anchor:'end') has
+      // room to render above the bar instead of getting clipped by the
+      // canvas edge when that bar is close to the axis max.
+      layout: { padding: { top: 20 } },
       plugins: { ...defaultOpts('Closed — Conversion Issues', isDark).plugins, legend: { position: 'bottom', labels: { color: textColor, font: { size: 10 }, boxWidth: 12, padding: 8 } } },
       scales: {
         x: { ticks: { color: textColor, font: { size: 9 }, maxRotation: 40, minRotation: 0 }, grid: { display: false } },
