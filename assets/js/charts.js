@@ -808,10 +808,10 @@ function renderHstNestedBar(id, hstRows, isDark, status, outerKey, innerKey, ser
     });
   });
 
-  // Fixed pixel width per bar, capped so long labels (e.g. lead source
-  // names) wrap onto a 2nd line instead of ballooning the chart width --
-  // only the bar COUNT should ever grow the chart past the panel (in which
-  // case the panel-body scrolls horizontally), never a single long label.
+  // No forced width / scrolling -- Chart.js's responsive:true sizes the
+  // canvas to exactly fill the panel, compressing bar width as needed so
+  // everything always fits on one page. Long inner labels still wrap onto
+  // a 2nd line rather than being cut off.
   const WRAP_CHARS = 14;
   const wrapLabel = (s) => {
     const str = String(s || '');
@@ -826,12 +826,6 @@ function renderHstNestedBar(id, hstRows, isDark, status, outerKey, innerKey, ser
     if (cur) lines.push(cur);
     return lines;
   };
-  const PER_BAR_PX = 68;
-  const wrap = document.getElementById(id + 'Wrap');
-  if (wrap) {
-    const availPx = wrap.parentElement ? wrap.parentElement.clientWidth : 0;
-    wrap.style.width = Math.max(availPx, bars.length * PER_BAR_PX) + 'px';
-  }
 
   const groupHeaderPlugin = {
     id: 'hstGroupHeader_' + id,
@@ -849,7 +843,6 @@ function renderHstNestedBar(id, hstRows, isDark, status, outerKey, innerKey, ser
       // look up (via labels.indexOf), not an index; since our labels are
       // strings, that lookup always fails and silently returns garbage
       // pixel positions. getPixelForTick resolves the index directly.
-      const step = (x.getPixelForTick(Math.min(1, bars.length - 1)) - x.getPixelForTick(0)) || 40;
       let i = 0;
       while (i < bars.length) {
         if (bars[i].spacer) { i++; continue; }
@@ -859,16 +852,9 @@ function renderHstNestedBar(id, hstRows, isDark, status, outerKey, innerKey, ser
         const xStart = x.getPixelForTick(i);
         const xEnd = x.getPixelForTick(j);
         const cx = (xStart + xEnd) / 2;
-        const lineY = bottom + 20;
-        if (j > i) {
-          c.strokeStyle = textColor;
-          c.lineWidth = 1;
-          c.beginPath();
-          c.moveTo(xStart - step / 2 + 4, lineY);
-          c.lineTo(xEnd + step / 2 - 4, lineY);
-          c.stroke();
-        }
-        c.fillText(val, cx, lineY + 4);
+        // No underline -- just the centered group label, with extra gap
+        // below the agent-name tick row before this line starts.
+        c.fillText(val, cx, bottom + 26);
         i = j + 1;
       }
       c.restore();
@@ -888,10 +874,14 @@ function renderHstNestedBar(id, hstRows, isDark, status, outerKey, innerKey, ser
     },
     options: {
       ...defaultOpts(title, isDark),
-      layout: { padding: { top: 24, bottom: 34 } },
+      layout: { padding: { top: 24, bottom: 40 } },
       plugins: { ...defaultOpts(title, isDark).plugins, legend: { display: false } },
       scales: {
-        x: { ticks: { color: textColor, font: { size: 9 }, autoSkip: false, maxRotation: 0, minRotation: 0 }, grid: { display: false } },
+        x: {
+          ticks: { color: textColor, font: { size: 9 }, autoSkip: false, maxRotation: 0, minRotation: 0 },
+          grid: { display: false, drawTicks: false },
+          border: { display: false }
+        },
         y: { beginAtZero: true, ticks: { color: textColor, font: { size: 9 } }, grid: { display: false } }
       }
     },
