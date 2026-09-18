@@ -832,15 +832,20 @@ function renderHstNestedBar(id, hstRows, isDark, status, outerKey, innerKey, ser
       c.fillStyle = textColor;
       c.textAlign = 'center';
       c.textBaseline = 'top';
-      const step = (x.getPixelForValue(Math.min(1, bars.length - 1)) - x.getPixelForValue(0)) || 40;
+      // Use getPixelForTick(index), NOT getPixelForValue(index) -- on a
+      // CategoryScale, getPixelForValue treats a bare number as a label to
+      // look up (via labels.indexOf), not an index; since our labels are
+      // strings, that lookup always fails and silently returns garbage
+      // pixel positions. getPixelForTick resolves the index directly.
+      const step = (x.getPixelForTick(Math.min(1, bars.length - 1)) - x.getPixelForTick(0)) || 40;
       let i = 0;
       while (i < bars.length) {
         if (bars[i].spacer) { i++; continue; }
         const val = bars[i].outerVal;
         let j = i;
         while (j + 1 < bars.length && !bars[j + 1].spacer && bars[j + 1].outerVal === val) j++;
-        const xStart = x.getPixelForValue(i);
-        const xEnd = x.getPixelForValue(j);
+        const xStart = x.getPixelForTick(i);
+        const xEnd = x.getPixelForTick(j);
         const cx = (xStart + xEnd) / 2;
         const lineY = bottom + 20;
         if (j > i) {
