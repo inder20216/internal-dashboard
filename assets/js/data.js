@@ -292,7 +292,11 @@ const NON_AGENT_LABELS = new Set([
   'Echo Lab', 'Harshita PHC Lab', 'TPA Dispatch Extension'
 ]);
 function isTransferPseudoAgent(name) {
-  const n = String(name || '').trim();
+  // Some rows carry a literal "&nbsp;" (or other stray HTML entity) baked into
+  // the raw CRM export -- e.g. "Corporate desk&nbsp;" -- which fails an exact
+  // match against NON_AGENT_LABELS even though it's the same label. Strip
+  // those before matching/trimming.
+  const n = String(name || '').replace(/&nbsp;/gi, ' ').replace(/&amp;/gi, '&').trim();
   if (!n) return false;
   // "trans_"/"tarns_" (the latter a real typo found in PSRI's data, e.g.
   // "Tarns_MRD (Mr. Pradeep)") both mean a call transferred to a department.
