@@ -691,6 +691,7 @@ function renderIBCasesAppointments(id, agents, appointments, isDark) {
   const apptByAgent = new Map((appointments || []).map(a => [a.agent, a.count]));
   const rows = (agents || []).filter(a => (a.inboundAnswered || 0) + (a.crmInboundCases || 0) + (apptByAgent.get(a.agent) || 0) > 0);
   const crmCases = rows.map(a => a.crmInboundCases || 0);
+  const ibHandled = rows.map(a => a.inboundAnswered || 0);
   const apptCounts = rows.map(a => apptByAgent.get(a.agent) || 0);
   ctx.chart = new Chart(ctx, {
     type: 'bar',
@@ -703,13 +704,13 @@ function renderIBCasesAppointments(id, agents, appointments, isDark) {
         { label: 'CRM Cases Logged', data: crmCases, backgroundColor: 'rgba(220,38,38,0.8)', borderRadius: 3 },
         {
           label: 'Appointments', data: apptCounts, backgroundColor: 'rgba(5,150,105,0.8)', borderRadius: 3,
-          // Appointment % = Appointments / CRM Cases Logged (total cases logged),
+          // Appointment % = Appointments / IB Calls Answered (inbound handled),
           // shown alongside the raw count on the bar's own label.
           datalabels: {
             anchor: 'end', align: 'end', offset: 2, clamp: true, color: textColor, font: { size: 9, weight: '600' },
             formatter: (value, ctx2) => {
               if (!value) return '';
-              const total = crmCases[ctx2.dataIndex] || 0;
+              const total = ibHandled[ctx2.dataIndex] || 0;
               const pct = total > 0 ? Math.round((value / total) * 100) : 0;
               return `${value} (${pct}%)`;
             }
