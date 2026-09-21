@@ -322,7 +322,17 @@ function renderBreakDuration(id, agents, isDark) {
           backgroundColor: sorted.map(a => a.breakVsTargetSec > 0 ? 'rgba(220,38,38,0.75)' : 'rgba(5,150,105,0.75)'),
           borderRadius: 3,
           order: 2,
-          datalabels: { anchor: 'end', align: 'start', offset: 4, color: '#fff', font: { size: 9, weight: '700' }, formatter: v => v ? secondsToHms(v * 60) : '' }
+          // Exactly 1h is compliant (breakVsTargetSec > 0 is a strict check) --
+          // never flagged red. For bars that DO exceed, the label shows how
+          // much OVER the 1h target they are, not the full break duration.
+          datalabels: {
+            anchor: 'end', align: 'start', offset: 4, color: '#fff', font: { size: 9, weight: '700' },
+            formatter: (v, ctx2) => {
+              if (!v) return '';
+              const a = sorted[ctx2.dataIndex];
+              return a.breakVsTargetSec > 0 ? `+${secondsToHms(a.breakVsTargetSec)}` : secondsToHms(v * 60);
+            }
+          }
         },
         {
           label: 'Target (1h)',
