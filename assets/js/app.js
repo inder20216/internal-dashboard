@@ -1031,7 +1031,7 @@ function buildKPICards(d, prevData) {
       </div>
       <div class="kpi-label">Avg Pick Time</div>
       <div class="kpi-value">${d.avgPickTime || '—'}</div>
-      <div class="kpi-sub">IB: ${d.avgPickTimeIb || '—'} · OB: ${d.avgPickTimeOb || '—'} · Ring to answer, across the whole process</div>
+      <div class="kpi-sub">IB: ${d.avgPickTimeIb || '—'} · OB: ${d.avgPickTimeOb || '—'}</div>
     </div>`;
 
   return statusHtml + trendHtml + pickTimeHtml + callbackHtml;
