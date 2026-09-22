@@ -512,6 +512,18 @@ function renderDashboard() {
   }, 80);
   });
 
+  // Agent Productivity is fed by up to 3 independent async sources (initial
+  // combined_summary render, live email-productivity override, VMM's extra
+  // metrics) that can resolve in any order -- track their contributions in
+  // shared state and re-render from here each time one arrives, so whichever
+  // finishes last never clobbers what an earlier one already added.
+  let liveEmailAgents = null;
+  let vmmExtrasByAgent = null;
+  function renderProductivityChart() {
+    if (!document.getElementById('agentProductivityChart')) return;
+    window.CHARTS.renderAgentProductivity('agentProductivityChart', liveEmailAgents || processData.agents, isDarkNow, vmmExtrasByAgent || undefined);
+  }
+
   const insightsReady = processName
     ? data.fetchTrackerInsights(processName, range.from, range.to).then(insights => {
       const trainingEl = document.getElementById('trainingInsightsBody');
@@ -541,12 +553,10 @@ function renderDashboard() {
       // both the Agent Productivity chart and the Emails Handled KPI card.
       if (insights.emailProductivity && insights.emailProductivity.length) {
         const liveEmailByAgent = new Map(insights.emailProductivity.map(e => [e.agent, e.totalEmails]));
-        const agentsWithLiveEmail = processData.agents.map(a =>
+        liveEmailAgents = processData.agents.map(a =>
           liveEmailByAgent.has(a.agent) ? { ...a, emailsHandled: liveEmailByAgent.get(a.agent) } : a
         );
-        if (document.getElementById('agentProductivityChart')) {
-          window.CHARTS.renderAgentProductivity('agentProductivityChart', agentsWithLiveEmail, isDarkNow);
-        }
+        renderProductivityChart();
         const liveTotal = insights.emailProductivity.reduce((s, e) => s + e.totalEmails, 0);
         const countEl = document.getElementById('emailsHandledCount');
         if (countEl) countEl.textContent = liveTotal;
@@ -574,7 +584,25 @@ function renderDashboard() {
     })
     : Promise.resolve();
 
-  data.dashboardRenderReady = Promise.all([chartsReady, insightsReady, hstReady]);
+  // VMM Agent Productivity extras (Case Update / Case Logged Email /
+  // Resolved / Reminder) -- live from VMM's own CRM database, VMM only.
+  const vmmProductivityReady = processName === 'VMM'
+    ? data.fetchVmmProductivity(range.from, range.to).then(rows => {
+      const byAgent = new Map();
+      rows.forEach(r => {
+        const cur = byAgent.get(r.agent) || { caseUpdate: 0, caseLoggedEmail: 0, resolved: 0, reminder: 0 };
+        cur.caseUpdate += Number(r.caseUpdate) || 0;
+        cur.caseLoggedEmail += Number(r.caseLoggedEmail) || 0;
+        cur.resolved += Number(r.resolved) || 0;
+        cur.reminder += Number(r.reminder) || 0;
+        byAgent.set(r.agent, cur);
+      });
+      vmmExtrasByAgent = byAgent;
+      renderProductivityChart();
+    })
+    : Promise.resolve();
+
+  data.dashboardRenderReady = Promise.all([chartsReady, insightsReady, hstReady, vmmProductivityReady]);
 }
 
 /* ── AGENT BENCHMARK ── */

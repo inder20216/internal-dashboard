@@ -724,6 +724,27 @@ async function fetchHstSummary(from, to) {
   }
 }
 
+/* VMM Agent Productivity extras (Case Update / Case Logged Email / Resolved /
+   Reminder) -- queried live from VMM's own CRM database (a separate MySQL
+   instance from combined_summary), keyed by date+agent name the same way the
+   HST summary is, so it's merged client-side rather than needing its own
+   dashboard section. VMM only. */
+async function fetchVmmProductivity(from, to) {
+  try {
+    const params = new URLSearchParams();
+    if (from) params.set('from', from);
+    if (to) params.set('to', to);
+    const url = `${INSIGHTS_BASE}vmm-productivity?${params.toString()}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`vmm-productivity ${res.status}`);
+    const data = await res.json();
+    return Array.isArray(data) ? data : (Array.isArray(data.data) ? data.data : []);
+  } catch (err) {
+    console.error('fetchVmmProductivity failed:', err);
+    return [];
+  }
+}
+
 async function fetchTrackerInsights(processName, from, to) {
   // tracker-psri-appointments is PSRI-only (reads crm_daily_summary.extra's
   // Appt_* JSON fields, which only PSRI populates) -- calling it for every
@@ -823,7 +844,7 @@ const APP_DATA = {
   fetchData, toNumber, formatPercent, excelDayToSeconds, secondsToHms,
   avgSeconds, sumSeconds, toSeconds, parseTimeToSeconds, computeDefaultRange,
   agentName, hasActivity, rowsInRange, latestActiveDate, parseLoginHour, emailHandled,
-  fetchTrackerInsights, fetchHstSummary
+  fetchTrackerInsights, fetchHstSummary, fetchVmmProductivity
 };
 // sumNumber/avgNumber/sumSecondsRaw are used internally but also exposed for app.js
 APP_DATA.sumNumber = sumNumber;

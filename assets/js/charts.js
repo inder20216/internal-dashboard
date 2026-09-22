@@ -265,8 +265,14 @@ function renderDayWiseChart(id, timeSeries, isDark) {
   });
 }
 
-/* ── AGENT PRODUCTIVITY (Inbound Answered + Outbound All + Email Handled) ── */
-function renderAgentProductivity(id, agents, isDark) {
+/* ── AGENT PRODUCTIVITY (Inbound Answered + Outbound All + Email Handled) ──
+   vmmExtrasByAgent (VMM only): Map<agent, {caseUpdate, caseLoggedEmail,
+   resolved, reminder}> from the live vmm-productivity webhook, keyed by the
+   agent name as it appears in VMM's own CRM (vmm_users.name) -- merged in
+   here by matching against `agent.agent` from combined_summary. Adds 4 more
+   bars (plus Non Trading, already on the agent object) without touching the
+   IB+OB+Email total shown in the axis label, for any other process. */
+function renderAgentProductivity(id, agents, isDark, vmmExtrasByAgent) {
   const ctx = getCtx(id);
   if (!ctx) return;
   // Computed live here (IB + OB + Email) rather than trusting a precomputed
@@ -275,17 +281,28 @@ function renderAgentProductivity(id, agents, isDark) {
   const withTotal = agents.map(a => ({ ...a, liveTotal: (a.inboundAnswered || 0) + (a.outboundAll || 0) + (a.emailsHandled || 0) }));
   const sorted = withTotal.sort((a, b) => b.liveTotal - a.liveTotal);
   const textColor = isDark ? '#b0b5c0' : '#6b7280';
+  const datasets = [
+    { label: 'Inbound Answered', data: sorted.map(a => a.inboundAnswered), backgroundColor: 'rgba(37,99,235,0.75)', borderRadius: 3 },
+    { label: 'Outbound All', data: sorted.map(a => a.outboundAll), backgroundColor: 'rgba(234,88,12,0.75)', borderRadius: 3 },
+    { label: 'Email Handled', data: sorted.map(a => a.emailsHandled), backgroundColor: 'rgba(217,119,6,0.75)', borderRadius: 3 }
+  ];
+  if (vmmExtrasByAgent) {
+    const extra = (a, field) => (vmmExtrasByAgent.get(a.agent) || {})[field] || 0;
+    datasets.push(
+      { label: 'Case Update', data: sorted.map(a => extra(a, 'caseUpdate')), backgroundColor: 'rgba(124,58,237,0.75)', borderRadius: 3 },
+      { label: 'Case Logged (Email)', data: sorted.map(a => extra(a, 'caseLoggedEmail')), backgroundColor: 'rgba(220,38,38,0.75)', borderRadius: 3 },
+      { label: 'Resolved/Closed', data: sorted.map(a => extra(a, 'resolved')), backgroundColor: 'rgba(16,185,129,0.75)', borderRadius: 3 },
+      { label: 'Reminder', data: sorted.map(a => extra(a, 'reminder')), backgroundColor: 'rgba(245,158,11,0.75)', borderRadius: 3 },
+      { label: 'Non Trading', data: sorted.map(a => a.nonTrading || 0), backgroundColor: 'rgba(107,114,128,0.75)', borderRadius: 3 }
+    );
+  }
   ctx.chart = new Chart(ctx, {
     type: 'bar',
     data: {
       // Multi-line tick: agent name + their IB+OB+Email total, shown as a per-agent
       // KPI under the axis rather than adding a 4th "total" bar to the chart.
       labels: sorted.map(a => [a.agent, `Total: ${a.liveTotal}`]),
-      datasets: [
-        { label: 'Inbound Answered', data: sorted.map(a => a.inboundAnswered), backgroundColor: 'rgba(37,99,235,0.75)', borderRadius: 3 },
-        { label: 'Outbound All', data: sorted.map(a => a.outboundAll), backgroundColor: 'rgba(234,88,12,0.75)', borderRadius: 3 },
-        { label: 'Email Handled', data: sorted.map(a => a.emailsHandled), backgroundColor: 'rgba(217,119,6,0.75)', borderRadius: 3 }
-      ]
+      datasets
     },
     options: {
       ...defaultOpts('Agent Productivity', isDark),
