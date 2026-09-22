@@ -745,6 +745,25 @@ async function fetchVmmProductivity(from, to) {
   }
 }
 
+/* Nihon Agent Productivity extras (Cases Logged (Email) / Resolved /
+   Reassigned) -- same pattern as fetchVmmProductivity, queried live from
+   Nihon's own MySQL database. Nihon only. */
+async function fetchNihonProductivity(from, to) {
+  try {
+    const params = new URLSearchParams();
+    if (from) params.set('from', from);
+    if (to) params.set('to', to);
+    const url = `${INSIGHTS_BASE}nihon-productivity?${params.toString()}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`nihon-productivity ${res.status}`);
+    const data = await res.json();
+    return Array.isArray(data) ? data : (Array.isArray(data.data) ? data.data : []);
+  } catch (err) {
+    console.error('fetchNihonProductivity failed:', err);
+    return [];
+  }
+}
+
 async function fetchTrackerInsights(processName, from, to) {
   // tracker-psri-appointments is PSRI-only (reads crm_daily_summary.extra's
   // Appt_* JSON fields, which only PSRI populates) -- calling it for every
@@ -844,7 +863,7 @@ const APP_DATA = {
   fetchData, toNumber, formatPercent, excelDayToSeconds, secondsToHms,
   avgSeconds, sumSeconds, toSeconds, parseTimeToSeconds, computeDefaultRange,
   agentName, hasActivity, rowsInRange, latestActiveDate, parseLoginHour, emailHandled,
-  fetchTrackerInsights, fetchHstSummary, fetchVmmProductivity
+  fetchTrackerInsights, fetchHstSummary, fetchVmmProductivity, fetchNihonProductivity
 };
 // sumNumber/avgNumber/sumSecondsRaw are used internally but also exposed for app.js
 APP_DATA.sumNumber = sumNumber;

@@ -266,26 +266,31 @@ function renderDayWiseChart(id, timeSeries, isDark) {
 }
 
 /* ── AGENT PRODUCTIVITY (Inbound Answered + Outbound All + Email Handled) ──
-   vmmExtrasByAgent (VMM only): Map<agent, {caseUpdate, caseLoggedEmail,
-   resolved, reminder}> from the live vmm-productivity webhook, keyed by the
-   agent name as it appears in VMM's own CRM (vmm_users.name) -- merged in
-   here by matching against `agent.agent` from combined_summary. Adds 5 more
-   bars (Case Update, Case Logged Email, Resolved/Closed, Reminder, Non
-   Trading) and the axis "Total" label sums every bar actually shown, so it
-   reflects all 8 categories for VMM instead of staying IB+OB+Email-only. */
-function renderAgentProductivity(id, agents, isDark, vmmExtrasByAgent) {
+   extras (process-specific, optional): {
+     byAgent: Map<agent, {...}> from a live per-process webhook (e.g.
+       vmm-productivity, nihon-productivity), keyed by the agent name as it
+       appears in that process's own source system -- merged in here by
+       matching against `agent.agent` from combined_summary.
+     fields: [{ key, label, color }] -- one extra bar per entry; key
+       'nonTrading' reads from the agent object itself (already available
+       from combined_summary) instead of byAgent, since it isn't part of
+       any live webhook.
+     removeEmailHandled: true to drop the Email Handled bar entirely (VMM --
+       Case Logged (Email) below covers that ground there).
+   }
+   The axis "Total" label sums every bar actually shown, so it reflects all
+   categories when extras are present instead of staying IB+OB+Email-only. */
+function renderAgentProductivity(id, agents, isDark, extras) {
   const ctx = getCtx(id);
   if (!ctx) return;
-  const extra = (a, field) => (vmmExtrasByAgent && vmmExtrasByAgent.get(a.agent) || {})[field] || 0;
-  // Computed live here (IB + OB + Email [+ VMM extras]) rather than trusting
-  // a precomputed productivityTotal field, so it always matches whatever
-  // emailsHandled value was actually passed in (e.g. the live
+  const extra = (a, key) => key === 'nonTrading' ? (a.nonTrading || 0) : ((extras && extras.byAgent.get(a.agent)) || {})[key] || 0;
+  // Computed live here (IB + OB + Email [+ process extras]) rather than
+  // trusting a precomputed productivityTotal field, so it always matches
+  // whatever emailsHandled value was actually passed in (e.g. the live
   // tracker-insights override) and every bar actually rendered.
-  // VMM drops the "Email Handled" bar entirely (Case Logged (Email) below
-  // covers that ground for VMM) -- other processes keep it as before.
   const withTotal = agents.map(a => {
-    let liveTotal = (a.inboundAnswered || 0) + (a.outboundAll || 0) + (vmmExtrasByAgent ? 0 : (a.emailsHandled || 0));
-    if (vmmExtrasByAgent) liveTotal += extra(a, 'caseUpdate') + extra(a, 'caseLoggedEmail') + extra(a, 'resolved') + extra(a, 'reminder') + (a.nonTrading || 0);
+    let liveTotal = (a.inboundAnswered || 0) + (a.outboundAll || 0) + (extras && extras.removeEmailHandled ? 0 : (a.emailsHandled || 0));
+    if (extras) liveTotal += extras.fields.reduce((s, f) => s + extra(a, f.key), 0);
     return { ...a, liveTotal };
   });
   const sorted = withTotal.sort((a, b) => b.liveTotal - a.liveTotal);
@@ -294,17 +299,11 @@ function renderAgentProductivity(id, agents, isDark, vmmExtrasByAgent) {
     { label: 'Inbound Answered', data: sorted.map(a => a.inboundAnswered), backgroundColor: 'rgba(37,99,235,0.75)', borderRadius: 3 },
     { label: 'Outbound All', data: sorted.map(a => a.outboundAll), backgroundColor: 'rgba(234,88,12,0.75)', borderRadius: 3 }
   ];
-  if (!vmmExtrasByAgent) {
+  if (!(extras && extras.removeEmailHandled)) {
     datasets.push({ label: 'Email Handled', data: sorted.map(a => a.emailsHandled), backgroundColor: 'rgba(217,119,6,0.75)', borderRadius: 3 });
   }
-  if (vmmExtrasByAgent) {
-    datasets.push(
-      { label: 'Case Update', data: sorted.map(a => extra(a, 'caseUpdate')), backgroundColor: 'rgba(124,58,237,0.75)', borderRadius: 3 },
-      { label: 'Case Logged (Email)', data: sorted.map(a => extra(a, 'caseLoggedEmail')), backgroundColor: 'rgba(220,38,38,0.75)', borderRadius: 3 },
-      { label: 'Resolved/Closed', data: sorted.map(a => extra(a, 'resolved')), backgroundColor: 'rgba(16,185,129,0.75)', borderRadius: 3 },
-      { label: 'Reminder', data: sorted.map(a => extra(a, 'reminder')), backgroundColor: 'rgba(245,158,11,0.75)', borderRadius: 3 },
-      { label: 'Non Trading', data: sorted.map(a => a.nonTrading || 0), backgroundColor: 'rgba(107,114,128,0.75)', borderRadius: 3 }
-    );
+  if (extras) {
+    extras.fields.forEach(f => datasets.push({ label: f.label, data: sorted.map(a => extra(a, f.key)), backgroundColor: f.color, borderRadius: 3 }));
   }
   ctx.chart = new Chart(ctx, {
     type: 'bar',

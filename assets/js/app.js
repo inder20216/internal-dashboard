@@ -513,15 +513,16 @@ function renderDashboard() {
   });
 
   // Agent Productivity is fed by up to 3 independent async sources (initial
-  // combined_summary render, live email-productivity override, VMM's extra
-  // metrics) that can resolve in any order -- track their contributions in
-  // shared state and re-render from here each time one arrives, so whichever
-  // finishes last never clobbers what an earlier one already added.
+  // combined_summary render, live email-productivity override, a
+  // process-specific extras webhook) that can resolve in any order -- track
+  // their contributions in shared state and re-render from here each time
+  // one arrives, so whichever finishes last never clobbers what an earlier
+  // one already added.
   let liveEmailAgents = null;
-  let vmmExtrasByAgent = null;
+  let productivityExtras = null;
   function renderProductivityChart() {
     if (!document.getElementById('agentProductivityChart')) return;
-    window.CHARTS.renderAgentProductivity('agentProductivityChart', liveEmailAgents || processData.agents, isDarkNow, vmmExtrasByAgent || undefined);
+    window.CHARTS.renderAgentProductivity('agentProductivityChart', liveEmailAgents || processData.agents, isDarkNow, productivityExtras || undefined);
   }
 
   const insightsReady = processName
@@ -597,12 +598,45 @@ function renderDashboard() {
         cur.reminder += Number(r.reminder) || 0;
         byAgent.set(r.agent, cur);
       });
-      vmmExtrasByAgent = byAgent;
+      productivityExtras = {
+        byAgent, removeEmailHandled: true,
+        fields: [
+          { key: 'caseUpdate', label: 'Case Update', color: 'rgba(124,58,237,0.75)' },
+          { key: 'caseLoggedEmail', label: 'Case Logged (Email)', color: 'rgba(220,38,38,0.75)' },
+          { key: 'resolved', label: 'Resolved/Closed', color: 'rgba(16,185,129,0.75)' },
+          { key: 'reminder', label: 'Reminder', color: 'rgba(245,158,11,0.75)' },
+          { key: 'nonTrading', label: 'Non Trading', color: 'rgba(107,114,128,0.75)' }
+        ]
+      };
       renderProductivityChart();
     })
     : Promise.resolve();
 
-  data.dashboardRenderReady = Promise.all([chartsReady, insightsReady, hstReady, vmmProductivityReady]);
+  // Nihon Agent Productivity extras (Resolved / Cases Logged (Email) /
+  // Reassigned) -- live from Nihon's own MySQL database, Nihon only.
+  const nihonProductivityReady = processName === 'Nihon'
+    ? data.fetchNihonProductivity(range.from, range.to).then(rows => {
+      const byAgent = new Map();
+      rows.forEach(r => {
+        const cur = byAgent.get(r.agent) || { caseLoggedEmail: 0, resolved: 0, reassigned: 0 };
+        cur.caseLoggedEmail += Number(r.caseLoggedEmail) || 0;
+        cur.resolved += Number(r.resolved) || 0;
+        cur.reassigned += Number(r.reassigned) || 0;
+        byAgent.set(r.agent, cur);
+      });
+      productivityExtras = {
+        byAgent, removeEmailHandled: false,
+        fields: [
+          { key: 'resolved', label: 'Resolved', color: 'rgba(16,185,129,0.75)' },
+          { key: 'caseLoggedEmail', label: 'Cases Logged (Email)', color: 'rgba(220,38,38,0.75)' },
+          { key: 'reassigned', label: 'Reassigned', color: 'rgba(124,58,237,0.75)' }
+        ]
+      };
+      renderProductivityChart();
+    })
+    : Promise.resolve();
+
+  data.dashboardRenderReady = Promise.all([chartsReady, insightsReady, hstReady, vmmProductivityReady, nihonProductivityReady]);
 }
 
 /* ── AGENT BENCHMARK ── */
