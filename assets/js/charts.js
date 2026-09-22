@@ -281,8 +281,10 @@ function renderAgentProductivity(id, agents, isDark, vmmExtrasByAgent) {
   // a precomputed productivityTotal field, so it always matches whatever
   // emailsHandled value was actually passed in (e.g. the live
   // tracker-insights override) and every bar actually rendered.
+  // VMM drops the "Email Handled" bar entirely (Case Logged (Email) below
+  // covers that ground for VMM) -- other processes keep it as before.
   const withTotal = agents.map(a => {
-    let liveTotal = (a.inboundAnswered || 0) + (a.outboundAll || 0) + (a.emailsHandled || 0);
+    let liveTotal = (a.inboundAnswered || 0) + (a.outboundAll || 0) + (vmmExtrasByAgent ? 0 : (a.emailsHandled || 0));
     if (vmmExtrasByAgent) liveTotal += extra(a, 'caseUpdate') + extra(a, 'caseLoggedEmail') + extra(a, 'resolved') + extra(a, 'reminder') + (a.nonTrading || 0);
     return { ...a, liveTotal };
   });
@@ -290,9 +292,11 @@ function renderAgentProductivity(id, agents, isDark, vmmExtrasByAgent) {
   const textColor = isDark ? '#b0b5c0' : '#6b7280';
   const datasets = [
     { label: 'Inbound Answered', data: sorted.map(a => a.inboundAnswered), backgroundColor: 'rgba(37,99,235,0.75)', borderRadius: 3 },
-    { label: 'Outbound All', data: sorted.map(a => a.outboundAll), backgroundColor: 'rgba(234,88,12,0.75)', borderRadius: 3 },
-    { label: 'Email Handled', data: sorted.map(a => a.emailsHandled), backgroundColor: 'rgba(217,119,6,0.75)', borderRadius: 3 }
+    { label: 'Outbound All', data: sorted.map(a => a.outboundAll), backgroundColor: 'rgba(234,88,12,0.75)', borderRadius: 3 }
   ];
+  if (!vmmExtrasByAgent) {
+    datasets.push({ label: 'Email Handled', data: sorted.map(a => a.emailsHandled), backgroundColor: 'rgba(217,119,6,0.75)', borderRadius: 3 });
+  }
   if (vmmExtrasByAgent) {
     datasets.push(
       { label: 'Case Update', data: sorted.map(a => extra(a, 'caseUpdate')), backgroundColor: 'rgba(124,58,237,0.75)', borderRadius: 3 },
