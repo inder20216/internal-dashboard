@@ -1030,8 +1030,7 @@ function buildKPICards(d, prevData) {
         <div class="kpi-icon-wrap" style="background:rgba(37,99,235,0.08);color:var(--accent);"><i class="ti ti-clock-play"></i></div>
       </div>
       <div class="kpi-label">Avg Pick Time</div>
-      <div class="kpi-value">${d.avgPickTime || '—'}</div>
-      <div class="kpi-sub">IB: ${d.avgPickTimeIb || '—'} · OB: ${d.avgPickTimeOb || '—'}</div>
+      <div class="kpi-value sm">IB ${d.avgPickTimeIb || '—'} &nbsp;·&nbsp; OB ${d.avgPickTimeOb || '—'}</div>
     </div>`;
 
   return statusHtml + trendHtml + pickTimeHtml + callbackHtml;
