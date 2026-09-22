@@ -269,16 +269,23 @@ function renderDayWiseChart(id, timeSeries, isDark) {
    vmmExtrasByAgent (VMM only): Map<agent, {caseUpdate, caseLoggedEmail,
    resolved, reminder}> from the live vmm-productivity webhook, keyed by the
    agent name as it appears in VMM's own CRM (vmm_users.name) -- merged in
-   here by matching against `agent.agent` from combined_summary. Adds 4 more
-   bars (plus Non Trading, already on the agent object) without touching the
-   IB+OB+Email total shown in the axis label, for any other process. */
+   here by matching against `agent.agent` from combined_summary. Adds 5 more
+   bars (Case Update, Case Logged Email, Resolved/Closed, Reminder, Non
+   Trading) and the axis "Total" label sums every bar actually shown, so it
+   reflects all 8 categories for VMM instead of staying IB+OB+Email-only. */
 function renderAgentProductivity(id, agents, isDark, vmmExtrasByAgent) {
   const ctx = getCtx(id);
   if (!ctx) return;
-  // Computed live here (IB + OB + Email) rather than trusting a precomputed
-  // productivityTotal field, so it always matches whatever emailsHandled value
-  // was actually passed in (e.g. the live tracker-insights override).
-  const withTotal = agents.map(a => ({ ...a, liveTotal: (a.inboundAnswered || 0) + (a.outboundAll || 0) + (a.emailsHandled || 0) }));
+  const extra = (a, field) => (vmmExtrasByAgent && vmmExtrasByAgent.get(a.agent) || {})[field] || 0;
+  // Computed live here (IB + OB + Email [+ VMM extras]) rather than trusting
+  // a precomputed productivityTotal field, so it always matches whatever
+  // emailsHandled value was actually passed in (e.g. the live
+  // tracker-insights override) and every bar actually rendered.
+  const withTotal = agents.map(a => {
+    let liveTotal = (a.inboundAnswered || 0) + (a.outboundAll || 0) + (a.emailsHandled || 0);
+    if (vmmExtrasByAgent) liveTotal += extra(a, 'caseUpdate') + extra(a, 'caseLoggedEmail') + extra(a, 'resolved') + extra(a, 'reminder') + (a.nonTrading || 0);
+    return { ...a, liveTotal };
+  });
   const sorted = withTotal.sort((a, b) => b.liveTotal - a.liveTotal);
   const textColor = isDark ? '#b0b5c0' : '#6b7280';
   const datasets = [
@@ -287,7 +294,6 @@ function renderAgentProductivity(id, agents, isDark, vmmExtrasByAgent) {
     { label: 'Email Handled', data: sorted.map(a => a.emailsHandled), backgroundColor: 'rgba(217,119,6,0.75)', borderRadius: 3 }
   ];
   if (vmmExtrasByAgent) {
-    const extra = (a, field) => (vmmExtrasByAgent.get(a.agent) || {})[field] || 0;
     datasets.push(
       { label: 'Case Update', data: sorted.map(a => extra(a, 'caseUpdate')), backgroundColor: 'rgba(124,58,237,0.75)', borderRadius: 3 },
       { label: 'Case Logged (Email)', data: sorted.map(a => extra(a, 'caseLoggedEmail')), backgroundColor: 'rgba(220,38,38,0.75)', borderRadius: 3 },
