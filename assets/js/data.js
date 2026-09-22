@@ -403,6 +403,20 @@ function aggregateProcess(rows, processName) {
   // picked up has no pick time to measure.
   const ibAnsweredWorkingHours = sumProcessDayConstant(daily, "IB Answered Working Hours");
   const sla15sAnsweredWorkingHours = sumProcessDayConstant(daily, "SLA 15s Answered Working Hours");
+  // Avg Pick Time (Step16) -- same ring_start_time -> start_time duration
+  // (queue_duration_raw) validated for SLA above, but averaged rather than
+  // thresholded, and covering both IB and OB (SLA is IB-only). Sum+count are
+  // stored (not a precomputed average) so a multi-day date range averages
+  // correctly (weighted by call volume) instead of just averaging daily
+  // averages together.
+  const pickTimeSumIb = sumProcessDayConstant(daily, "Pick Time Sum IB Sec");
+  const pickTimeCountIb = sumProcessDayConstant(daily, "Pick Time Count IB");
+  const pickTimeSumOb = sumProcessDayConstant(daily, "Pick Time Sum OB Sec");
+  const pickTimeCountOb = sumProcessDayConstant(daily, "Pick Time Count OB");
+  const avgPickTimeIbSec = pickTimeCountIb > 0 ? Math.round(pickTimeSumIb / pickTimeCountIb) : 0;
+  const avgPickTimeObSec = pickTimeCountOb > 0 ? Math.round(pickTimeSumOb / pickTimeCountOb) : 0;
+  const avgPickTimeSec = (pickTimeCountIb + pickTimeCountOb) > 0
+    ? Math.round((pickTimeSumIb + pickTimeSumOb) / (pickTimeCountIb + pickTimeCountOb)) : 0;
 
   /* Time metrics — these fields arrive as "HH:MM:SS" strings, so they must be
      summed per-row via sumSecondsRaw(), not sumNumber() (which can't parse them). */
@@ -459,6 +473,14 @@ function aggregateProcess(rows, processName) {
     missedWorkingHours, missedNonWorkingHours, ibOfferedWorkingHours, ibOfferedNonWorkingHours,
     ibAnsweredWorkingHours, sla15sAnsweredWorkingHours,
     sla15sPercent: ibAnsweredWorkingHours > 0 ? sla15sAnsweredWorkingHours / ibAnsweredWorkingHours : 0,
+    // Process-level Avg Pick Time (ring_start_time -> start_time), replacing
+    // the Sheet-sourced APT KPI card -- blended across IB+OB, with the IB/OB
+    // split shown alongside it. `apt` (Sheet-sourced, per-agent) is left
+    // untouched below for the agent table/chatbot, which still use it.
+    avgPickTimeSec, avgPickTimeIbSec, avgPickTimeObSec,
+    avgPickTime: secondsToHms(avgPickTimeSec),
+    avgPickTimeIb: secondsToHms(avgPickTimeIbSec),
+    avgPickTimeOb: secondsToHms(avgPickTimeObSec),
     /* Time */
     shrinkage: loginSec > 0 ? breakSec / loginSec : 0,
     occupancy: workSec > 0 ? talkSec / workSec : 0,
