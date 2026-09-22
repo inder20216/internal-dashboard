@@ -636,7 +636,29 @@ function renderDashboard() {
     })
     : Promise.resolve();
 
-  data.dashboardRenderReady = Promise.all([chartsReady, insightsReady, hstReady, vmmProductivityReady, nihonProductivityReady]);
+  // Infres Agent Productivity extras (Cases Logged (Email) / Case Update) --
+  // live from Infres's own MySQL database, Infres only.
+  const infresProductivityReady = processName === 'Infres'
+    ? data.fetchInfresProductivity(range.from, range.to).then(rows => {
+      const byAgent = new Map();
+      rows.forEach(r => {
+        const cur = byAgent.get(r.agent) || { caseLoggedEmail: 0, caseUpdate: 0 };
+        cur.caseLoggedEmail += Number(r.caseLoggedEmail) || 0;
+        cur.caseUpdate += Number(r.caseUpdate) || 0;
+        byAgent.set(r.agent, cur);
+      });
+      productivityExtras = {
+        byAgent, removeEmailHandled: false,
+        fields: [
+          { key: 'caseLoggedEmail', label: 'Cases Logged (Email)', color: 'rgba(220,38,38,0.75)' },
+          { key: 'caseUpdate', label: 'Case Update', color: 'rgba(124,58,237,0.75)' }
+        ]
+      };
+      renderProductivityChart();
+    })
+    : Promise.resolve();
+
+  data.dashboardRenderReady = Promise.all([chartsReady, insightsReady, hstReady, vmmProductivityReady, nihonProductivityReady, infresProductivityReady]);
 }
 
 /* ── AGENT BENCHMARK ── */
