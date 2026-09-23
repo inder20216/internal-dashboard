@@ -403,16 +403,19 @@ function aggregateProcess(rows, processName) {
   // picked up has no pick time to measure.
   const ibAnsweredWorkingHours = sumProcessDayConstant(daily, "IB Answered Working Hours");
   const sla15sAnsweredWorkingHours = sumProcessDayConstant(daily, "SLA 15s Answered Working Hours");
-  // Avg Pick Time (Step16) -- same ring_start_time -> start_time duration
-  // (queue_duration_raw) validated for SLA above, but averaged rather than
-  // thresholded, and covering both IB and OB (SLA is IB-only). Sum+count are
-  // stored (not a precomputed average) so a multi-day date range averages
-  // correctly (weighted by call volume) instead of just averaging daily
-  // averages together.
-  const pickTimeSumIb = sumProcessDayConstant(daily, "Pick Time Sum IB Sec");
-  const pickTimeCountIb = sumProcessDayConstant(daily, "Pick Time Count IB");
-  const pickTimeSumOb = sumProcessDayConstant(daily, "Pick Time Sum OB Sec");
-  const pickTimeCountOb = sumProcessDayConstant(daily, "Pick Time Count OB");
+  // Avg Pick Time (Step16) -- ring_start_time -> start_time per real agent
+  // (matched by SIP against daywise_summary, same as AHT/Step5 -- excludes
+  // transferred/queue/department pseudo-agent rows), covering both IB and
+  // OB. Genuinely per-agent now (not a process-day-constant broadcast like
+  // SLA above), so these are plain sums across rows, not deduped -- and
+  // sum+count are stored rather than a precomputed average so a multi-day
+  // date range averages correctly (weighted by call volume) instead of
+  // just averaging daily averages together.
+  const pickTimeRows = daily.filter(r => !isTransferPseudoAgent(agentName(r)));
+  const pickTimeSumIb = sumNumber(pickTimeRows, "Pick Time Sum IB Sec");
+  const pickTimeCountIb = sumNumber(pickTimeRows, "Pick Time Count IB");
+  const pickTimeSumOb = sumNumber(pickTimeRows, "Pick Time Sum OB Sec");
+  const pickTimeCountOb = sumNumber(pickTimeRows, "Pick Time Count OB");
   const avgPickTimeIbSec = pickTimeCountIb > 0 ? Math.round(pickTimeSumIb / pickTimeCountIb) : 0;
   const avgPickTimeObSec = pickTimeCountOb > 0 ? Math.round(pickTimeSumOb / pickTimeCountOb) : 0;
   const avgPickTimeSec = (pickTimeCountIb + pickTimeCountOb) > 0
