@@ -1024,21 +1024,19 @@ function buildKPICards(d, prevData) {
       <div class="kpi-sub">Avg. working-hours gap between a missed call and the callback</div>
     </div>`;
 
-  // mm:ss, always shown (even 0:00) -- unlike the shared secondsToHms()
-  // (hh:mm:ss, treats 0 as "no data" -> '—'), a genuine 0-second pick time
-  // is a real, meaningful value here, not missing data.
-  const mmss = (s) => {
-    const total = Math.max(0, Math.round(Number(s) || 0));
-    const m = Math.floor(total / 60), sec = total % 60;
-    return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
-  };
+  // Reverted to the original APT (Agent Performance API "apt" field) source
+  // while the ring_start_time/start_time-based per-agent calc is still being
+  // worked out on the backend (CDR's ring/start pair turned out to reflect the
+  // customer-facing leg, not the agent's own pickup -- see the Leg Report
+  // investigation). d.avgPickTimeIbSec/ObSec are left untouched in data.js so
+  // that work can resume without redoing the backend pipeline.
   const pickTimeHtml = `<div class="kpi-card status-neutral">
       <div class="kpi-accent" style="background:var(--accent);"></div>
       <div class="kpi-header">
         <div class="kpi-icon-wrap" style="background:rgba(37,99,235,0.08);color:var(--accent);"><i class="ti ti-clock-play"></i></div>
       </div>
       <div class="kpi-label">Avg Pick Time</div>
-      <div class="kpi-value sm">IB ${mmss(d.avgPickTimeIbSec)} &nbsp;·&nbsp; OB ${mmss(d.avgPickTimeObSec)}</div>
+      <div class="kpi-value">${d.apt || '—'}</div>
     </div>`;
 
   return statusHtml + trendHtml + pickTimeHtml + callbackHtml;
