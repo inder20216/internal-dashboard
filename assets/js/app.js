@@ -1024,13 +1024,21 @@ function buildKPICards(d, prevData) {
       <div class="kpi-sub">Avg. working-hours gap between a missed call and the callback</div>
     </div>`;
 
+  // mm:ss, always shown (even 0:00) -- unlike the shared secondsToHms()
+  // (hh:mm:ss, treats 0 as "no data" -> '—'), a genuine 0-second pick time
+  // is a real, meaningful value here, not missing data.
+  const mmss = (s) => {
+    const total = Math.max(0, Math.round(Number(s) || 0));
+    const m = Math.floor(total / 60), sec = total % 60;
+    return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+  };
   const pickTimeHtml = `<div class="kpi-card status-neutral">
       <div class="kpi-accent" style="background:var(--accent);"></div>
       <div class="kpi-header">
         <div class="kpi-icon-wrap" style="background:rgba(37,99,235,0.08);color:var(--accent);"><i class="ti ti-clock-play"></i></div>
       </div>
       <div class="kpi-label">Avg Pick Time</div>
-      <div class="kpi-value sm">IB ${d.avgPickTimeIb || '—'} &nbsp;·&nbsp; OB ${d.avgPickTimeOb || '—'}</div>
+      <div class="kpi-value sm">IB ${mmss(d.avgPickTimeIbSec)} &nbsp;·&nbsp; OB ${mmss(d.avgPickTimeObSec)}</div>
     </div>`;
 
   return statusHtml + trendHtml + pickTimeHtml + callbackHtml;
