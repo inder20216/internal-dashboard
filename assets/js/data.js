@@ -491,8 +491,11 @@ function aggregateProcess(rows, processName) {
     aht: avgSeconds(daily, "AHT", "AHT (formatted)"),
     // Pick time is a per-agent metric like AHT -- a transfer/forwarded/queue
     // pseudo-agent row isn't a real person picking up a call, so it shouldn't
-    // pull the process-wide average around.
-    apt: avgSeconds(daily.filter(r => !isTransferPseudoAgent(agentName(r))), "APT", "APT (formatted)"),
+    // pull the process-wide average around. For ResMed, ahtRows is already
+    // narrowed to the 4-agent allowlist (same "real agents only" rule as
+    // Agent Productivity/AHT) -- other processes fall back to daily, so the
+    // pseudo-agent filter below still does the work there.
+    apt: avgSeconds(ahtRows.filter(r => !isTransferPseudoAgent(agentName(r))), "APT", "APT (formatted)"),
     ibTalkTime: sumSeconds(daily, "IB TT", "IB TT (formatted)"),
     obTalkTime: sumSeconds(daily, "OB TT", "OB TT (formatted)"),
     ibTalkTimeSec: ahtIbTTSec,
