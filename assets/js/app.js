@@ -468,6 +468,11 @@ function renderDashboard() {
     <div class="panel">
       <div class="panel-header"><i class="ti ti-calendar-stats"></i> HST Allocation Report — Open Count (Agent & Month Wise)</div>
       <div class="panel-body" style="height:460px;"><canvas id="hstAllocationOpenChart"></canvas></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header"><i class="ti ti-table"></i> HST Allocation Report — Open Count (Pivot Table)</div>
+      <div class="panel-body" id="hstAllocationOpenTable"></div>
     </div>` : ''}`;
 
   // Exposes when this render's async work (chart batch + tracker-insights
@@ -597,6 +602,7 @@ function renderDashboard() {
   const hstAllocationReady = processName === 'ResMed'
     ? data.fetchHstAllocationReport().then(rows => {
       if (document.getElementById('hstAllocationOpenChart')) window.CHARTS.renderHstOpenByAgentMonth('hstAllocationOpenChart', rows, isDarkNow);
+      buildHstOpenAgentMonthTable('hstAllocationOpenTable', rows);
     })
     : Promise.resolve();
 
@@ -1091,6 +1097,67 @@ function buildTopStatGroups(d, processName) {
         <div class="stat-group-item"><div class="v">0</div><div class="l">Duration</div></div>
       </div>` : ''}
     </div>` : ''}
+  </div>`;
+}
+
+/* HST Allocation Report -- Open Count pivot table (Agent x Month), same
+   shape as the reference Excel pivot: months as columns in calendar order,
+   a Grand Total column per agent and a Grand Total row across all agents.
+   Blank cells (not "0") for an agent/month with no Open records, matching
+   the reference. Renders into a plain <div id="containerId"> (not a canvas
+   -- this is a real HTML table, not a Chart.js chart). */
+function buildHstOpenAgentMonthTable(containerId, hstAllocationRows) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+
+  const MONTH_ORDER = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const rows = (hstAllocationRows || []).filter(r => r.status === 'Open');
+
+  if (!rows.length) {
+    el.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted);">No Open records found.</div>';
+    return;
+  }
+
+  const months = MONTH_ORDER.filter(m => rows.some(r => r.month === m));
+  const agents = [...new Set(rows.map(r => r.agent))].sort((a, b) => String(a).localeCompare(String(b)));
+
+  const counts = new Map();
+  rows.forEach(r => {
+    const key = r.agent + '||' + r.month;
+    counts.set(key, (counts.get(key) || 0) + 1);
+  });
+
+  const colTotals = {};
+  months.forEach(m => { colTotals[m] = 0; });
+  let grandTotal = 0;
+
+  const bodyRows = agents.map(agent => {
+    let rowTotal = 0;
+    const cells = months.map(m => {
+      const c = counts.get(agent + '||' + m) || 0;
+      rowTotal += c;
+      colTotals[m] += c;
+      return `<td style="text-align:center;">${c || ''}</td>`;
+    }).join('');
+    grandTotal += rowTotal;
+    return `<tr><td>${agent}</td>${cells}<td style="text-align:center;font-weight:600;">${rowTotal}</td></tr>`;
+  }).join('');
+
+  const totalRow = `<tr style="font-weight:700;">
+      <td>Grand Total</td>
+      ${months.map(m => `<td style="text-align:center;">${colTotals[m]}</td>`).join('')}
+      <td style="text-align:center;">${grandTotal}</td>
+    </tr>`;
+
+  el.innerHTML = `<div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th>Row Labels</th>
+        ${months.map(m => `<th style="text-align:center;">${m}</th>`).join('')}
+        <th style="text-align:center;">Grand Total</th>
+      </tr></thead>
+      <tbody>${bodyRows}${totalRow}</tbody>
+    </table>
   </div>`;
 }
 
