@@ -723,7 +723,7 @@ async function fetchData(processFilter) {
    apart from a single 12-branch UNION query so one bad branch (e.g. a collation
    mismatch) can't take down every insights panel at once; each endpoint fails
    on its own and the others still populate. */
-const INSIGHTS_BASE = "https://inder20216.app.n8n.cloud/webhook/";
+const INSIGHTS_BASE = "https://automation.openmindhelpline.com/webhook/";
 const INSIGHTS_ENDPOINTS = [
   'tracker-training', 'tracker-quality', 'tracker-downtime', 'tracker-conversion',
   'tracker-ob-activity', 'tracker-hourly', 'tracker-fresh-calls', 'tracker-stg-tagging',
