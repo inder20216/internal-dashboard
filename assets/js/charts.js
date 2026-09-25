@@ -835,7 +835,19 @@ function renderObActivityCombo(id, rows, isDark, title) {
    A null-value spacer bar is inserted between groups (Chart.js leaves a gap
    for a null data point without drawing anything) so groups are visually
    separated by more space than the bars within a group. */
-function renderHstNestedBar(id, hstRows, isDark, status, outerKey, innerKey, seriesLabel, seriesColor, title, sortOuterByName, rotateInner) {
+const MONTH_ABBR_ORDER = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+// Plain alphabetical sort is wrong for month abbreviations (Apr before Jan) --
+// auto-detect when every inner value is a 3-letter month name and use
+// calendar order instead. Anything else (lead source, status text) still
+// sorts alphabetically as before.
+function sortInnerValues(values) {
+  if (values.length && values.every(v => MONTH_ABBR_ORDER.includes(v))) {
+    return values.slice().sort((a, b) => MONTH_ABBR_ORDER.indexOf(a) - MONTH_ABBR_ORDER.indexOf(b));
+  }
+  return values.slice().sort((a, b) => String(a).localeCompare(String(b)));
+}
+
+function renderHstNestedBar(id, hstRows, isDark, status, outerKey, innerKey, seriesLabel, seriesColor, title, sortOuterByName, rotateInner, showTotal) {
   const ctx = getCtx(id);
   if (!ctx) return;
   const textColor = isDark ? '#b0b5c0' : '#6b7280';
@@ -855,7 +867,7 @@ function renderHstNestedBar(id, hstRows, isDark, status, outerKey, innerKey, ser
   const bars = [];
   outerValues.forEach((outerVal, gi) => {
     if (gi > 0) bars.push({ outerVal: '', innerVal: '', count: null, spacer: true });
-    const inners = [...new Set(rows.filter(r => r[outerKey] === outerVal).map(r => r[innerKey]))].sort();
+    const inners = sortInnerValues([...new Set(rows.filter(r => r[outerKey] === outerVal).map(r => r[innerKey]))]);
     inners.forEach(innerVal => {
       bars.push({ outerVal, innerVal, count: counts.get(outerVal + '||' + innerVal) || 0 });
     });
@@ -918,6 +930,17 @@ function renderHstNestedBar(id, hstRows, isDark, status, outerKey, innerKey, ser
         i = j + 1;
       }
       c.restore();
+
+      if (showTotal) {
+        const total = bars.reduce((s, b) => s + (b.count || 0), 0);
+        c.save();
+        c.font = '700 11px system-ui, -apple-system, sans-serif';
+        c.fillStyle = seriesColor;
+        c.textAlign = 'right';
+        c.textBaseline = 'top';
+        c.fillText(`Total ${seriesLabel}: ${total}`, chart.chartArea.right, chart.chartArea.top - 18);
+        c.restore();
+      }
     }
   };
 
@@ -1022,11 +1045,16 @@ function renderHstClosedConversionIssues(id, hstRows, isDark) {
 }
 
 /* Chart 4: HST Allocation Report — Open Count, agent wise / month wise.
-   Grouped Agent (outer) -> Month (inner, "YYYY-MM" so alphabetical sort is
-   already chronological), single "Open" series. Separate sheet/webhook from
-   the other 3 HST charts (fetchHstAllocationReport, not fetchHstSummary). */
+   Grouped Agent (outer) -> Month (inner, short name e.g. "Sep" -- calendar-
+   ordered automatically by sortInnerValues' month detection, not raw
+   alphabetical), single "Open" series, grand total shown top-right of the
+   chart. Separate sheet/webhook from the other 3 HST charts
+   (fetchHstAllocationReport, not fetchHstSummary). Note: month values don't
+   carry a year, so if this report ever spans more than one calendar year,
+   same-name months from different years will merge into one bar -- fine for
+   now (all current data is 2026), worth revisiting if that changes. */
 function renderHstOpenByAgentMonth(id, hstAllocationRows, isDark) {
-  renderHstNestedBar(id, hstAllocationRows, isDark, 'Open', 'agent', 'month', 'Open', chartColors.amber, 'HST Allocation Report — Open Count (Agent & Month wise)', true, false);
+  renderHstNestedBar(id, hstAllocationRows, isDark, 'Open', 'agent', 'month', 'Open', chartColors.amber, 'HST Allocation Report — Open Count (Agent & Month wise)', true, false, true);
 }
 
 /* ── CHATBOT CHART RENDERER (inline) ── */
