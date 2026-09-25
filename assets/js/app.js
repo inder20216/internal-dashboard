@@ -351,13 +351,6 @@ function renderDashboard() {
       </div>
     </div>
 
-    <div class="panel">
-      <div class="panel-header"><i class="ti ti-users"></i> Agent Performance</div>
-      <div class="panel-body">
-        ${buildAgentTable(processData.agents, processData.isOverall, processName)}
-      </div>
-    </div>
-
     ${processName === 'Baxter' ? `
     <div class="panel">
       <div class="panel-header"><i class="ti ti-checklist"></i> Closed &amp; Partial Closed — ${range.from === range.to ? range.from : `${range.from} → ${range.to}`}</div>
@@ -1171,87 +1164,6 @@ function buildHighlightsStrip(facts) {
   </div>`;
 }
 
-function buildAgentTable(agents, isOverall, processName) {
-  if (!agents || !agents.length) return '<div style="text-align:center;padding:30px;color:var(--muted);">No agent data available.</div>';
-  // CRM case closure (Closed/Partial) and escalation tracking (Escalation,
-  // Esc. Open/Pending) only apply to Baxter's CRM workflow — no other process
-  // uses them. Appreciation stays visible for everyone.
-  const showCrmEscalation = processName === 'Baxter';
-  const tableHtml = `<div class="table-wrap">
-    <table>
-      <thead><tr>
-        <th>Rank</th>
-        <th>Agent</th>${isOverall ? '<th>Process</th>' : ''}
-        <th>Productivity</th>
-        <th>IB</th>
-        <th>OB</th>
-        <th>OB Ans</th>
-        <th>OB Connectivity</th>
-        <th>Email</th>
-        <th>AHT</th>
-        <th>AHT (IB)</th>
-        <th>AHT (OB)</th>
-        <th>APT</th>
-        <th>Missed</th>
-        <th>IB Hangup</th>
-        <th>OB Hangup</th>
-        <th>Login Duration</th>
-        <th>Break Duration</th>
-        <th>Training Duration</th>${showCrmEscalation ? `
-        <th>CRM Closed</th>
-        <th>CRM Partial</th>` : ''}
-        <th>CRM</th>
-        <th>Occupancy</th>
-        <th>IB TT</th>
-        <th>OB TT</th>
-        <th>Appreciation</th>${showCrmEscalation ? `
-        <th>Escalation</th>
-        <th>Esc. Open</th>
-        <th>Esc. Pending (Field)</th>
-        <th>Esc. Pending (RHC)</th>` : ''}
-      </tr></thead>
-      <tbody>${agents.map((a, i) => `<tr>
-        <td><span class="rank-badge ${i < 3 ? `rank-${i+1}` : 'rank-other'}">${i+1}</span></td>
-        <td>${a.agent}</td>${isOverall ? `<td>${a.process}</td>` : ''}
-        <td><strong>${a.productivityTotal}</strong></td>
-        <td>${a.inboundAnswered}</td>
-        <td>${a.outboundAll}</td>
-        <td>${a.obAnswered || 0}</td>
-        <td>${a.outboundAll > 0 ? ((a.obAnswered || 0) / a.outboundAll * 100).toFixed(1) : '0.0'}%</td>
-        <td>${a.emailsHandled}</td>
-        <td>${a.aht}</td>
-        <td>${secondsToHms(a.ahtInboundSec || 0)}</td>
-        <td>${secondsToHms(a.ahtOutboundSec || 0)}</td>
-        <td>${a.apt}</td>
-        <td>${a.agentMissed}</td>
-        <td>${a.hangupIB || 0}</td>
-        <td>${a.hangupOB || 0}</td>
-        <td>${a.loginDuration}</td>
-        <td>${a.breakDuration}</td>
-        <td>${a.trainingDuration}</td>${showCrmEscalation ? `
-        <td>${a.closedCases || 0}</td>
-        <td>${a.partialClosedCases || 0}</td>` : ''}
-        <td>${(a.crmCall || 0) + (a.crmEmail || 0)}</td>
-        <td>${(a.occupancy * 100).toFixed(1)}%</td>
-        <td>${a.ibTalkTime}</td>
-        <td>${a.obTalkTime}</td>
-        <td>${a.appreciationCount || 0}</td>${showCrmEscalation ? `
-        <td>${a.escalationCount || 0}</td>
-        <td>${a.crmEscalationOpen || 0}</td>
-        <td>${a.crmEscalationPendingField || 0}</td>
-        <td>${a.crmEscalationPendingRhc || 0}</td>` : ''}
-      </tr>`).join('')}</tbody>
-    </table>
-  </div>`;
-
-  return `<div class="table-collapse">
-    <button class="table-collapse-toggle" type="button" onclick="const w=this.closest('.table-collapse');w.classList.toggle('open');this.querySelector('span').textContent=w.classList.contains('open')?'Hide full table':'Show full table (${agents.length} agents)';">
-      <i class="ti ti-table"></i> <span>Show full table (${agents.length} agents)</span>
-    </button>
-    <div class="table-collapse-body">${tableHtml}</div>
-  </div>`;
-}
-
 /* Agent-wise + type-wise training duration. Source is a UNION of training_tracker
    (historical Excel backfill + whatever form submissions exist) and login_events
    (agents can select the same reason-level statuses as the form's Type of Training
@@ -1432,9 +1344,7 @@ function buildClosedPartialTable(agents) {
   </div>`;
 }
 
-/* Agent-wise Appreciation/Escalation — for processes where these aren't shown
-   as columns in the main Agent Performance table (e.g. ResMed, which doesn't
-   have a CRM case/escalation workflow the same way other processes do). */
+/* Agent-wise Appreciation/Escalation, standalone summary table. */
 function buildAppreciationEscalationTable(agents) {
   if (!agents || !agents.length) return '<div style="text-align:center;padding:30px;color:var(--muted);">No data available.</div>';
   const rows = agents
