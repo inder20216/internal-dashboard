@@ -1021,6 +1021,14 @@ function renderHstClosedConversionIssues(id, hstRows, isDark) {
   });
 }
 
+/* Chart 4: HST Allocation Report — Open Count, agent wise / month wise.
+   Grouped Agent (outer) -> Month (inner, "YYYY-MM" so alphabetical sort is
+   already chronological), single "Open" series. Separate sheet/webhook from
+   the other 3 HST charts (fetchHstAllocationReport, not fetchHstSummary). */
+function renderHstOpenByAgentMonth(id, hstAllocationRows, isDark) {
+  renderHstNestedBar(id, hstAllocationRows, isDark, 'Open', 'agent', 'month', 'Open', chartColors.amber, 'HST Allocation Report — Open Count (Agent & Month wise)', true, false);
+}
+
 /* ── CHATBOT CHART RENDERER (inline) ── */
 function renderMiniChart(canvasId, type, labels, data, label, color, isDark) {
   const ctx = document.getElementById(canvasId)?.getContext('2d');
@@ -1076,6 +1084,6 @@ window.CHARTS = {
   renderAgentProductivity, renderBreakDuration, renderQualityRatio, renderAgentMissed, renderAgentHangup, renderTrainingByAgent, renderDowntimeByAgent, renderAppreciationEscalation, renderStatBar, renderHourlyMissed, renderFreshCallsComparison,
   renderFacilityCallCases, renderFacilityEmailCases, renderEmailSentAgentWise, renderIBCasesAppointments,
   renderObActivityCombo,
-  renderHstCountsByLeadSource, renderHstFollowUpStatus, renderHstClosedConversionIssues,
+  renderHstCountsByLeadSource, renderHstFollowUpStatus, renderHstClosedConversionIssues, renderHstOpenByAgentMonth,
   chartColors, colorPalette
 };

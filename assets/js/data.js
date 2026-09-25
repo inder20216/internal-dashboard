@@ -752,6 +752,24 @@ async function fetchHstSummary(from, to) {
   }
 }
 
+/* HST Allocation Report (ResMed only) -- separate report/sheet/webhook from
+   fetchHstSummary above (that one reads "Resmed HST"; this one reads the new
+   "HST Allocation Report" tab). Row shape: {date, month, agent, status}.
+   Always fetched unfiltered -- the chart itself filters to Patient Status
+   'Open' and buckets by agent/month client-side, same pattern as the other
+   HST charts (renderHstNestedBar). */
+async function fetchHstAllocationReport() {
+  try {
+    const res = await fetch(`${INSIGHTS_BASE}tracker-hst-allocation-report`);
+    if (!res.ok) throw new Error(`tracker-hst-allocation-report ${res.status}`);
+    const data = await res.json();
+    return Array.isArray(data) ? data : (Array.isArray(data.data) ? data.data : []);
+  } catch (err) {
+    console.error('fetchHstAllocationReport failed:', err);
+    return [];
+  }
+}
+
 /* VMM Agent Productivity extras (Case Update / Case Logged Email / Resolved /
    Reminder) -- queried live from VMM's own CRM database (a separate MySQL
    instance from combined_summary), keyed by date+agent name the same way the
@@ -910,7 +928,7 @@ const APP_DATA = {
   fetchData, toNumber, formatPercent, excelDayToSeconds, secondsToHms,
   avgSeconds, sumSeconds, toSeconds, parseTimeToSeconds, computeDefaultRange,
   agentName, hasActivity, rowsInRange, latestActiveDate, parseLoginHour, emailHandled,
-  fetchTrackerInsights, fetchHstSummary, fetchVmmProductivity, fetchNihonProductivity, fetchInfresProductivity
+  fetchTrackerInsights, fetchHstSummary, fetchHstAllocationReport, fetchVmmProductivity, fetchNihonProductivity, fetchInfresProductivity
 };
 // sumNumber/avgNumber/sumSecondsRaw are used internally but also exposed for app.js
 APP_DATA.sumNumber = sumNumber;
