@@ -450,9 +450,16 @@ function renderDashboard() {
     </div>` : ''}
 
     ${processName === 'ResMed' ? `
-    <div class="panel">
-      <div class="panel-header"><i class="ti ti-bed"></i> HST Counts — Lead Source Wise</div>
-      <div class="panel-body" style="height:340px;"><canvas id="hstCountsChart"></canvas></div>
+    <div class="grid-1-2">
+      <div class="panel">
+        <div class="panel-header"><i class="ti ti-bed"></i> HST Counts — Lead Source Wise</div>
+        <div class="panel-body" style="height:380px;"><canvas id="hstCountsChart"></canvas></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header"><i class="ti ti-calendar-stats"></i> HST Allocation Report — Open Count (Agent & Month Wise)</div>
+        <div class="panel-body" style="height:380px;"><canvas id="hstAllocationOpenChart"></canvas></div>
+      </div>
     </div>
 
     <div class="panel">
@@ -463,11 +470,6 @@ function renderDashboard() {
     <div class="panel">
       <div class="panel-header"><i class="ti ti-alert-triangle"></i> Closed — Conversion Issues</div>
       <div class="panel-body" style="height:340px;"><canvas id="hstConversionIssuesChart"></canvas></div>
-    </div>
-
-    <div class="panel">
-      <div class="panel-header"><i class="ti ti-calendar-stats"></i> HST Allocation Report — Open Count (Agent & Month Wise)</div>
-      <div class="panel-body" style="height:460px;"><canvas id="hstAllocationOpenChart"></canvas></div>
     </div>
 
     <div class="panel">
