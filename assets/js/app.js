@@ -450,7 +450,7 @@ function renderDashboard() {
     </div>` : ''}
 
     ${processName === 'ResMed' ? `
-    <div class="grid-1-2">
+    <div class="grid-2-1">
       <div class="panel">
         <div class="panel-header"><i class="ti ti-bed"></i> HST Counts — Lead Source Wise</div>
         <div class="panel-body" style="height:380px;"><canvas id="hstCountsChart"></canvas></div>
