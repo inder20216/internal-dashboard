@@ -470,11 +470,6 @@ function renderDashboard() {
     <div class="panel">
       <div class="panel-header"><i class="ti ti-alert-triangle"></i> Closed — Conversion Issues</div>
       <div class="panel-body" style="height:340px;"><canvas id="hstConversionIssuesChart"></canvas></div>
-    </div>
-
-    <div class="panel">
-      <div class="panel-header"><i class="ti ti-calendar-stats"></i> HST Allocation Report — Open Count (Agent & Month Wise, Chart)</div>
-      <div class="panel-body" style="height:460px;"><canvas id="hstAllocationOpenChart"></canvas></div>
     </div>` : ''}`;
 
   // Exposes when this render's async work (chart batch + tracker-insights
@@ -600,10 +595,10 @@ function renderDashboard() {
   // HST Allocation Report — Open Count (Agent & Month wise), a separate
   // sheet/webhook from the HST Fulfilment charts above. Always all-time
   // (not scoped to the dashboard's date range) since it's a month-over-month
-  // view, not a single-period one.
+  // view, not a single-period one. Table only -- no chart version (removed
+  // per request, the pivot table replaced it in the side-by-side row).
   const hstAllocationReady = processName === 'ResMed'
     ? data.fetchHstAllocationReport().then(rows => {
-      if (document.getElementById('hstAllocationOpenChart')) window.CHARTS.renderHstOpenByAgentMonth('hstAllocationOpenChart', rows, isDarkNow);
       buildHstOpenAgentMonthTable('hstAllocationOpenTable', rows);
     })
     : Promise.resolve();

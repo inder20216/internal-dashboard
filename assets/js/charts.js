@@ -1044,19 +1044,6 @@ function renderHstClosedConversionIssues(id, hstRows, isDark) {
   });
 }
 
-/* Chart 4: HST Allocation Report — Open Count, agent wise / month wise.
-   Grouped Agent (outer) -> Month (inner, short name e.g. "Sep" -- calendar-
-   ordered automatically by sortInnerValues' month detection, not raw
-   alphabetical), single "Open" series, grand total shown top-right of the
-   chart. Separate sheet/webhook from the other 3 HST charts
-   (fetchHstAllocationReport, not fetchHstSummary). Note: month values don't
-   carry a year, so if this report ever spans more than one calendar year,
-   same-name months from different years will merge into one bar -- fine for
-   now (all current data is 2026), worth revisiting if that changes. */
-function renderHstOpenByAgentMonth(id, hstAllocationRows, isDark) {
-  renderHstNestedBar(id, hstAllocationRows, isDark, 'Open', 'agent', 'month', 'Open', chartColors.amber, 'HST Allocation Report — Open Count (Agent & Month wise)', true, false, true);
-}
-
 /* ── CHATBOT CHART RENDERER (inline) ── */
 function renderMiniChart(canvasId, type, labels, data, label, color, isDark) {
   const ctx = document.getElementById(canvasId)?.getContext('2d');
@@ -1112,6 +1099,6 @@ window.CHARTS = {
   renderAgentProductivity, renderBreakDuration, renderQualityRatio, renderAgentMissed, renderAgentHangup, renderTrainingByAgent, renderDowntimeByAgent, renderAppreciationEscalation, renderStatBar, renderHourlyMissed, renderFreshCallsComparison,
   renderFacilityCallCases, renderFacilityEmailCases, renderEmailSentAgentWise, renderIBCasesAppointments,
   renderObActivityCombo,
-  renderHstCountsByLeadSource, renderHstFollowUpStatus, renderHstClosedConversionIssues, renderHstOpenByAgentMonth,
+  renderHstCountsByLeadSource, renderHstFollowUpStatus, renderHstClosedConversionIssues,
   chartColors, colorPalette
 };
