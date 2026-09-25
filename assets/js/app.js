@@ -457,8 +457,8 @@ function renderDashboard() {
       </div>
 
       <div class="panel">
-        <div class="panel-header"><i class="ti ti-calendar-stats"></i> HST Allocation Report — Open Count (Agent & Month Wise)</div>
-        <div class="panel-body" style="height:380px;"><canvas id="hstAllocationOpenChart"></canvas></div>
+        <div class="panel-header"><i class="ti ti-table"></i> HST Allocation Report — Open Count (Agent & Month Wise)</div>
+        <div class="panel-body" id="hstAllocationOpenTable"></div>
       </div>
     </div>
 
@@ -473,8 +473,8 @@ function renderDashboard() {
     </div>
 
     <div class="panel">
-      <div class="panel-header"><i class="ti ti-table"></i> HST Allocation Report — Open Count (Pivot Table)</div>
-      <div class="panel-body" id="hstAllocationOpenTable"></div>
+      <div class="panel-header"><i class="ti ti-calendar-stats"></i> HST Allocation Report — Open Count (Agent & Month Wise, Chart)</div>
+      <div class="panel-body" style="height:460px;"><canvas id="hstAllocationOpenChart"></canvas></div>
     </div>` : ''}`;
 
   // Exposes when this render's async work (chart batch + tracker-insights
