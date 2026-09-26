@@ -409,12 +409,13 @@ function renderAgentMissed(id, agents, isDark) {
     data: {
       labels: sorted.map(a => a.agent),
       datasets: [
-        { label: 'Missed (Inbound, Working Hours)', data: sorted.map(a => a.agentMissedIbWh || 0), backgroundColor: 'rgba(220,38,38,0.75)', borderRadius: 3, datalabels: { anchor: 'center', align: 'center', color: '#fff', font: { size: 9, weight: '600' }, formatter: ibLabel } },
-        { label: 'Missed (Outbound)', data: sorted.map(a => a.agentMissedOb || 0), backgroundColor: 'rgba(234,88,12,0.75)', borderRadius: 3, datalabels: { anchor: 'center', align: 'center', color: '#fff', font: { size: 9, weight: '600' }, formatter: obLabel } }
+        { label: 'Missed (Inbound, Working Hours)', data: sorted.map(a => a.agentMissedIbWh || 0), backgroundColor: 'rgba(220,38,38,0.75)', borderRadius: 3, datalabels: { anchor: 'end', align: 'end', offset: 2, color: '#111827', font: { size: 9, weight: '700' }, formatter: ibLabel } },
+        { label: 'Missed (Outbound)', data: sorted.map(a => a.agentMissedOb || 0), backgroundColor: 'rgba(234,88,12,0.75)', borderRadius: 3, datalabels: { anchor: 'end', align: 'end', offset: 2, color: '#111827', font: { size: 9, weight: '700' }, formatter: obLabel } }
       ]
     },
     options: {
       ...defaultOpts('Agent Missed', isDark),
+      layout: { padding: { top: 24 } },
       plugins: { ...defaultOpts('Agent Missed', isDark).plugins, legend: { position: 'bottom', labels: { color: textColor, font: { size: 10 } } } },
       scales: {
         x: { ticks: { color: textColor, font: { size: 10 } }, grid: { display: false } },
