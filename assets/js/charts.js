@@ -386,13 +386,14 @@ function renderBreakDuration(id, agents, isDark) {
 }
 
 /* ── AGENT MISSED — INBOUND (WORKING HOURS) / OUTBOUND ──
-   Inbound is working-hours-only, matching the "Missed Details (Working Hours)"
-   card's Agent bucket exactly, so the Inbound bars alone sum to that card's
-   total -- previously Inbound here was all-hours, so the two panels
-   disagreed with each other on every process. Outbound has no working-hours-
-   scoped field in the source data, so it stays all-hours as before; it was
-   never part of what the summary card measures, so it doesn't affect the
-   Inbound reconciliation. */
+   Takes processData.agentMissedBreakdown (not .agents) -- that array
+   deliberately includes transfer/department pseudo-agent labels as their
+   own bars (unlike every other per-agent chart), so this chart's total
+   sums to exactly the unfiltered "Missed Details (Working Hours)" Agent
+   KPI, which is itself unfiltered so Agent+IVR+Queue+Service reconciles
+   with the separate Missed Working Hours backend total. Inbound is
+   working-hours-only to match that KPI; Outbound has no working-hours-
+   scoped field in the source data, so it stays all-hours. */
 function renderAgentMissed(id, agents, isDark) {
   const ctx = getCtx(id);
   if (!ctx) return;

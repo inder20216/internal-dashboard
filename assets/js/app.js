@@ -502,7 +502,7 @@ function renderDashboard() {
       ['rgba(220,38,38,0.75)', 'rgba(107,114,128,0.75)'], isDarkNow);
     charts.renderAgentProductivity('agentProductivityChart', processData.agents, isDarkNow);
     charts.renderBreakDuration('breakDurationChart', processData.agents, isDarkNow);
-    charts.renderAgentMissed('agentMissedChart', processData.agents, isDarkNow);
+    charts.renderAgentMissed('agentMissedChart', processData.agentMissedBreakdown, isDarkNow);
     if (document.getElementById('agentHangupChart')) charts.renderAgentHangup('agentHangupChart', processData.agents, isDarkNow);
     if (document.getElementById('emailSentAgentChart')) charts.renderEmailSentAgentWise('emailSentAgentChart', processData.agents, isDarkNow);
     if (document.getElementById('appreciationEscalationChart')) charts.renderAppreciationEscalation('appreciationEscalationChart', processData.agents, isDarkNow);

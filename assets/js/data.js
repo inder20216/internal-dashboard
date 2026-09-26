@@ -387,11 +387,14 @@ function aggregateProcess(rows, processName) {
   const queueMissedWh = sumProcessDayConstant(daily, "Queue Missed (WH)");
   const ivrMissedWh = sumProcessDayConstant(daily, "IVR Missed (WH)");
   const serviceMissedWh = sumProcessDayConstant(daily, "Service Missed (WH)");
-  // Excludes transfer/department pseudo-agent rows, same as the per-agent
-  // breakdown (aggregateAgents) below -- otherwise a pseudo-agent's missed
-  // calls would inflate this total while being invisible in the per-agent
-  // chart, and the two panels would never sum to the same number.
-  const agentMissedIbWh = sumNumber(daily.filter(r => !isTransferPseudoAgent(agentName(r))), "Agent Missed IB (WH)");
+  // Unfiltered (includes transfer/department pseudo-agent rows) -- this is
+  // the Agent component of "Missed Working Hours" (Agent+IVR+Queue+Service),
+  // which is itself an unfiltered backend total, so this has to stay
+  // unfiltered too or Agent+IVR+Queue+Service stops summing to that total.
+  // The per-agent Agent Missed chart shows pseudo-agent labels as their own
+  // bars (via aggregateAgentMissed below) rather than excluding them, so its
+  // total still reconciles with this KPI without this field being filtered.
+  const agentMissedIbWh = sumNumber(daily, "Agent Missed IB (WH)");
   // Same process-day-constant pattern — a call that came in outside working
   // hours (no agent logged in) isn't attributable to any one agent either.
   const missedWorkingHours = sumProcessDayConstant(daily, "Missed Working Hours");
@@ -458,6 +461,7 @@ function aggregateProcess(rows, processName) {
   // column too, same as the true "all processes" admin view.
   const showProcessColumn = !processName || processName === 'Facility';
   const agents = aggregateAgents(daily, showProcessColumn);
+  const agentMissedBreakdown = aggregateAgentMissed(daily);
 
   return {
     processName, reportLabel, isOverall: showProcessColumn,
@@ -524,8 +528,30 @@ function aggregateProcess(rows, processName) {
     /* People */
     lateLogin: lateCount,
     agents,
+    agentMissedBreakdown,
     daily
   };
+}
+
+/* ── AGGREGATE AGENT MISSED (Inbound Working-Hours + Outbound, per label) ──
+   Deliberately does NOT exclude transfer/department pseudo-agent labels
+   (unlike aggregateAgents below) -- they get their own bar here instead of
+   being dropped, so this array's total still sums to the unfiltered Agent
+   Missed IB (WH) KPI above. Kept as its own lightweight pass rather than
+   folded into aggregateAgents so every other metric there keeps excluding
+   pseudo-agents as before -- this is scoped to the Agent Missed chart only. */
+function aggregateAgentMissed(rows) {
+  const map = new Map();
+  rows.forEach(r => {
+    const agent = agentName(r);
+    const cur = map.get(agent) || { agent, agentMissedIbWh: 0, agentMissedOb: 0, inboundAnswered: 0, outboundAll: 0 };
+    cur.agentMissedIbWh += toNumber(r["Agent Missed IB (WH)"]);
+    cur.agentMissedOb += toNumber(r["Agent Missed (OB)"]);
+    cur.inboundAnswered += toNumber(r["Inbound Answer"]);
+    cur.outboundAll += toNumber(r["Outbound All"]);
+    map.set(agent, cur);
+  });
+  return [...map.values()].map(a => ({ ...a, totalCalls: a.inboundAnswered + a.agentMissedIbWh }));
 }
 
 /* ── AGGREGATE AGENTS (per-agent metrics) ── */
