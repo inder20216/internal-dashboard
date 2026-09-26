@@ -535,7 +535,7 @@ function aggregateAgents(rows, includeProcess) {
     const cur = map.get(key) || {
       agent, sip: r.SIP || '', process: proc,
       inboundAnswered: 0, outboundAll: 0, obAnswered: 0, emailsHandled: 0,
-      agentMissed: 0, agentMissedIb: 0, agentMissedOb: 0, customerMissed: 0,
+      agentMissed: 0, agentMissedIb: 0, agentMissedOb: 0, agentMissedIbWh: 0, customerMissed: 0,
       hangupIB: 0, hangupOB: 0, crmCall: 0, crmEmail: 0, crmTotalCases: 0, crmInboundCases: 0, crmOutboundCases: 0,
       nonTrading: 0, closedCases: 0, partialClosedCases: 0,
       appreciationCount: 0, escalationCount: 0,
@@ -553,6 +553,11 @@ function aggregateAgents(rows, includeProcess) {
     cur.agentMissed += toNumber(r["Agent Missed(IB)"]) + toNumber(r["Agent Missed (OB)"]);
     cur.agentMissedIb += toNumber(r["Agent Missed(IB)"]);
     cur.agentMissedOb += toNumber(r["Agent Missed (OB)"]);
+    // Inbound + working-hours-only slice, matching the "Missed Details (Working
+    // Hours)" summary card's Agent bucket exactly -- used by the per-agent
+    // Agent Missed chart so its bars sum to that card's total (req: the two
+    // panels must reconcile, not just both be individually defensible).
+    cur.agentMissedIbWh += toNumber(r["Agent Missed IB (WH)"]);
     cur.customerMissed += toNumber(r["Customer Missed"]);
     cur.hangupIB += toNumber(r["Call Hangup With in 10 Sec-IB"]);
     cur.hangupOB += toNumber(r["Call Hangup With in 10 Sec-OB"]);
