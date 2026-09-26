@@ -346,7 +346,7 @@ function renderDashboard() {
       </div>
 
       <div class="panel">
-        <div class="panel-header"><i class="ti ti-phone-x"></i> Agent Missed — Inbound (Working Hours)</div>
+        <div class="panel-header"><i class="ti ti-phone-x"></i> Agent Missed — Inbound (Working Hours) / Outbound</div>
         <div class="panel-body"><div class="chart-container chart-container-sm" id="agentMissedChart"></div></div>
       </div>
     </div>

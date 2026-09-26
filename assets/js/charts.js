@@ -385,30 +385,36 @@ function renderBreakDuration(id, agents, isDark) {
   });
 }
 
-/* ── AGENT MISSED — INBOUND (WORKING HOURS) ──
-   Inbound + working-hours-only, matching the "Missed Details (Working Hours)"
-   summary card's Agent bucket exactly, so these bars sum to that card's
-   total -- previously this chart summed all-hours IB+OB while the summary
-   card was IB/working-hours-only, so the two panels disagreed with each
-   other on every process. */
+/* ── AGENT MISSED — INBOUND (WORKING HOURS) / OUTBOUND ──
+   Inbound is working-hours-only, matching the "Missed Details (Working Hours)"
+   card's Agent bucket exactly, so the Inbound bars alone sum to that card's
+   total -- previously Inbound here was all-hours, so the two panels
+   disagreed with each other on every process. Outbound has no working-hours-
+   scoped field in the source data, so it stays all-hours as before; it was
+   never part of what the summary card measures, so it doesn't affect the
+   Inbound reconciliation. */
 function renderAgentMissed(id, agents, isDark) {
   const ctx = getCtx(id);
   if (!ctx) return;
   const textColor = isDark ? '#b0b5c0' : '#6b7280';
-  const sorted = [...agents].filter(a => (a.agentMissedIbWh || 0) > 0)
-    .sort((a, b) => (b.agentMissedIbWh || 0) - (a.agentMissedIbWh || 0));
+  const sorted = [...agents].filter(a => (a.agentMissedIbWh || 0) + (a.agentMissedOb || 0) > 0)
+    .sort((a, b) => (b.agentMissedIbWh + b.agentMissedOb) - (a.agentMissedIbWh + a.agentMissedOb));
+  // % is out of that side's own total handled -- IB missed / (IB answered + IB
+  // missed), OB missed / total OB dialed -- not out of the other side's volume.
   const ibLabel = (v, ctx) => { const a = sorted[ctx.dataIndex]; const denom = a.totalCalls || 1; return v ? `${v} (${Math.round(v / denom * 100)}%)` : ''; };
+  const obLabel = (v, ctx) => { const a = sorted[ctx.dataIndex]; const denom = a.outboundAll || 1; return v ? `${v} (${Math.round(v / denom * 100)}%)` : ''; };
   ctx.chart = new Chart(ctx, {
     type: 'bar',
     data: {
       labels: sorted.map(a => a.agent),
       datasets: [
-        { label: 'Missed (Inbound, Working Hours)', data: sorted.map(a => a.agentMissedIbWh || 0), backgroundColor: 'rgba(220,38,38,0.75)', borderRadius: 3, datalabels: { anchor: 'center', align: 'center', color: '#fff', font: { size: 9, weight: '600' }, formatter: ibLabel } }
+        { label: 'Missed (Inbound, Working Hours)', data: sorted.map(a => a.agentMissedIbWh || 0), backgroundColor: 'rgba(220,38,38,0.75)', borderRadius: 3, datalabels: { anchor: 'center', align: 'center', color: '#fff', font: { size: 9, weight: '600' }, formatter: ibLabel } },
+        { label: 'Missed (Outbound)', data: sorted.map(a => a.agentMissedOb || 0), backgroundColor: 'rgba(234,88,12,0.75)', borderRadius: 3, datalabels: { anchor: 'center', align: 'center', color: '#fff', font: { size: 9, weight: '600' }, formatter: obLabel } }
       ]
     },
     options: {
       ...defaultOpts('Agent Missed', isDark),
-      plugins: { ...defaultOpts('Agent Missed', isDark).plugins, legend: { display: false } },
+      plugins: { ...defaultOpts('Agent Missed', isDark).plugins, legend: { position: 'bottom', labels: { color: textColor, font: { size: 10 } } } },
       scales: {
         x: { ticks: { color: textColor, font: { size: 10 } }, grid: { display: false } },
         y: { beginAtZero: true, ticks: { color: textColor, font: { size: 10 }, precision: 0 }, grid: { display: false } }
