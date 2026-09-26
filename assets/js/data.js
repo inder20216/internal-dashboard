@@ -387,7 +387,11 @@ function aggregateProcess(rows, processName) {
   const queueMissedWh = sumProcessDayConstant(daily, "Queue Missed (WH)");
   const ivrMissedWh = sumProcessDayConstant(daily, "IVR Missed (WH)");
   const serviceMissedWh = sumProcessDayConstant(daily, "Service Missed (WH)");
-  const agentMissedIbWh = sumNumber(daily, "Agent Missed IB (WH)");
+  // Excludes transfer/department pseudo-agent rows, same as the per-agent
+  // breakdown (aggregateAgents) below -- otherwise a pseudo-agent's missed
+  // calls would inflate this total while being invisible in the per-agent
+  // chart, and the two panels would never sum to the same number.
+  const agentMissedIbWh = sumNumber(daily.filter(r => !isTransferPseudoAgent(agentName(r))), "Agent Missed IB (WH)");
   // Same process-day-constant pattern — a call that came in outside working
   // hours (no agent logged in) isn't attributable to any one agent either.
   const missedWorkingHours = sumProcessDayConstant(daily, "Missed Working Hours");
