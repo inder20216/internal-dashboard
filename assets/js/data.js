@@ -464,12 +464,17 @@ function aggregateProcess(rows, processName) {
   const showProcessColumn = !processName || processName === 'Facility';
   const agents = aggregateAgents(daily, showProcessColumn);
   const agentMissedBreakdown = aggregateAgentMissed(daily);
-  // Same gap as agentMissedIbWh above -- "Agent Missed IB (WH)" only counts
-  // calls attributable to a real agent row, so calls on a dummy/forward
-  // target with no such row are invisible to aggregateAgentMissed too. Add
-  // the difference into the Non OM Agents bucket (creating it if every
-  // agent this period happened to be real) so this chart's total still
-  // matches the KPI exactly, using the same residual already computed.
+  // NOTE: charts.js's renderAgentMissed deliberately excludes the "Non OM
+  // Agents" entry from the chart (real agents only, per explicit request) --
+  // so the top-up below currently has no visible effect on that chart. It's
+  // kept because the KPI card's own agentMissedIbWh (the residual computed
+  // above) is what actually needs to be correct, and this block just keeps
+  // agentMissedBreakdown's data internally consistent with that KPI in case
+  // a future view (e.g. a table) wants the Non OM Agents total surfaced
+  // again without recomputing it. Same underlying gap as agentMissedIbWh
+  // above -- "Agent Missed IB (WH)" only counts calls attributable to a
+  // real agent row, so calls on a dummy/forward target with no such row are
+  // invisible to aggregateAgentMissed too.
   const matchedIbWhTotal = agentMissedBreakdown.reduce((s, a) => s + (a.agentMissedIbWh || 0), 0);
   const unattributedIbWh = agentMissedIbWh - matchedIbWhTotal;
   if (unattributedIbWh > 0) {
