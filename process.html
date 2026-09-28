@@ -101,6 +101,22 @@
         <button class="btn-icon" onclick="exportDashboardPDF()" title="Download as PDF">
           <i class="ti ti-file-type-pdf"></i>
         </button>
+        <div style="position:relative;">
+          <button class="btn-icon" onclick="toggleAuditExportPanel()" title="Download Audit Report (Excel)">
+            <i class="ti ti-file-spreadsheet"></i>
+          </button>
+          <div id="auditExportPanel" style="display:none;position:absolute;top:calc(100% + 8px);right:0;z-index:50;width:260px;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.15);padding:16px;">
+            <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:10px;">Download Audit Report</div>
+            <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">Agent</div>
+            <select class="form-select w-full" id="auditExportAgent" style="margin-bottom:12px;">
+              <option value="All">All Agents</option>
+            </select>
+            <div style="font-size:11px;color:var(--muted);margin-bottom:10px;">Uses the dashboard's current date range. Includes Quality Audits (parameter-wise) and Appreciation/Escalation, in separate sheets.</div>
+            <button class="btn btn-primary w-full" id="auditExportDownloadBtn" onclick="downloadAuditReport()">
+              <i class="ti ti-file-spreadsheet"></i> Download Excel
+            </button>
+          </div>
+        </div>
         <button class="btn-icon" onclick="toggleTheme()" title="Toggle Theme">
           <i class="ti ti-moon" id="themeIcon"></i>
         </button>
@@ -125,6 +141,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="assets/js/auth.js"></script>
 <script src="assets/js/data.js"></script>
 <script src="assets/js/charts.js"></script>
@@ -132,6 +149,7 @@
 <script src="assets/js/chatbot.js"></script>
 <script src="assets/js/app.js"></script>
 <script src="assets/js/export.js"></script>
+<script src="assets/js/audit-export.js"></script>
 <script src="assets/js/process-init.js"></script>
 </body>
 </html>
