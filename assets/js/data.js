@@ -534,15 +534,13 @@ function aggregateProcess(rows, processName) {
 }
 
 /* ── AGGREGATE AGENT MISSED (Inbound Working-Hours + Outbound, per label) ──
-   Inbound: real agents get their own bar; every transfer/department/dummy
-   pseudo-agent label (trans_*, DUMMY_CALL_WAITING, Emergency, Insurance,
-   etc.) is rolled into one combined "Non OM Agents" bucket rather than
-   shown individually or dropped -- so this array's Inbound total still sums
-   to the unfiltered Agent Missed IB (WH) KPI above.
-   Outbound (agent_missed_ob, sourced from daywise_summary.ob_missed -- the
-   SparkTG APR report, not CDR) has no equivalent KPI to reconcile against,
-   and pseudo-agent labels aren't real people to report Outbound-missed
-   against -- so their Outbound values are dropped entirely, not bucketed.
+   Real agents get their own bar for both Inbound and Outbound; every
+   transfer/department/dummy pseudo-agent label (trans_*, DUMMY_CALL_WAITING,
+   Emergency, Insurance, etc.) is rolled into one combined "Non OM Agents"
+   bucket rather than shown individually or dropped -- so this array's
+   Inbound total still sums to the unfiltered Agent Missed IB (WH) KPI
+   above, and Outbound (agent_missed_ob, sourced from daywise_summary's
+   APR report) isn't silently missing that volume either.
    Kept as its own lightweight pass rather than folded into aggregateAgents
    so every other metric there keeps excluding pseudo-agents entirely as
    before -- this is scoped to the Agent Missed chart only. */
@@ -550,11 +548,10 @@ function aggregateAgentMissed(rows) {
   const map = new Map();
   rows.forEach(r => {
     const rawAgent = agentName(r);
-    const isPseudo = isTransferPseudoAgent(rawAgent);
-    const agent = isPseudo ? 'Non OM Agents' : rawAgent;
+    const agent = isTransferPseudoAgent(rawAgent) ? 'Non OM Agents' : rawAgent;
     const cur = map.get(agent) || { agent, agentMissedIbWh: 0, agentMissedOb: 0, inboundAnswered: 0, outboundAll: 0 };
     cur.agentMissedIbWh += toNumber(r["Agent Missed IB (WH)"]);
-    if (!isPseudo) cur.agentMissedOb += toNumber(r["Agent Missed (OB)"]);
+    cur.agentMissedOb += toNumber(r["Agent Missed (OB)"]);
     cur.inboundAnswered += toNumber(r["Inbound Answer"]);
     cur.outboundAll += toNumber(r["Outbound All"]);
     map.set(agent, cur);

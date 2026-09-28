@@ -398,8 +398,15 @@ function renderAgentMissed(id, agents, isDark) {
   const ctx = getCtx(id);
   if (!ctx) return;
   const textColor = isDark ? '#b0b5c0' : '#6b7280';
+  // "Non OM Agents" always sorts last regardless of its total -- real agents
+  // should read first, with the outside/pseudo-agent bucket as a trailing
+  // catch-all rather than mixed in wherever its magnitude happens to land.
   const sorted = [...agents].filter(a => (a.agentMissedIbWh || 0) + (a.agentMissedOb || 0) > 0)
-    .sort((a, b) => (b.agentMissedIbWh + b.agentMissedOb) - (a.agentMissedIbWh + a.agentMissedOb));
+    .sort((a, b) => {
+      if (a.agent === 'Non OM Agents') return 1;
+      if (b.agent === 'Non OM Agents') return -1;
+      return (b.agentMissedIbWh + b.agentMissedOb) - (a.agentMissedIbWh + a.agentMissedOb);
+    });
   // % is out of that side's own total handled -- IB missed / (IB answered + IB
   // missed), OB missed / total OB dialed -- not out of the other side's volume.
   const ibLabel = (v, ctx) => { const a = sorted[ctx.dataIndex]; const denom = a.totalCalls || 1; return v ? `${v} (${Math.round(v / denom * 100)}%)` : ''; };
