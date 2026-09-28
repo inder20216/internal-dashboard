@@ -387,17 +387,19 @@ function aggregateProcess(rows, processName) {
   const queueMissedWh = sumProcessDayConstant(daily, "Queue Missed (WH)");
   const ivrMissedWh = sumProcessDayConstant(daily, "IVR Missed (WH)");
   const serviceMissedWh = sumProcessDayConstant(daily, "Service Missed (WH)");
-  // Unfiltered (includes transfer/department pseudo-agent rows) -- this is
-  // the Agent component of "Missed Working Hours" (Agent+IVR+Queue+Service),
-  // which is itself an unfiltered backend total, so this has to stay
-  // unfiltered too or Agent+IVR+Queue+Service stops summing to that total.
-  // The per-agent Agent Missed chart shows pseudo-agent labels as their own
-  // bars (via aggregateAgentMissed below) rather than excluding them, so its
-  // total still reconciles with this KPI without this field being filtered.
-  const agentMissedIbWh = sumNumber(daily, "Agent Missed IB (WH)");
   // Same process-day-constant pattern — a call that came in outside working
   // hours (no agent logged in) isn't attributable to any one agent either.
   const missedWorkingHours = sumProcessDayConstant(daily, "Missed Working Hours");
+  // Agent Missed WH as a residual of the total, not a direct read of "Agent
+  // Missed IB (WH)" -- that column only counts calls attributable to a real
+  // agent row in combined_summary, so it silently drops calls that landed on
+  // a dummy/forward target (e.g. FWD_POST_BH1, DUMMY_CALL_WAITING) with no
+  // agent row to attach to. call_disposition only ever has 4 non-Answer
+  // values (Agent/Queue/IVR/Service Missed, confirmed no 5th category
+  // exists), and "Missed Working Hours" already sums all 4 under the same
+  // working-hours filter as Queue/IVR/Service below -- so backing Agent out
+  // as the remainder is exact, using only fields already in the sheet.
+  const agentMissedIbWh = missedWorkingHours - queueMissedWh - ivrMissedWh - serviceMissedWh;
   const missedNonWorkingHours = sumProcessDayConstant(daily, "Missed Non-Working Hours");
   // Working-hours-only version of totalCalls (Step12) -- the correct
   // denominator for a working-hours-scoped Missed Call %, since totalCalls
@@ -462,6 +464,22 @@ function aggregateProcess(rows, processName) {
   const showProcessColumn = !processName || processName === 'Facility';
   const agents = aggregateAgents(daily, showProcessColumn);
   const agentMissedBreakdown = aggregateAgentMissed(daily);
+  // Same gap as agentMissedIbWh above -- "Agent Missed IB (WH)" only counts
+  // calls attributable to a real agent row, so calls on a dummy/forward
+  // target with no such row are invisible to aggregateAgentMissed too. Add
+  // the difference into the Non OM Agents bucket (creating it if every
+  // agent this period happened to be real) so this chart's total still
+  // matches the KPI exactly, using the same residual already computed.
+  const matchedIbWhTotal = agentMissedBreakdown.reduce((s, a) => s + (a.agentMissedIbWh || 0), 0);
+  const unattributedIbWh = agentMissedIbWh - matchedIbWhTotal;
+  if (unattributedIbWh > 0) {
+    const nonOm = agentMissedBreakdown.find(a => a.agent === 'Non OM Agents');
+    if (nonOm) {
+      nonOm.agentMissedIbWh += unattributedIbWh;
+    } else {
+      agentMissedBreakdown.push({ agent: 'Non OM Agents', agentMissedIbWh: unattributedIbWh, agentMissedOb: 0, inboundAnswered: 0, outboundAll: 0, totalCalls: unattributedIbWh });
+    }
+  }
 
   return {
     processName, reportLabel, isOverall: showProcessColumn,
