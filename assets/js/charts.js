@@ -386,27 +386,21 @@ function renderBreakDuration(id, agents, isDark) {
 }
 
 /* ── AGENT MISSED — INBOUND (WORKING HOURS) / OUTBOUND ──
-   Takes processData.agentMissedBreakdown (not .agents) -- that array
-   deliberately includes transfer/department pseudo-agent labels as their
-   own bars (unlike every other per-agent chart), so this chart's total
-   sums to exactly the unfiltered "Missed Details (Working Hours)" Agent
-   KPI, which is itself unfiltered so Agent+IVR+Queue+Service reconciles
-   with the separate Missed Working Hours backend total. Inbound is
-   working-hours-only to match that KPI; Outbound has no working-hours-
-   scoped field in the source data, so it stays all-hours. */
+   Takes processData.agentMissedBreakdown (not .agents), but excludes its
+   "Non OM Agents" entry -- this chart shows real agents only. That bucket's
+   volume (transfer/department pseudo-agent rows, plus calls landing on a
+   dummy/forward target with no agent row at all) still counts in the
+   "Missed Details (Working Hours)" Agent KPI upstream (data.js computes
+   that as a residual, independent of this chart), it's just not broken out
+   as its own bar here. Inbound is working-hours-only to match that KPI;
+   Outbound has no working-hours-scoped field in the source data, so it
+   stays all-hours. */
 function renderAgentMissed(id, agents, isDark) {
   const ctx = getCtx(id);
   if (!ctx) return;
   const textColor = isDark ? '#b0b5c0' : '#6b7280';
-  // "Non OM Agents" always sorts last regardless of its total -- real agents
-  // should read first, with the outside/pseudo-agent bucket as a trailing
-  // catch-all rather than mixed in wherever its magnitude happens to land.
-  const sorted = [...agents].filter(a => (a.agentMissedIbWh || 0) + (a.agentMissedOb || 0) > 0)
-    .sort((a, b) => {
-      if (a.agent === 'Non OM Agents') return 1;
-      if (b.agent === 'Non OM Agents') return -1;
-      return (b.agentMissedIbWh + b.agentMissedOb) - (a.agentMissedIbWh + a.agentMissedOb);
-    });
+  const sorted = [...agents].filter(a => a.agent !== 'Non OM Agents' && (a.agentMissedIbWh || 0) + (a.agentMissedOb || 0) > 0)
+    .sort((a, b) => (b.agentMissedIbWh + b.agentMissedOb) - (a.agentMissedIbWh + a.agentMissedOb));
   // % is out of that side's own total handled -- IB missed / (IB answered + IB
   // missed), OB missed / total OB dialed -- not out of the other side's volume.
   const ibLabel = (v, ctx) => { const a = sorted[ctx.dataIndex]; const denom = a.totalCalls || 1; return v ? `${v} (${Math.round(v / denom * 100)}%)` : ''; };
