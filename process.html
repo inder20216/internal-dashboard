@@ -57,6 +57,9 @@
       <a class="nav-item" data-view="chatbot" onclick="navigateTo('chatbot')">
         <i class="ti ti-message-chatbot"></i><span>AI Assistant</span>
       </a>
+      <a class="nav-item" data-view="reports" onclick="navigateTo('reports')">
+        <i class="ti ti-file-spreadsheet"></i><span>Reports</span>
+      </a>
     </nav>
     <div class="sidebar-footer">
       <div class="user-info">
@@ -101,22 +104,6 @@
         <button class="btn-icon" onclick="exportDashboardPDF()" title="Download as PDF">
           <i class="ti ti-file-type-pdf"></i>
         </button>
-        <div style="position:relative;">
-          <button class="btn-icon" onclick="toggleAuditExportPanel()" title="Download Audit Report (Excel)">
-            <i class="ti ti-file-spreadsheet"></i>
-          </button>
-          <div id="auditExportPanel" style="display:none;position:absolute;top:calc(100% + 8px);right:0;z-index:50;width:260px;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.15);padding:16px;">
-            <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:10px;">Download Audit Report</div>
-            <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">Agent</div>
-            <select class="form-select w-full" id="auditExportAgent" style="margin-bottom:12px;">
-              <option value="All">All Agents</option>
-            </select>
-            <div style="font-size:11px;color:var(--muted);margin-bottom:10px;">Uses the dashboard's current date range. Includes Quality Audits (parameter-wise) and Appreciation/Escalation, in separate sheets.</div>
-            <button class="btn btn-primary w-full" id="auditExportDownloadBtn" onclick="downloadAuditReport()">
-              <i class="ti ti-file-spreadsheet"></i> Download Excel
-            </button>
-          </div>
-        </div>
         <button class="btn-icon" onclick="toggleTheme()" title="Toggle Theme">
           <i class="ti ti-moon" id="themeIcon"></i>
         </button>
@@ -129,6 +116,7 @@
       <div id="viewAgents" class="page-view"></div>
       <div id="viewInsights" class="page-view"></div>
       <div id="viewChatbot" class="page-view"></div>
+      <div id="viewReports" class="page-view"></div>
     </div>
   </main>
 </div>

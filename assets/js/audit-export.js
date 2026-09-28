@@ -1,25 +1,62 @@
 /* ══════════════════════════════════════════════════
-   AUDIT EXPORT — Download Quality Audit + Appreciation/Escalation raw data
+   REPORTS TAB — Download Quality Audit + Appreciation/Escalation raw data
    as an Excel workbook (parameter-wise columns from the scores JSON),
-   filterable by agent, scoped to the dashboard's currently active date range.
+   filterable by agent and a custom date range independent of the
+   dashboard's own period selector.
    ══════════════════════════════════════════════════ */
 
 const AUDIT_EXPORT_URL = 'https://automation.openmindhelpline.com/webhook/call-audit-export';
 
-function toggleAuditExportPanel() {
-  const panel = document.getElementById('auditExportPanel');
-  if (!panel) return;
-  const opening = panel.style.display !== 'block';
-  if (opening) {
-    populateAuditExportAgents();
-    panel.style.display = 'block';
-  } else {
-    panel.style.display = 'none';
+function renderReports() {
+  const container = document.getElementById('viewReports');
+  if (!container) return;
+  const data = window.APP_DATA;
+  const processName = data.currentState.selectedProcess;
+
+  if (!processName) {
+    container.innerHTML = `<div style="text-align:center;padding:60px 20px;color:var(--muted);"><i class="ti ti-file-off" style="font-size:40px;display:block;margin-bottom:12px;"></i><p>Select a process to download its audit report.</p></div>`;
+    return;
   }
+
+  const today = new Date().toISOString().slice(0, 10);
+  const monthAgo = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+
+  container.innerHTML = `
+    <div class="panel">
+      <div class="panel-header"><i class="ti ti-file-spreadsheet"></i> Audit Report — ${processName}</div>
+      <div class="panel-body">
+        <p style="font-size:12px;color:var(--muted);margin-bottom:16px;">
+          Downloads a two-sheet Excel workbook: <strong>Quality Audits</strong> (every field, with the scores
+          breakdown expanded into one column per parameter) and <strong>Appreciation &amp; Escalation</strong>.
+        </p>
+        <div class="grid-3" style="margin-bottom:16px;">
+          <div>
+            <label style="display:block;font-size:11px;color:var(--muted);margin-bottom:6px;">From</label>
+            <input type="date" class="form-input w-full" id="reportsFrom" value="${monthAgo}">
+          </div>
+          <div>
+            <label style="display:block;font-size:11px;color:var(--muted);margin-bottom:6px;">To</label>
+            <input type="date" class="form-input w-full" id="reportsTo" value="${today}">
+          </div>
+          <div>
+            <label style="display:block;font-size:11px;color:var(--muted);margin-bottom:6px;">Agent</label>
+            <select class="form-select w-full" id="reportsAgent">
+              <option value="All">All Agents</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn btn-primary" id="reportsDownloadBtn" onclick="downloadAuditReport()">
+          <i class="ti ti-file-spreadsheet"></i> Download Excel
+        </button>
+        <div id="reportsMsg" style="font-size:12px;margin-top:10px;min-height:16px;"></div>
+      </div>
+    </div>`;
+
+  populateAuditExportAgents();
 }
 
 function populateAuditExportAgents() {
-  const sel = document.getElementById('auditExportAgent');
+  const sel = document.getElementById('reportsAgent');
   if (!sel) return;
   const data = window.APP_DATA;
   const processName = data.currentState.selectedProcess;
@@ -53,24 +90,23 @@ function flattenQualityAudits(rows) {
 }
 
 async function downloadAuditReport() {
-  const btn = document.getElementById('auditExportDownloadBtn');
+  const btn = document.getElementById('reportsDownloadBtn');
+  const msg = document.getElementById('reportsMsg');
   const data = window.APP_DATA;
   const processName = data.currentState.selectedProcess;
-  if (!processName) { showToast('Select a process first.', 'error'); return; }
+  if (!processName) { msg.textContent = 'Select a process first.'; msg.style.color = 'var(--accent4)'; return; }
 
-  const agent = document.getElementById('auditExportAgent').value || 'All';
-  // Dashboard's active range isn't reliably sitting in currentState.dateFrom/dateTo
-  // post-render (renderDashboard restores those to whatever they were before its
-  // own temporary computation) -- recompute the same way it does, from the
-  // selected report period, so this always matches what's actually on screen.
-  const period = data.currentState.reportPeriod || 'monthly';
-  const range = getPeriodDateRange(period);
+  const from = document.getElementById('reportsFrom').value;
+  const to = document.getElementById('reportsTo').value;
+  const agent = document.getElementById('reportsAgent').value || 'All';
+  if (!from || !to) { msg.textContent = 'Pick both a From and To date.'; msg.style.color = 'var(--accent4)'; return; }
 
   btn.disabled = true;
   btn.innerHTML = '<i class="ti ti-loader-2"></i> Preparing...';
+  msg.textContent = '';
 
   try {
-    const params = new URLSearchParams({ process: processName, from: range.from, to: range.to, agent });
+    const params = new URLSearchParams({ process: processName, from, to, agent });
     const res = await fetch(`${AUDIT_EXPORT_URL}?${params.toString()}`);
     if (!res.ok) throw new Error(`Server responded ${res.status}`);
     const payload = await res.json();
@@ -86,13 +122,14 @@ async function downloadAuditReport() {
     XLSX.utils.book_append_sheet(wb, wsActivity, 'Appreciation & Escalation');
 
     const agentSuffix = agent !== 'All' ? `-${agent}` : '';
-    const filename = `${processName}-Call-Audit-Report-${range.from}_to_${range.to}${agentSuffix}.xlsx`;
+    const filename = `${processName}-Call-Audit-Report-${from}_to_${to}${agentSuffix}.xlsx`;
     XLSX.writeFile(wb, filename);
 
-    showToast('Audit report downloaded.', 'success');
-    document.getElementById('auditExportPanel').style.display = 'none';
+    msg.textContent = `Downloaded — ${qualityRows.length} quality audits, ${activityRows.length} appreciation/escalation rows.`;
+    msg.style.color = 'var(--accent2)';
   } catch (err) {
-    showToast('Failed to generate report: ' + err.message, 'error');
+    msg.textContent = 'Failed to generate report: ' + err.message;
+    msg.style.color = 'var(--accent4)';
   } finally {
     btn.disabled = false;
     btn.innerHTML = '<i class="ti ti-file-spreadsheet"></i> Download Excel';

@@ -116,6 +116,7 @@ function navigateTo(view) {
     case 'agents': renderAgents(); break;
     case 'insights': renderInsights(); break;
     case 'chatbot': renderChatbot(); break;
+    case 'reports': renderReports(); break;
   }
 }
 
