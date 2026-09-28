@@ -26,8 +26,8 @@ function renderReports() {
       <div class="panel-header"><i class="ti ti-file-spreadsheet"></i> Audit Report — ${processName}</div>
       <div class="panel-body">
         <p style="font-size:12px;color:var(--muted);margin-bottom:16px;">
-          Downloads a two-sheet Excel workbook: <strong>Quality Audits</strong> (every field, with the scores
-          breakdown expanded into one column per parameter) and <strong>Appreciation &amp; Escalation</strong>.
+          Downloads an Excel workbook with a sheet per report type selected below -- <strong>Quality Audits</strong>
+          has every field, with the scores breakdown expanded into one column per parameter.
         </p>
         <div class="grid-3" style="margin-bottom:16px;">
           <div>
@@ -44,6 +44,15 @@ function renderReports() {
               <option value="All">All Agents</option>
             </select>
           </div>
+        </div>
+        <div style="margin-bottom:16px;">
+          <label style="display:block;font-size:11px;color:var(--muted);margin-bottom:8px;">Include</label>
+          <label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;margin-right:20px;cursor:pointer;">
+            <input type="checkbox" id="reportsIncludeQuality" checked> Quality Audits
+          </label>
+          <label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
+            <input type="checkbox" id="reportsIncludeActivity" checked> Appreciation &amp; Escalation
+          </label>
         </div>
         <button class="btn btn-primary" id="reportsDownloadBtn" onclick="downloadAuditReport()">
           <i class="ti ti-file-spreadsheet"></i> Download Excel
@@ -101,6 +110,10 @@ async function downloadAuditReport() {
   const agent = document.getElementById('reportsAgent').value || 'All';
   if (!from || !to) { msg.textContent = 'Pick both a From and To date.'; msg.style.color = 'var(--accent4)'; return; }
 
+  const includeQuality = document.getElementById('reportsIncludeQuality').checked;
+  const includeActivity = document.getElementById('reportsIncludeActivity').checked;
+  if (!includeQuality && !includeActivity) { msg.textContent = 'Select at least one report type to include.'; msg.style.color = 'var(--accent4)'; return; }
+
   btn.disabled = true;
   btn.innerHTML = '<i class="ti ti-loader-2"></i> Preparing...';
   msg.textContent = '';
@@ -112,20 +125,30 @@ async function downloadAuditReport() {
     const payload = await res.json();
 
     const wb = XLSX.utils.book_new();
+    const summaryParts = [];
 
-    const qualityRows = flattenQualityAudits(payload.qualityAudits || []);
-    const wsQuality = XLSX.utils.json_to_sheet(qualityRows.length ? qualityRows : [{ 'No records': 'No quality audits in this range' }]);
-    XLSX.utils.book_append_sheet(wb, wsQuality, 'Quality Audits');
+    let qualityRows = [];
+    if (includeQuality) {
+      qualityRows = flattenQualityAudits(payload.qualityAudits || []);
+      const wsQuality = XLSX.utils.json_to_sheet(qualityRows.length ? qualityRows : [{ 'No records': 'No quality audits in this range' }]);
+      XLSX.utils.book_append_sheet(wb, wsQuality, 'Quality Audits');
+      summaryParts.push(`${qualityRows.length} quality audits`);
+    }
 
-    const activityRows = payload.appreciationEscalation || [];
-    const wsActivity = XLSX.utils.json_to_sheet(activityRows.length ? activityRows : [{ 'No records': 'No appreciation/escalation in this range' }]);
-    XLSX.utils.book_append_sheet(wb, wsActivity, 'Appreciation & Escalation');
+    let activityRows = [];
+    if (includeActivity) {
+      activityRows = payload.appreciationEscalation || [];
+      const wsActivity = XLSX.utils.json_to_sheet(activityRows.length ? activityRows : [{ 'No records': 'No appreciation/escalation in this range' }]);
+      XLSX.utils.book_append_sheet(wb, wsActivity, 'Appreciation & Escalation');
+      summaryParts.push(`${activityRows.length} appreciation/escalation rows`);
+    }
 
+    const typeSuffix = includeQuality && !includeActivity ? '-Quality' : !includeQuality && includeActivity ? '-Appreciation-Escalation' : '';
     const agentSuffix = agent !== 'All' ? `-${agent}` : '';
-    const filename = `${processName}-Call-Audit-Report-${from}_to_${to}${agentSuffix}.xlsx`;
+    const filename = `${processName}-Call-Audit-Report-${from}_to_${to}${typeSuffix}${agentSuffix}.xlsx`;
     XLSX.writeFile(wb, filename);
 
-    msg.textContent = `Downloaded — ${qualityRows.length} quality audits, ${activityRows.length} appreciation/escalation rows.`;
+    msg.textContent = `Downloaded — ${summaryParts.join(', ')}.`;
     msg.style.color = 'var(--accent2)';
   } catch (err) {
     msg.textContent = 'Failed to generate report: ' + err.message;
