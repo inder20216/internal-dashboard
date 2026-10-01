@@ -232,12 +232,14 @@ function emailHandled(r) {
   return base + taggedEmailSent;
 }
 
-// ResMed only tracks these 4 agents as real people — "Admin" in the raw data is
+// ResMed only tracks these agents as real people — "Admin" in the raw data is
 // actually Sagarika Bose's login identity, and every other ResMed agent name in
 // the data is noise that shouldn't appear in any agent-wise breakdown. Different
 // source tables spell these differently too (resmed_conversion uses first names
 // only, e.g. "Avijit" instead of "Avijit Dey") — all normalized to the full name.
-const RESMED_AGENT_ALLOWLIST = new Set(['Gulshan Khan', 'Kumkum', 'Avijit Dey', 'Sagarika Bose']);
+// Mohit Kumar replaced Kumkum going forward (Oct 2026); Kumkum stays in the
+// allowlist so her existing historical rows keep showing correctly.
+const RESMED_AGENT_ALLOWLIST = new Set(['Gulshan Khan', 'Kumkum', 'Mohit Kumar', 'Avijit Dey', 'Sagarika Bose']);
 // Per-process short-name/misspelling -> canonical-name maps. ResMed's picks the
 // full name; other processes pick whichever spelling has the higher row count
 // (e.g. Baxter's "Rashmi" has far more rows across trackers than "Rashmi Gusain").
