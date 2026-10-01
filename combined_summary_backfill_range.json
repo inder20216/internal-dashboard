@@ -1,0 +1,1110 @@
+{
+  "name": "Combined Summary Backfill (Date Range - Fast)",
+  "nodes": [
+    {
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -2200,
+        400
+      ],
+      "id": "bf2-0001-trigger",
+      "name": "When clicking Execute workflow",
+      "parameters": {}
+    },
+    {
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1960,
+        400
+      ],
+      "id": "bf2-0002-range",
+      "name": "Set Date Range",
+      "parameters": {
+        "jsCode": "// Scoped to PSRI only for the IVR=1 (Appointement/Other) Inbound recompute --\n// other processes' logic is unchanged by that fix, so no need to re-run them.\n// Edit serviceIds back to the full list below for a general backfill.\n// const serviceIds = '1287,489,338,2023,741,295,1702,805'; // PSRI, Baxter, Nihon, ONDC, Infres, VMM, ResMed, LOTS\nconst serviceIds = '1287';\nconst from = '2026-08-01';\nconst to = '2026-09-30';\nreturn [{ json: { serviceIds, from, to } }];"
+      }
+    },
+    {
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1720,
+        400
+      ],
+      "id": "bf2-0003-buildcb",
+      "name": "Build Callback Insert",
+      "parameters": {
+        "jsCode": "const from = $json.from, to = $json.to, serviceIds = $json.serviceIds;\nconst query = `INSERT INTO calls.callback_on_missed_call (service_id, report_date, avg_gap_seconds, callback_count)\nSELECT\n  service_id, call_date,\n  ROUND(AVG(gap_seconds)) AS avg_gap_seconds,\n  COUNT(*) AS callback_count\nFROM (\n  SELECT\n    missed.service_id,\n    missed.call_date,\n    (\n      SELECT COALESCE(SUM(\n        CASE\n          WHEN ps.days_pattern <> 'All days' AND DAYOFWEEK(seq.day_date) = 1 THEN 0\n          ELSE GREATEST(0,\n            TIME_TO_SEC(LEAST(GREATEST(\n              IF(seq.day_date = DATE(next_event.start_time), TIME(next_event.start_time), ps.logout_time),\n              ps.login_time), ps.logout_time))\n            -\n            TIME_TO_SEC(LEAST(GREATEST(\n              IF(seq.day_date = DATE(missed.start_time), TIME(missed.start_time), ps.login_time),\n              ps.login_time), ps.logout_time))\n          )\n        END\n      ), 0)\n      FROM (\n        SELECT DATE(missed.start_time) + INTERVAL n DAY AS day_date\n        FROM (SELECT 0 AS n UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4\n              UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9\n              UNION ALL SELECT 10 UNION ALL SELECT 11 UNION ALL SELECT 12 UNION ALL SELECT 13) nums\n        WHERE n <= DATEDIFF(DATE(next_event.start_time), DATE(missed.start_time))\n      ) seq\n    ) AS gap_seconds\n  FROM calls.call_disposition missed\n  JOIN calls.process_shift_schedule ps ON ps.service_id = missed.service_id\n  LEFT JOIN LATERAL (\n    SELECT cd2.call_type, cd2.start_time\n    FROM calls.call_disposition cd2\n    WHERE cd2.service_id = missed.service_id\n      AND cd2.customer = missed.customer\n      AND cd2.start_time > missed.start_time\n      AND (cd2.call_type = 'OUTBOUND' OR (cd2.call_type = 'INBOUND' AND cd2.disposition = 'Answer'))\n    ORDER BY cd2.start_time ASC\n    LIMIT 1\n  ) next_event ON TRUE\n  WHERE missed.call_type = 'INBOUND'\n    AND (missed.service_id <> 1287 OR missed.ivr = 'Appointement/Other')\n    AND missed.disposition != 'Answer'\n    AND next_event.call_type = 'OUTBOUND'\n    AND missed.call_date BETWEEN '${from}' AND '${to}'\n    AND missed.service_id IN (${serviceIds})\n    AND TIME(missed.start_time) BETWEEN ps.login_time AND ps.logout_time\n    AND (ps.days_pattern = 'All days' OR DAYOFWEEK(missed.start_time) <> 1)\n) callback_matches\nGROUP BY service_id, call_date\nON DUPLICATE KEY UPDATE\n  avg_gap_seconds = VALUES(avg_gap_seconds),\n  callback_count = VALUES(callback_count);`;\nreturn [{ json: { query } }];"
+      }
+    },
+    {
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        -1480,
+        400
+      ],
+      "id": "bf2-0004-execcb",
+      "name": "Exec: Populate Callback Table",
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.query }}",
+        "options": {}
+      },
+      "credentials": {
+        "mySql": {
+          "id": "LfmhMCKUYWqD0NS0",
+          "name": "MySQL-vantiv"
+        }
+      }
+    },
+    {
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1240,
+        400
+      ],
+      "id": "bf2-0005-build1",
+      "name": "Build Step1 Base Insert",
+      "parameters": {
+        "jsCode": "const from = $('Set Date Range').first().json.from, to = $('Set Date Range').first().json.to, serviceIds = $('Set Date Range').first().json.serviceIds;\nconst query = `INSERT INTO calls.combined_summary (\n  report_date, agent, sip, process_name, agent_mapped,\n  inbound_answer, outbound_all, ob_answer, customer_missed, agent_missed_ob,\n  apt, ib_tt, ob_tt\n)\nSELECT\n  ds.report_date, ds.agent_name, ds.agent_sip, dp.process_name, ds.agent_name,\n  ds.ib_answer, ds.ob_calls, ds.ob_answer, ds.customer_missed, ds.ob_missed,\n  SEC_TO_TIME(ds.apt_sec), SEC_TO_TIME(ds.ib_tt_sec), SEC_TO_TIME(ds.ob_tt_sec)\nFROM calls.daywise_summary ds\nJOIN calls.dim_process dp ON dp.service_id = ds.service_id\nWHERE ds.report_date BETWEEN '${from}' AND '${to}' AND dp.service_id IN (${serviceIds})\nON DUPLICATE KEY UPDATE\n  agent=VALUES(agent), process_name=VALUES(process_name), agent_mapped=VALUES(agent_mapped),\n  inbound_answer=VALUES(inbound_answer), outbound_all=VALUES(outbound_all), ob_answer=VALUES(ob_answer),\n  customer_missed=VALUES(customer_missed), agent_missed_ob=VALUES(agent_missed_ob),\n  apt=VALUES(apt), ib_tt=VALUES(ib_tt), ob_tt=VALUES(ob_tt);`;\nreturn [{ json: { query } }];"
+      }
+    },
+    {
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        -1000,
+        400
+      ],
+      "id": "bf2-0006-exec1",
+      "name": "Exec: Step1 Base Insert",
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.query }}",
+        "options": {}
+      },
+      "credentials": {
+        "mySql": {
+          "id": "LfmhMCKUYWqD0NS0",
+          "name": "MySQL-vantiv"
+        }
+      }
+    },
+    {
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -760,
+        400
+      ],
+      "id": "bf2-0007-build1b",
+      "name": "Build Step1b CDR Answer Correction",
+      "parameters": {
+        "jsCode": "const from = $('Set Date Range').first().json.from, to = $('Set Date Range').first().json.to, serviceIds = $('Set Date Range').first().json.serviceIds;\nconst query = `UPDATE calls.combined_summary cs\nJOIN calls.dim_process dp ON dp.process_name = cs.process_name\nJOIN (\n  SELECT\n    cd.service_id, cd.agent_number AS sip, cd.call_date,\n    SUM(CASE WHEN cd.call_type='INBOUND' AND cd.disposition='Answer' AND (cd.service_id <> 1287 OR cd.ivr = 'Appointement/Other') THEN 1 ELSE 0 END) AS inbound_answered,\n    SUM(CASE WHEN cd.call_type='OUTBOUND' THEN 1 ELSE 0 END) AS outbound_dialed,\n    SUM(CASE WHEN cd.call_type='OUTBOUND' AND cd.disposition='Answer' THEN 1 ELSE 0 END) AS outbound_answered,\n    SUM(CASE WHEN cd.call_type='OUTBOUND' AND cd.disposition='No Answer' THEN 1 ELSE 0 END) AS outbound_no_answer\n  FROM calls.call_disposition cd\n  WHERE cd.call_date BETWEEN '${from}' AND '${to}' AND cd.service_id IN (${serviceIds})\n  GROUP BY cd.service_id, cd.agent_number, cd.call_date\n) x ON x.service_id = dp.service_id AND x.sip = cs.sip AND x.call_date = cs.report_date\nSET cs.inbound_answer = x.inbound_answered,\n    cs.outbound_all = x.outbound_dialed,\n    cs.ob_answer = x.outbound_answered,\n    cs.customer_missed = x.outbound_no_answer\nWHERE cs.report_date BETWEEN '${from}' AND '${to}';`;\nreturn [{ json: { query } }];"
+      }
+    },
+    {
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        -520,
+        400
+      ],
+      "id": "bf2-0008-exec1b",
+      "name": "Exec: Step1b CDR Answer Correction",
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.query }}",
+        "options": {}
+      },
+      "credentials": {
+        "mySql": {
+          "id": "LfmhMCKUYWqD0NS0",
+          "name": "MySQL-vantiv"
+        }
+      }
+    },
+    {
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -280,
+        400
+      ],
+      "id": "bf2-0009-build2",
+      "name": "Build Step2 Login Break Hours",
+      "parameters": {
+        "jsCode": "const from = $('Set Date Range').first().json.from, to = $('Set Date Range').first().json.to, serviceIds = $('Set Date Range').first().json.serviceIds;\nconst query = `UPDATE calls.combined_summary cs\nJOIN calls.dim_process dp ON dp.process_name = cs.process_name\nJOIN (\n  SELECT service_id, sip, event_date,\n    MIN(CASE WHEN status='Login' THEN period_start END) AS login_time,\n    MAX(CASE WHEN status='Logout' THEN period_start END) AS logout_time,\n    SUM(CASE WHEN status IN ('Short Break','Meal','Bio-Break') THEN duration_sec ELSE 0 END) AS break_seconds,\n    SUM(CASE WHEN status = 'Training' THEN duration_sec ELSE 0 END) AS training_seconds\n  FROM calls.login_events\n  WHERE event_date BETWEEN '${from}' AND '${to}' AND service_id IN (${serviceIds})\n  GROUP BY service_id, sip, event_date\n) lc ON lc.service_id = dp.service_id AND lc.sip = cs.sip AND lc.event_date = cs.report_date\nSET cs.login_time = lc.login_time,\n    cs.login_out = lc.logout_time,\n    cs.break_time = SEC_TO_TIME(lc.break_seconds),\n    cs.hours = TIMEDIFF(lc.logout_time, lc.login_time),\n    cs.training_time = SEC_TO_TIME(lc.training_seconds)\nWHERE cs.report_date BETWEEN '${from}' AND '${to}';`;\nreturn [{ json: { query } }];"
+      }
+    },
+    {
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        -40,
+        400
+      ],
+      "id": "bf2-0010-exec2",
+      "name": "Exec: Step2 Login Break Hours",
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.query }}",
+        "options": {}
+      },
+      "credentials": {
+        "mySql": {
+          "id": "LfmhMCKUYWqD0NS0",
+          "name": "MySQL-vantiv"
+        }
+      }
+    },
+    {
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        200,
+        400
+      ],
+      "id": "bf2-0011-build3",
+      "name": "Build Step3 Process Day Stats",
+      "parameters": {
+        "jsCode": "const from = $('Set Date Range').first().json.from, to = $('Set Date Range').first().json.to, serviceIds = $('Set Date Range').first().json.serviceIds;\nconst query = `UPDATE calls.combined_summary cs\nJOIN calls.dim_process dp ON dp.process_name = cs.process_name\nJOIN (\n  SELECT service_id, call_date,\n    SUM(CASE WHEN call_type='INBOUND' AND (service_id <> 1287 OR ivr = 'Appointement/Other') THEN 1 ELSE 0 END) AS total_inbound_calls,\n    SUM(CASE WHEN call_type='INBOUND' AND disposition<>'Answer' AND (service_id <> 1287 OR ivr = 'Appointement/Other') THEN 1 ELSE 0 END) AS total_ib_missed,\n    SUM(CASE WHEN disposition='Queue Missed' AND (service_id <> 1287 OR ivr = 'Appointement/Other') THEN 1 ELSE 0 END) AS queue_missed,\n    SUM(CASE WHEN disposition='IVR Missed' AND (service_id <> 1287 OR ivr = 'Appointement/Other') THEN 1 ELSE 0 END) AS ivr_missed,\n    SUM(CASE WHEN disposition='Service Missed' AND (service_id <> 1287 OR ivr = 'Appointement/Other') THEN 1 ELSE 0 END) AS service_missed\n  FROM calls.call_disposition\n  WHERE call_date BETWEEN '${from}' AND '${to}' AND service_id IN (${serviceIds})\n  GROUP BY service_id, call_date\n) pd ON pd.service_id = dp.service_id AND pd.call_date = cs.report_date\nSET cs.total_inbound_calls = pd.total_inbound_calls,\n    cs.total_ib_missed = pd.total_ib_missed,\n    cs.queue_missed = pd.queue_missed,\n    cs.ivr_missed = pd.ivr_missed,\n    cs.service_missed = pd.service_missed\nWHERE cs.report_date BETWEEN '${from}' AND '${to}';`;\nreturn [{ json: { query } }];"
+      }
+    },
+    {
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        440,
+        400
+      ],
+      "id": "bf2-0012-exec3",
+      "name": "Exec: Step3 Process Day Stats",
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.query }}",
+        "options": {}
+      },
+      "credentials": {
+        "mySql": {
+          "id": "LfmhMCKUYWqD0NS0",
+          "name": "MySQL-vantiv"
+        }
+      }
+    },
+    {
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        400
+      ],
+      "id": "bf2-0013-build4",
+      "name": "Build Step4 Agent Missed IB",
+      "parameters": {
+        "jsCode": "const from = $('Set Date Range').first().json.from, to = $('Set Date Range').first().json.to, serviceIds = $('Set Date Range').first().json.serviceIds;\nconst query = `UPDATE calls.combined_summary cs\nJOIN calls.dim_process dp ON dp.process_name = cs.process_name\nJOIN (\n  SELECT cd.service_id, cd.missed_by AS agent_name, cd.call_date, COUNT(*) AS agent_missed_ib\n  FROM calls.call_disposition cd\n  WHERE cd.call_type='INBOUND' AND cd.disposition='Agent Missed' AND (cd.service_id <> 1287 OR cd.ivr = 'Appointement/Other') AND cd.call_date BETWEEN '${from}' AND '${to}' AND cd.service_id IN (${serviceIds})\n    AND EXISTS (SELECT 1 FROM calls.daywise_summary ds WHERE ds.service_id=cd.service_id AND ds.agent_name=cd.missed_by)\n  GROUP BY cd.service_id, cd.missed_by, cd.call_date\n) ami ON ami.service_id = dp.service_id AND ami.agent_name = cs.agent AND ami.call_date = cs.report_date\nSET cs.agent_missed_ib = ami.agent_missed_ib\nWHERE cs.report_date BETWEEN '${from}' AND '${to}' AND dp.service_id IN (${serviceIds});`;\nreturn [{ json: { query } }];"
+      }
+    },
+    {
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        920,
+        400
+      ],
+      "id": "bf2-0014-exec4",
+      "name": "Exec: Step4 Agent Missed IB",
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.query }}",
+        "options": {}
+      },
+      "credentials": {
+        "mySql": {
+          "id": "LfmhMCKUYWqD0NS0",
+          "name": "MySQL-vantiv"
+        }
+      }
+    },
+    {
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1160,
+        400
+      ],
+      "id": "bf2-0015-build5",
+      "name": "Build Step5 AHT",
+      "parameters": {
+        "jsCode": "const from = $('Set Date Range').first().json.from, to = $('Set Date Range').first().json.to, serviceIds = $('Set Date Range').first().json.serviceIds;\nconst query = `UPDATE calls.combined_summary cs\nJOIN calls.dim_process dp ON dp.process_name = cs.process_name\nJOIN (\n  SELECT cd.service_id, cd.agent_number AS sip, cd.call_date, ROUND(AVG(cd.handle_time_sec)) AS aht_seconds\n  FROM calls.call_disposition cd\n  WHERE cd.call_type='INBOUND' AND cd.disposition='Answer' AND (cd.service_id <> 1287 OR cd.ivr = 'Appointement/Other') AND cd.call_date BETWEEN '${from}' AND '${to}' AND cd.service_id IN (${serviceIds})\n    AND EXISTS (SELECT 1 FROM calls.daywise_summary ds WHERE ds.service_id=cd.service_id AND ds.agent_sip=cd.agent_number)\n  GROUP BY cd.service_id, cd.agent_number, cd.call_date\n) aht ON aht.service_id = dp.service_id AND aht.sip = cs.sip AND aht.call_date = cs.report_date\nSET cs.aht = SEC_TO_TIME(aht.aht_seconds)\nWHERE cs.report_date BETWEEN '${from}' AND '${to}';`;\nreturn [{ json: { query } }];"
+      }
+    },
+    {
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        1400,
+        400
+      ],
+      "id": "bf2-0016-exec5",
+      "name": "Exec: Step5 AHT",
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.query }}",
+        "options": {}
+      },
+      "credentials": {
+        "mySql": {
+          "id": "LfmhMCKUYWqD0NS0",
+          "name": "MySQL-vantiv"
+        }
+      }
+    },
+    {
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1640,
+        400
+      ],
+      "id": "bf2-0017-build6",
+      "name": "Build Step6 Hangups",
+      "parameters": {
+        "jsCode": "const from = $('Set Date Range').first().json.from, to = $('Set Date Range').first().json.to, serviceIds = $('Set Date Range').first().json.serviceIds;\nconst query = `UPDATE calls.combined_summary cs\nJOIN calls.dim_process dp ON dp.process_name = cs.process_name\nJOIN (\n  SELECT cd.service_id, cd.agent_number AS sip, cd.call_date,\n    SUM(CASE WHEN cd.call_type='INBOUND' AND (cd.service_id <> 1287 OR cd.ivr = 'Appointement/Other') THEN 1 ELSE 0 END) AS hangup_ib_10sec,\n    SUM(CASE WHEN cd.call_type='OUTBOUND' THEN 1 ELSE 0 END) AS hangup_ob_10sec\n  FROM calls.call_disposition cd\n  WHERE cd.duration_sec<=10 AND cd.disposition='Answer' AND cd.hangup_by='agent' AND cd.call_date BETWEEN '${from}' AND '${to}' AND cd.service_id IN (${serviceIds})\n    AND EXISTS (SELECT 1 FROM calls.daywise_summary ds WHERE ds.service_id=cd.service_id AND ds.agent_sip=cd.agent_number)\n  GROUP BY cd.service_id, cd.agent_number, cd.call_date\n) hc ON hc.service_id = dp.service_id AND hc.sip = cs.sip AND hc.call_date = cs.report_date\nSET cs.hangup_ib_10sec = hc.hangup_ib_10sec,\n    cs.hangup_ob_10sec = hc.hangup_ob_10sec\nWHERE cs.report_date BETWEEN '${from}' AND '${to}';`;\nreturn [{ json: { query } }];"
+      }
+    },
+    {
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        1880,
+        400
+      ],
+      "id": "bf2-0018-exec6",
+      "name": "Exec: Step6 Hangups",
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.query }}",
+        "options": {}
+      },
+      "credentials": {
+        "mySql": {
+          "id": "LfmhMCKUYWqD0NS0",
+          "name": "MySQL-vantiv"
+        }
+      }
+    },
+    {
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2120,
+        400
+      ],
+      "id": "bf2-0019-build7",
+      "name": "Build Step7 CRM Fields",
+      "parameters": {
+        "jsCode": "const from = $('Set Date Range').first().json.from, to = $('Set Date Range').first().json.to, serviceIds = $('Set Date Range').first().json.serviceIds;\nconst query = `UPDATE calls.combined_summary cs\nJOIN calls.dim_process dp ON dp.process_name = cs.process_name\nJOIN calls.crm_daily_summary crm ON crm.service_id = dp.service_id\n  AND (CASE\n         WHEN dp.service_id = 1287 AND crm.agent_name = 'Abhishek' THEN 'Abhishek Sharma'\n         WHEN dp.service_id = 1287 AND crm.agent_name IN ('Anchal', 'Anchal singh') THEN 'Anchal Singh'\n         WHEN dp.service_id = 1287 AND crm.agent_name = 'Kavneet' THEN 'Kavneet Kaur'\n         WHEN dp.service_id = 1287 AND crm.agent_name = 'Monika' THEN 'Monika Rani'\n         WHEN dp.service_id = 1287 AND crm.agent_name IN ('Shivani', 'Shivani Khandelwal') THEN 'Shivani khandelwal'\n         ELSE crm.agent_name\n       END) = cs.agent\n  AND crm.report_date = cs.report_date\nSET cs.crm_call = crm.case_logged_call,\n    cs.crm_email = crm.case_logged_email,\n    cs.non_trading = crm.non_trading,\n    cs.closed_cases = crm.resolved_cases,\n    cs.partial_closed_cases = crm.partial_cases,\n    cs.fresh_crm_case_lots = CASE WHEN dp.service_id = 805 THEN crm.total_cases ELSE NULL END,\n    cs.crm_total_cases = crm.total_cases,\n    cs.crm_inbound_cases = crm.inbound_cases,\n    cs.crm_outbound_cases = crm.outbound_cases,\n    cs.crm_escalation_open = CAST(JSON_UNQUOTE(JSON_EXTRACT(crm.extra, '$.escalation_open')) AS UNSIGNED),\n    cs.crm_escalation_pending_field = CAST(JSON_UNQUOTE(JSON_EXTRACT(crm.extra, '$.escalation_pending_from_field')) AS UNSIGNED),\n    cs.crm_escalation_pending_rhc = CAST(JSON_UNQUOTE(JSON_EXTRACT(crm.extra, '$.escalation_pending_from_rhc')) AS UNSIGNED)\nWHERE cs.report_date BETWEEN '${from}' AND '${to}' AND dp.service_id IN (${serviceIds});`;\nreturn [{ json: { query } }];"
+      }
+    },
+    {
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        2360,
+        400
+      ],
+      "id": "bf2-0020-exec7",
+      "name": "Exec: Step7 CRM Fields",
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.query }}",
+        "options": {}
+      },
+      "credentials": {
+        "mySql": {
+          "id": "LfmhMCKUYWqD0NS0",
+          "name": "MySQL-vantiv"
+        }
+      }
+    },
+    {
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2600,
+        400
+      ],
+      "id": "bf2-0021-build8",
+      "name": "Build Step8 Callback Final",
+      "parameters": {
+        "jsCode": "const from = $('Set Date Range').first().json.from, to = $('Set Date Range').first().json.to, serviceIds = $('Set Date Range').first().json.serviceIds;\nconst query = `UPDATE calls.combined_summary cs\nJOIN calls.dim_process dp ON dp.process_name = cs.process_name\nJOIN calls.callback_on_missed_call cb ON cb.service_id = dp.service_id AND cb.report_date = cs.report_date\nSET cs.callback_on_missed_call = SEC_TO_TIME(cb.avg_gap_seconds)\nWHERE cs.report_date BETWEEN '${from}' AND '${to}' AND dp.service_id IN (${serviceIds});`;\nreturn [{ json: { query } }];"
+      }
+    },
+    {
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        2840,
+        400
+      ],
+      "id": "bf2-0022-exec8",
+      "name": "Exec: Step8 Callback Final",
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.query }}",
+        "options": {}
+      },
+      "credentials": {
+        "mySql": {
+          "id": "LfmhMCKUYWqD0NS0",
+          "name": "MySQL-vantiv"
+        }
+      }
+    },
+    {
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3080,
+        400
+      ],
+      "id": "bf2-0023-build9",
+      "name": "Build Step9 Tracker Appreciation Escalation",
+      "parameters": {
+        "jsCode": "const from = $('Set Date Range').first().json.from, to = $('Set Date Range').first().json.to, serviceIds = $('Set Date Range').first().json.serviceIds;\nconst query = `UPDATE calls.combined_summary cs\nJOIN calls.dim_process dp ON dp.process_name = cs.process_name\nJOIN (\n  SELECT service_id,\n    CASE\n      WHEN service_id = 1702 AND agent_name IN ('Admin','Sagarika') THEN 'Sagarika Bose'\n      WHEN service_id = 1702 AND agent_name = 'Gulshan' THEN 'Gulshan Khan'\n      WHEN service_id = 1702 AND agent_name = 'Avijit' THEN 'Avijit Dey'\n      ELSE agent_name\n    END AS agent_name, report_date,\n    SUM(CASE WHEN type = 'Appreciation' AND (final_status IS NULL OR final_status <> 'No') THEN COALESCE(count,1) ELSE 0 END) AS appreciation_total,\n    SUM(CASE WHEN type = 'Escalation' THEN COALESCE(count,1) ELSE 0 END) AS escalation_total\n  FROM calls.activity_tracker\n  WHERE report_date BETWEEN '${from}' AND '${to}' AND service_id IN (${serviceIds})\n  GROUP BY service_id, agent_name, report_date\n) at ON at.service_id = dp.service_id AND LOWER(TRIM(at.agent_name)) = LOWER(TRIM(cs.agent)) AND at.report_date = cs.report_date\nSET cs.appreciation_count = at.appreciation_total,\n    cs.escalation_count = at.escalation_total\nWHERE cs.report_date BETWEEN '${from}' AND '${to}';`;\nreturn [{ json: { query } }];"
+      }
+    },
+    {
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        3320,
+        400
+      ],
+      "id": "bf2-0024-exec9",
+      "name": "Exec: Step9 Tracker Appreciation Escalation",
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.query }}",
+        "options": {}
+      },
+      "credentials": {
+        "mySql": {
+          "id": "LfmhMCKUYWqD0NS0",
+          "name": "MySQL-vantiv"
+        }
+      }
+    },
+    {
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3560,
+        400
+      ],
+      "id": "bf2-0025-build10",
+      "name": "Build Step10 Tagged Email Sent",
+      "parameters": {
+        "jsCode": "const from = $('Set Date Range').first().json.from, to = $('Set Date Range').first().json.to, serviceIds = $('Set Date Range').first().json.serviceIds;\n// Email tagging only exists for Baxter (489), ResMed (1702), and Facility\n// (Infres 741 / VMM 295 / Nihon 338) -- narrow the IN() list to just those,\n// so other processes are left untouched exactly like before (no-op), just\n// via a normal WHERE filter now instead of a separate conditional branch.\nconst EMAIL_TAGGED_SERVICE_IDS = [489, 1702, 741, 295, 338];\nconst applicableIds = serviceIds.split(',').map(Number).filter(id => EMAIL_TAGGED_SERVICE_IDS.includes(id));\nconst query = applicableIds.length ? `UPDATE calls.combined_summary cs\nJOIN calls.dim_process dp ON dp.process_name = cs.process_name\nLEFT JOIN calls.email_tagged_daily et\n  ON et.service_id = dp.service_id\n  AND et.report_date = cs.report_date\n  -- ResMed's Sagarika Bose is logged as 'Admin' in combined_summary but as her\n  -- real name in email_tagged_daily -- map that one identity so the join finds her.\n  AND (CASE WHEN dp.service_id = 1702 AND et.agent_name = 'Sagarika' THEN 'Sagarika Bose'\n       WHEN dp.service_id = 1702 AND et.agent_name = 'Gulshan' THEN 'Gulshan Khan'\n       WHEN dp.service_id = 1702 AND et.agent_name = 'Avijit' THEN 'Avijit Dey'\n       ELSE et.agent_name END)\n     = (CASE WHEN dp.service_id = 1702 AND cs.agent = 'Admin' THEN 'Sagarika Bose' ELSE cs.agent END)\nSET cs.email_sent = COALESCE(et.email_count, 0),\n    cs.email_duration = SEC_TO_TIME(COALESCE(et.email_count, 0) * 180)\nWHERE dp.service_id IN (${applicableIds.join(',')}) AND cs.report_date BETWEEN '${from}' AND '${to}';` : 'SELECT 1;';\nreturn [{ json: { query } }];"
+      }
+    },
+    {
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        3800,
+        400
+      ],
+      "id": "bf2-0026-exec10",
+      "name": "Exec: Step10 Tagged Email Sent",
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.query }}",
+        "options": {}
+      },
+      "credentials": {
+        "mySql": {
+          "id": "LfmhMCKUYWqD0NS0",
+          "name": "MySQL-vantiv"
+        }
+      }
+    },
+    {
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4040,
+        400
+      ],
+      "id": "bf2-0027-build11",
+      "name": "Build Step11 Missed Hours Bifurcation",
+      "parameters": {
+        "jsCode": "const from = $('Set Date Range').first().json.from, to = $('Set Date Range').first().json.to, serviceIds = $('Set Date Range').first().json.serviceIds;\nconst query = `UPDATE calls.combined_summary cs\nJOIN calls.dim_process dp ON dp.process_name = cs.process_name\nJOIN (\n  SELECT cd.service_id, cd.call_date,\n    SUM(CASE WHEN TIME(cd.start_time) BETWEEN ps.login_time AND ps.logout_time\n              AND (ps.days_pattern = 'All days' OR DAYOFWEEK(cd.start_time) <> 1)\n         THEN 1 ELSE 0 END) AS missed_working_hours,\n    SUM(CASE WHEN NOT (TIME(cd.start_time) BETWEEN ps.login_time AND ps.logout_time\n              AND (ps.days_pattern = 'All days' OR DAYOFWEEK(cd.start_time) <> 1))\n         THEN 1 ELSE 0 END) AS missed_non_working_hours\n  FROM calls.call_disposition cd\n  JOIN calls.process_shift_schedule ps ON ps.service_id = cd.service_id\n  WHERE cd.call_type = 'INBOUND' AND cd.disposition <> 'Answer' AND (cd.service_id <> 1287 OR cd.ivr = 'Appointement/Other') AND cd.call_date BETWEEN '${from}' AND '${to}' AND cd.service_id IN (${serviceIds})\n  GROUP BY cd.service_id, cd.call_date\n) mh ON mh.service_id = dp.service_id AND mh.call_date = cs.report_date\nSET cs.missed_working_hours = mh.missed_working_hours,\n    cs.missed_non_working_hours = mh.missed_non_working_hours\nWHERE cs.report_date BETWEEN '${from}' AND '${to}' AND dp.service_id IN (${serviceIds});`;\nreturn [{ json: { query } }];"
+      }
+    },
+    {
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        4280,
+        400
+      ],
+      "id": "bf2-0028-exec11",
+      "name": "Exec: Step11 Missed Hours Bifurcation",
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.query }}",
+        "options": {}
+      },
+      "credentials": {
+        "mySql": {
+          "id": "LfmhMCKUYWqD0NS0",
+          "name": "MySQL-vantiv"
+        }
+      }
+    },
+    {
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4520,
+        400
+      ],
+      "id": "bf2-0029-build12",
+      "name": "Build Step12 IB Offered Working Hours",
+      "parameters": {
+        "jsCode": "const from = $('Set Date Range').first().json.from, to = $('Set Date Range').first().json.to, serviceIds = $('Set Date Range').first().json.serviceIds;\nconst query = `UPDATE calls.combined_summary cs\nJOIN calls.dim_process dp ON dp.process_name = cs.process_name\nJOIN (\n  SELECT cd.service_id, cd.call_date,\n    SUM(CASE WHEN TIME(cd.start_time) BETWEEN ps.login_time AND ps.logout_time\n              AND (ps.days_pattern = 'All days' OR DAYOFWEEK(cd.start_time) <> 1)\n         THEN 1 ELSE 0 END) AS ib_offered_working_hours,\n    SUM(CASE WHEN NOT (TIME(cd.start_time) BETWEEN ps.login_time AND ps.logout_time\n              AND (ps.days_pattern = 'All days' OR DAYOFWEEK(cd.start_time) <> 1))\n         THEN 1 ELSE 0 END) AS ib_offered_non_working_hours\n  FROM calls.call_disposition cd\n  JOIN calls.process_shift_schedule ps ON ps.service_id = cd.service_id\n  WHERE cd.call_type = 'INBOUND' AND (cd.service_id <> 1287 OR cd.ivr = 'Appointement/Other') AND cd.call_date BETWEEN '${from}' AND '${to}' AND cd.service_id IN (${serviceIds})\n  GROUP BY cd.service_id, cd.call_date\n) ibh ON ibh.service_id = dp.service_id AND ibh.call_date = cs.report_date\nSET cs.ib_offered_working_hours = ibh.ib_offered_working_hours,\n    cs.ib_offered_non_working_hours = ibh.ib_offered_non_working_hours\nWHERE cs.report_date BETWEEN '${from}' AND '${to}' AND dp.service_id IN (${serviceIds});`;\nreturn [{ json: { query } }];"
+      }
+    },
+    {
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        4760,
+        400
+      ],
+      "id": "bf2-0030-exec12",
+      "name": "Exec: Step12 IB Offered Working Hours",
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.query }}",
+        "options": {}
+      },
+      "credentials": {
+        "mySql": {
+          "id": "LfmhMCKUYWqD0NS0",
+          "name": "MySQL-vantiv"
+        }
+      }
+    },
+    {
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5000,
+        400
+      ],
+      "id": "bf2-0031-build13",
+      "name": "Build Step13 SLA 15s",
+      "parameters": {
+        "jsCode": "const from = $('Set Date Range').first().json.from, to = $('Set Date Range').first().json.to, serviceIds = $('Set Date Range').first().json.serviceIds;\nconst query = `UPDATE calls.combined_summary cs\nJOIN calls.dim_process dp ON dp.process_name = cs.process_name\nJOIN (\n  SELECT cd.service_id, cd.call_date,\n    SUM(CASE WHEN cd.disposition = 'Answer'\n              AND TIME(cd.start_time) BETWEEN ps.login_time AND ps.logout_time\n              AND (ps.days_pattern = 'All days' OR DAYOFWEEK(cd.start_time) <> 1)\n         THEN 1 ELSE 0 END) AS ib_answered_working_hours,\n    SUM(CASE WHEN cd.disposition = 'Answer' AND cd.queue_duration_raw IS NOT NULL\n              AND CAST(cd.queue_duration_raw AS UNSIGNED) BETWEEN 0 AND 15\n              AND TIME(cd.start_time) BETWEEN ps.login_time AND ps.logout_time\n              AND (ps.days_pattern = 'All days' OR DAYOFWEEK(cd.start_time) <> 1)\n         THEN 1 ELSE 0 END) AS sla_15s_answered_working_hours\n  FROM calls.call_disposition cd\n  JOIN calls.process_shift_schedule ps ON ps.service_id = cd.service_id\n  WHERE cd.call_type = 'INBOUND' AND (cd.service_id <> 1287 OR cd.ivr = 'Appointement/Other') AND cd.call_date BETWEEN '${from}' AND '${to}' AND cd.service_id IN (${serviceIds})\n  GROUP BY cd.service_id, cd.call_date\n) sla ON sla.service_id = dp.service_id AND sla.call_date = cs.report_date\nSET cs.ib_answered_working_hours = sla.ib_answered_working_hours,\n    cs.sla_15s_answered_working_hours = sla.sla_15s_answered_working_hours\nWHERE cs.report_date BETWEEN '${from}' AND '${to}' AND dp.service_id IN (${serviceIds});`;\nreturn [{ json: { query } }];"
+      }
+    },
+    {
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        5240,
+        400
+      ],
+      "id": "bf2-0032-exec13",
+      "name": "Exec: Step13 SLA 15s",
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.query }}",
+        "options": {}
+      },
+      "credentials": {
+        "mySql": {
+          "id": "LfmhMCKUYWqD0NS0",
+          "name": "MySQL-vantiv"
+        }
+      }
+    },
+    {
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4400,
+        300
+      ],
+      "id": "csbr-step14-0000-0000-000000000001",
+      "name": "Build Step14 Missed WH Breakdown",
+      "parameters": {
+        "jsCode": "const from = $('Set Date Range').first().json.from, to = $('Set Date Range').first().json.to, serviceIds = $('Set Date Range').first().json.serviceIds;\nconst query = `UPDATE calls.combined_summary cs\nJOIN calls.dim_process dp ON dp.process_name = cs.process_name\nJOIN (\n  SELECT cd.service_id, cd.call_date,\n    SUM(CASE WHEN cd.disposition = 'Queue Missed'\n              AND TIME(cd.start_time) BETWEEN ps.login_time AND ps.logout_time\n              AND (ps.days_pattern = 'All days' OR DAYOFWEEK(cd.start_time) <> 1)\n         THEN 1 ELSE 0 END) AS queue_missed_wh,\n    SUM(CASE WHEN cd.disposition = 'IVR Missed'\n              AND TIME(cd.start_time) BETWEEN ps.login_time AND ps.logout_time\n              AND (ps.days_pattern = 'All days' OR DAYOFWEEK(cd.start_time) <> 1)\n         THEN 1 ELSE 0 END) AS ivr_missed_wh,\n    SUM(CASE WHEN cd.disposition = 'Service Missed'\n              AND TIME(cd.start_time) BETWEEN ps.login_time AND ps.logout_time\n              AND (ps.days_pattern = 'All days' OR DAYOFWEEK(cd.start_time) <> 1)\n         THEN 1 ELSE 0 END) AS service_missed_wh\n  FROM calls.call_disposition cd\n  JOIN calls.process_shift_schedule ps ON ps.service_id = cd.service_id\n  WHERE cd.call_type = 'INBOUND' AND (cd.service_id <> 1287 OR cd.ivr = 'Appointement/Other') AND cd.call_date BETWEEN '${from}' AND '${to}' AND cd.service_id IN (${serviceIds})\n  GROUP BY cd.service_id, cd.call_date\n) mdwh ON mdwh.service_id = dp.service_id AND mdwh.call_date = cs.report_date\nSET cs.queue_missed_wh = mdwh.queue_missed_wh,\n    cs.ivr_missed_wh = mdwh.ivr_missed_wh,\n    cs.service_missed_wh = mdwh.service_missed_wh\nWHERE cs.report_date BETWEEN '${from}' AND '${to}' AND dp.service_id IN (${serviceIds});`;\nreturn [{ json: { query } }];"
+      }
+    },
+    {
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        4640,
+        300
+      ],
+      "id": "csbr-step14-0000-0000-000000000002",
+      "name": "Exec: Step14 Missed WH Breakdown",
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.query }}",
+        "options": {}
+      },
+      "credentials": {
+        "mySql": {
+          "id": "LfmhMCKUYWqD0NS0",
+          "name": "MySQL-vantiv"
+        }
+      }
+    },
+    {
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4880,
+        300
+      ],
+      "id": "csbr-step15-0000-0000-000000000001",
+      "name": "Build Step15 Agent Missed IB WH",
+      "parameters": {
+        "jsCode": "const from = $('Set Date Range').first().json.from, to = $('Set Date Range').first().json.to, serviceIds = $('Set Date Range').first().json.serviceIds;\nconst query = `UPDATE calls.combined_summary cs\nJOIN calls.dim_process dp ON dp.process_name = cs.process_name\nJOIN (\n  SELECT cd.service_id, cd.missed_by AS agent_name, cd.call_date, COUNT(*) AS agent_missed_ib_wh\n  FROM calls.call_disposition cd\n  JOIN calls.process_shift_schedule ps ON ps.service_id = cd.service_id\n  WHERE cd.call_type='INBOUND' AND cd.disposition='Agent Missed' AND (cd.service_id <> 1287 OR cd.ivr = 'Appointement/Other') AND cd.call_date BETWEEN '${from}' AND '${to}' AND cd.service_id IN (${serviceIds})\n    AND TIME(cd.start_time) BETWEEN ps.login_time AND ps.logout_time\n    AND (ps.days_pattern = 'All days' OR DAYOFWEEK(cd.start_time) <> 1)\n    AND EXISTS (SELECT 1 FROM calls.daywise_summary ds WHERE ds.service_id=cd.service_id AND ds.agent_name=cd.missed_by)\n  GROUP BY cd.service_id, cd.missed_by, cd.call_date\n) amiwh ON amiwh.service_id = dp.service_id AND amiwh.agent_name = cs.agent AND amiwh.call_date = cs.report_date\nSET cs.agent_missed_ib_wh = amiwh.agent_missed_ib_wh\nWHERE cs.report_date BETWEEN '${from}' AND '${to}' AND dp.service_id IN (${serviceIds});`;\nreturn [{ json: { query } }];"
+      }
+    },
+    {
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        5120,
+        300
+      ],
+      "id": "csbr-step15-0000-0000-000000000002",
+      "name": "Exec: Step15 Agent Missed IB WH",
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.query }}",
+        "options": {}
+      },
+      "credentials": {
+        "mySql": {
+          "id": "LfmhMCKUYWqD0NS0",
+          "name": "MySQL-vantiv"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const from = $('Set Date Range').first().json.from, to = $('Set Date Range').first().json.to, serviceIds = $('Set Date Range').first().json.serviceIds;\nconst query = `UPDATE calls.combined_summary cs\nJOIN calls.dim_process dp ON dp.process_name = cs.process_name\nLEFT JOIN (\n  SELECT cd.service_id, cd.agent_number AS sip, cd.call_date,\n    SUM(CASE WHEN cd.call_type='INBOUND' AND cd.ring_start_time IS NOT NULL AND cd.start_time IS NOT NULL AND (cd.service_id <> 1287 OR cd.ivr = 'Appointement/Other')\n         THEN GREATEST(0, TIMESTAMPDIFF(SECOND, cd.ring_start_time, cd.start_time)) ELSE 0 END) AS pick_time_sum_ib_sec,\n    SUM(CASE WHEN cd.call_type='INBOUND' AND cd.ring_start_time IS NOT NULL AND cd.start_time IS NOT NULL AND (cd.service_id <> 1287 OR cd.ivr = 'Appointement/Other')\n         THEN 1 ELSE 0 END) AS pick_time_count_ib,\n    SUM(CASE WHEN cd.call_type='OUTBOUND' AND cd.ring_start_time IS NOT NULL AND cd.start_time IS NOT NULL\n         THEN GREATEST(0, TIMESTAMPDIFF(SECOND, cd.ring_start_time, cd.start_time)) ELSE 0 END) AS pick_time_sum_ob_sec,\n    SUM(CASE WHEN cd.call_type='OUTBOUND' AND cd.ring_start_time IS NOT NULL AND cd.start_time IS NOT NULL\n         THEN 1 ELSE 0 END) AS pick_time_count_ob\n  FROM calls.call_disposition cd\n  JOIN calls.daywise_summary ds\n    ON ds.service_id = cd.service_id AND ds.agent_sip = cd.agent_number AND ds.report_date = cd.call_date\n  WHERE cd.disposition = 'Answer' AND cd.call_date BETWEEN '${from}' AND '${to}' AND cd.service_id IN (${serviceIds})\n    AND ds.agent_name NOT REGEXP '^t[ra][ra]ns'\n    AND ds.agent_name NOT LIKE '%\\_%'\n    AND ds.agent_name NOT LIKE '%(%'\n    AND ds.agent_name NOT IN (\n      'Emergency','Insurance','Ambulance','Reception',\n      'Hospital lines','Hospital Lines','PSRI team','PSRI Team','Team',\n      'Testing','Test','Testin','POSTMAN_TEST',\n      'A Block OPD Extension ground floor','Corporate desk','Dialysis Billing',\n      'Echo Lab','Harshita PHC Lab','TPA Dispatch Extension'\n    )\n  GROUP BY cd.service_id, cd.agent_number, cd.call_date\n) pt ON pt.service_id = dp.service_id AND pt.sip = cs.sip AND pt.call_date = cs.report_date\nSET cs.pick_time_sum_ib_sec = pt.pick_time_sum_ib_sec,\n    cs.pick_time_count_ib = pt.pick_time_count_ib,\n    cs.pick_time_sum_ob_sec = pt.pick_time_sum_ob_sec,\n    cs.pick_time_count_ob = pt.pick_time_count_ob\nWHERE cs.report_date BETWEEN '${from}' AND '${to}' AND dp.service_id IN (${serviceIds});`;\nreturn [{ json: { query } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4400,
+        400
+      ],
+      "id": "csbr-step16-0000-0000-000000000001",
+      "name": "Build Step16 Avg Pick Time"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.query }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        4640,
+        400
+      ],
+      "id": "csbr-step16-0000-0000-000000000002",
+      "name": "Exec: Step16 Avg Pick Time",
+      "credentials": {
+        "mySql": {
+          "id": "LfmhMCKUYWqD0NS0",
+          "name": "MySQL-vantiv"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const from = $('Set Date Range').first().json.from, to = $('Set Date Range').first().json.to, serviceIds = $('Set Date Range').first().json.serviceIds;\nconst query = `UPDATE calls.combined_summary cs\nJOIN calls.dim_process dp ON dp.process_name = cs.process_name\nJOIN (\n  SELECT cd.service_id, cd.call_date, COUNT(*) AS agent_missed_ib_wh_total\n  FROM calls.call_disposition cd\n  JOIN calls.process_shift_schedule ps ON ps.service_id = cd.service_id\n  WHERE cd.call_type = 'INBOUND' AND cd.disposition = 'Agent Missed' AND (cd.service_id <> 1287 OR cd.ivr = 'Appointement/Other')\n    AND TIME(cd.start_time) BETWEEN ps.login_time AND ps.logout_time\n    AND (ps.days_pattern = 'All days' OR DAYOFWEEK(cd.start_time) <> 1)\n    AND cd.call_date BETWEEN '${from}' AND '${to}' AND cd.service_id IN (${serviceIds})\n  GROUP BY cd.service_id, cd.call_date\n) t ON t.service_id = dp.service_id AND t.call_date = cs.report_date\nSET cs.agent_missed_ib_wh_total = t.agent_missed_ib_wh_total\nWHERE cs.report_date BETWEEN '${from}' AND '${to}' AND dp.service_id IN (${serviceIds});`;\nreturn [{ json: { query } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4880,
+        400
+      ],
+      "id": "csbr-step17-0000-0000-000000000001",
+      "name": "Build Step17 Agent Missed IB WH Total"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.query }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        5120,
+        400
+      ],
+      "id": "csbr-step17-0000-0000-000000000002",
+      "name": "Exec: Step17 Agent Missed IB WH Total",
+      "credentials": {
+        "mySql": {
+          "id": "LfmhMCKUYWqD0NS0",
+          "name": "MySQL-vantiv"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "When clicking Execute workflow": {
+      "main": [
+        [
+          {
+            "node": "Set Date Range",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Date Range": {
+      "main": [
+        [
+          {
+            "node": "Build Callback Insert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Callback Insert": {
+      "main": [
+        [
+          {
+            "node": "Exec: Populate Callback Table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Exec: Populate Callback Table": {
+      "main": [
+        [
+          {
+            "node": "Build Step1 Base Insert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Step1 Base Insert": {
+      "main": [
+        [
+          {
+            "node": "Exec: Step1 Base Insert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Exec: Step1 Base Insert": {
+      "main": [
+        [
+          {
+            "node": "Build Step1b CDR Answer Correction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Step1b CDR Answer Correction": {
+      "main": [
+        [
+          {
+            "node": "Exec: Step1b CDR Answer Correction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Exec: Step1b CDR Answer Correction": {
+      "main": [
+        [
+          {
+            "node": "Build Step2 Login Break Hours",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Step2 Login Break Hours": {
+      "main": [
+        [
+          {
+            "node": "Exec: Step2 Login Break Hours",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Exec: Step2 Login Break Hours": {
+      "main": [
+        [
+          {
+            "node": "Build Step3 Process Day Stats",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Step3 Process Day Stats": {
+      "main": [
+        [
+          {
+            "node": "Exec: Step3 Process Day Stats",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Exec: Step3 Process Day Stats": {
+      "main": [
+        [
+          {
+            "node": "Build Step4 Agent Missed IB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Step4 Agent Missed IB": {
+      "main": [
+        [
+          {
+            "node": "Exec: Step4 Agent Missed IB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Exec: Step4 Agent Missed IB": {
+      "main": [
+        [
+          {
+            "node": "Build Step5 AHT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Step5 AHT": {
+      "main": [
+        [
+          {
+            "node": "Exec: Step5 AHT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Exec: Step5 AHT": {
+      "main": [
+        [
+          {
+            "node": "Build Step6 Hangups",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Step6 Hangups": {
+      "main": [
+        [
+          {
+            "node": "Exec: Step6 Hangups",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Exec: Step6 Hangups": {
+      "main": [
+        [
+          {
+            "node": "Build Step7 CRM Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Step7 CRM Fields": {
+      "main": [
+        [
+          {
+            "node": "Exec: Step7 CRM Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Exec: Step7 CRM Fields": {
+      "main": [
+        [
+          {
+            "node": "Build Step8 Callback Final",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Step8 Callback Final": {
+      "main": [
+        [
+          {
+            "node": "Exec: Step8 Callback Final",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Exec: Step8 Callback Final": {
+      "main": [
+        [
+          {
+            "node": "Build Step9 Tracker Appreciation Escalation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Step9 Tracker Appreciation Escalation": {
+      "main": [
+        [
+          {
+            "node": "Exec: Step9 Tracker Appreciation Escalation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Exec: Step9 Tracker Appreciation Escalation": {
+      "main": [
+        [
+          {
+            "node": "Build Step10 Tagged Email Sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Step10 Tagged Email Sent": {
+      "main": [
+        [
+          {
+            "node": "Exec: Step10 Tagged Email Sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Exec: Step10 Tagged Email Sent": {
+      "main": [
+        [
+          {
+            "node": "Build Step11 Missed Hours Bifurcation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Step11 Missed Hours Bifurcation": {
+      "main": [
+        [
+          {
+            "node": "Exec: Step11 Missed Hours Bifurcation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Exec: Step11 Missed Hours Bifurcation": {
+      "main": [
+        [
+          {
+            "node": "Build Step12 IB Offered Working Hours",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Step12 IB Offered Working Hours": {
+      "main": [
+        [
+          {
+            "node": "Exec: Step12 IB Offered Working Hours",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Exec: Step12 IB Offered Working Hours": {
+      "main": [
+        [
+          {
+            "node": "Build Step13 SLA 15s",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Step13 SLA 15s": {
+      "main": [
+        [
+          {
+            "node": "Exec: Step13 SLA 15s",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Step14 Missed WH Breakdown": {
+      "main": [
+        [
+          {
+            "node": "Exec: Step14 Missed WH Breakdown",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Exec: Step14 Missed WH Breakdown": {
+      "main": [
+        [
+          {
+            "node": "Build Step15 Agent Missed IB WH",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Step15 Agent Missed IB WH": {
+      "main": [
+        [
+          {
+            "node": "Exec: Step15 Agent Missed IB WH",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Exec: Step13 SLA 15s": {
+      "main": [
+        [
+          {
+            "node": "Build Step14 Missed WH Breakdown",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Step16 Avg Pick Time": {
+      "main": [
+        [
+          {
+            "node": "Exec: Step16 Avg Pick Time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Exec: Step15 Agent Missed IB WH": {
+      "main": [
+        [
+          {
+            "node": "Build Step16 Avg Pick Time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Exec: Step16 Avg Pick Time": {
+      "main": [
+        [
+          {
+            "node": "Build Step17 Agent Missed IB WH Total",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Step17 Agent Missed IB WH Total": {
+      "main": [
+        [
+          {
+            "node": "Exec: Step17 Agent Missed IB WH Total",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "f9fad0dcada8947f02e42f7bc73ab7aefa92368c9ea1c4bf120cfada06c5c72c"
+  }
+}
