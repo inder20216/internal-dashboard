@@ -240,6 +240,10 @@ function emailHandled(r) {
 // Mohit Kumar replaced Kumkum going forward (Oct 2026); Kumkum stays in the
 // allowlist so her existing historical rows keep showing correctly.
 const RESMED_AGENT_ALLOWLIST = new Set(['Gulshan Khan', 'Kumkum', 'Mohit Kumar', 'Avijit Dey', 'Sagarika Bose']);
+// HST charts specifically show current OM team members only (no departed
+// agents like Kumkum, even though she stays in RESMED_AGENT_ALLOWLIST above
+// for historical continuity elsewhere) -- per explicit request.
+const RESMED_HST_OM_TEAM = new Set(['Gulshan Khan', 'Avijit Dey', 'Mohit Kumar', 'Sagarika Bose']);
 // Per-process short-name/misspelling -> canonical-name maps. ResMed's picks the
 // full name; other processes pick whichever spelling has the higher row count
 // (e.g. Baxter's "Rashmi" has far more rows across trackers than "Rashmi Gusain").
@@ -810,7 +814,8 @@ async function fetchHstSummary(from, to) {
     const res = await fetch(url);
     if (!res.ok) throw new Error(`tracker-hst-summary ${res.status}`);
     const data = await res.json();
-    return Array.isArray(data) ? data : (Array.isArray(data.data) ? data.data : []);
+    const rows = Array.isArray(data) ? data : (Array.isArray(data.data) ? data.data : []);
+    return rows.filter(r => RESMED_HST_OM_TEAM.has(r.agent));
   } catch (err) {
     console.error('fetchHstSummary failed:', err);
     return [];
@@ -828,7 +833,8 @@ async function fetchHstAllocationReport() {
     const res = await fetch(`${INSIGHTS_BASE}tracker-hst-allocation-report`);
     if (!res.ok) throw new Error(`tracker-hst-allocation-report ${res.status}`);
     const data = await res.json();
-    return Array.isArray(data) ? data : (Array.isArray(data.data) ? data.data : []);
+    const rows = Array.isArray(data) ? data : (Array.isArray(data.data) ? data.data : []);
+    return rows.filter(r => RESMED_HST_OM_TEAM.has(r.agent));
   } catch (err) {
     console.error('fetchHstAllocationReport failed:', err);
     return [];
