@@ -414,20 +414,17 @@ function renderDashboard() {
     <div class="grid-3">
       <div class="panel">
         <div class="panel-header"><i class="ti ti-users"></i> Leads Management — Agent Wise</div>
-        <div class="panel-body"><div class="chart-container chart-container-sm" id="psriLeadsByAgentChart"></div></div>
-        <div class="panel-body" style="overflow-y:auto;max-height:300px;" id="psriLeadsByAgentTable"></div>
+        <div class="panel-body"><div class="chart-container" id="psriLeadsByAgentChart"></div></div>
       </div>
 
       <div class="panel">
         <div class="panel-header"><i class="ti ti-calendar-x"></i> No Show — Agent Wise</div>
-        <div class="panel-body"><div class="chart-container chart-container-sm" id="psriNoShowByAgentChart"></div></div>
-        <div class="panel-body" style="overflow-y:auto;max-height:300px;" id="psriNoShowByAgentTable"></div>
+        <div class="panel-body"><div class="chart-container" id="psriNoShowByAgentChart"></div></div>
       </div>
 
       <div class="panel">
         <div class="panel-header"><i class="ti ti-phone-outgoing"></i> OB Follow-ups on IB Calls — Agent Wise</div>
-        <div class="panel-body"><div class="chart-container chart-container-sm" id="psriObFollowupsByAgentChart"></div></div>
-        <div class="panel-body" style="overflow-y:auto;max-height:300px;" id="psriObFollowupsByAgentTable"></div>
+        <div class="panel-body"><div class="chart-container" id="psriObFollowupsByAgentChart"></div></div>
       </div>
     </div>` : ''}
 
@@ -596,9 +593,9 @@ function renderDashboard() {
   // combined_summary), scoped to the dashboard's selected date range.
   const psriObDetailReady = processName === 'PSRI'
     ? data.fetchPsriObDetail(range.from, range.to).then(rows => {
-      renderPsriObDetailPanel('psriLeadsByAgentChart', 'psriLeadsByAgentTable', rows, 'Leads', ['Total', 'Connected', 'Booked+Visited'], isDarkNow);
-      renderPsriObDetailPanel('psriNoShowByAgentChart', 'psriNoShowByAgentTable', rows, 'No Show', ['Total', 'Connected', 'Already Visited', 'Rescheduled'], isDarkNow);
-      renderPsriObDetailPanel('psriObFollowupsByAgentChart', 'psriObFollowupsByAgentTable', rows, 'OB Followups', ['Total', 'Connected', 'Booked+Already Visited'], isDarkNow);
+      renderPsriObDetailPanel('psriLeadsByAgentChart', rows, 'Leads', ['Total', 'Connected', 'Booked+Visited'], isDarkNow);
+      renderPsriObDetailPanel('psriNoShowByAgentChart', rows, 'No Show', ['Total', 'Connected', 'Already Visited', 'Rescheduled'], isDarkNow);
+      renderPsriObDetailPanel('psriObFollowupsByAgentChart', rows, 'OB Followups', ['Total', 'Connected', 'Booked+Already Visited'], isDarkNow);
     })
     : Promise.resolve();
 
@@ -1183,24 +1180,17 @@ function buildHstOpenAgentMonthTable(containerId, hstAllocationRows) {
   </div>`;
 }
 
-/* PSRI Leads/No Show/OB Followups -- agent-wise chart + table from the
+/* PSRI Leads/No Show/OB Followups -- agent-wise grouped-bar chart from the
    long-format (source, metric_type, agent_name, value) rows
-   tracker-psri-ob-detail returns. One grouped-bar chart + one table per
-   source/activity, columns/datasets = the metric types that activity
-   tracks, rows = agents (alphabetical) + a Grand Total row on the table.
-   Agent names normalized through PSRI's alias map (data.normalizeAgentName)
-   since these come straight from the raw Excel sheets, unlike the rest of
-   the dashboard's agent names which are already normalized upstream. */
-function renderPsriObDetailPanel(chartId, tableId, allRows, source, metricTypes, isDark) {
-  const tableEl = document.getElementById(tableId);
+   tracker-psri-ob-detail returns. Agent names normalized through PSRI's
+   alias map (data.normalizeAgentName) since these come straight from the
+   raw Excel sheets, unlike the rest of the dashboard's agent names which
+   are already normalized upstream. */
+function renderPsriObDetailPanel(chartId, allRows, source, metricTypes, isDark) {
+  if (!document.getElementById(chartId)) return;
   const data = window.APP_DATA;
 
   const rows = (allRows || []).filter(r => r.source === source);
-  if (!rows.length) {
-    if (tableEl) tableEl.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted);">No data for this range.</div>';
-    return;
-  }
-
   const byAgent = new Map();
   rows.forEach(r => {
     const agent = data.normalizeAgentName('PSRI', r.agent_name);
@@ -1209,37 +1199,7 @@ function renderPsriObDetailPanel(chartId, tableId, allRows, source, metricTypes,
   });
   const agents = [...byAgent.keys()].sort((a, b) => String(a).localeCompare(String(b)));
 
-  if (document.getElementById(chartId)) window.CHARTS.renderPsriObDetailChart(chartId, agents, byAgent, metricTypes, isDark);
-
-  if (tableEl) {
-    const colTotals = {};
-    metricTypes.forEach(m => { colTotals[m] = 0; });
-
-    const bodyRows = agents.map(agent => {
-      const vals = byAgent.get(agent) || {};
-      const cells = metricTypes.map(m => {
-        const v = vals[m] || 0;
-        colTotals[m] += v;
-        return `<td style="text-align:center;">${v}</td>`;
-      }).join('');
-      return `<tr><td>${agent}</td>${cells}</tr>`;
-    }).join('');
-
-    const totalRow = `<tr style="font-weight:700;">
-        <td>Grand Total</td>
-        ${metricTypes.map(m => `<td style="text-align:center;">${colTotals[m]}</td>`).join('')}
-      </tr>`;
-
-    tableEl.innerHTML = `<div class="table-wrap">
-      <table>
-        <thead><tr>
-          <th>Agent</th>
-          ${metricTypes.map(m => `<th style="text-align:center;">${m}</th>`).join('')}
-        </tr></thead>
-        <tbody>${bodyRows}${totalRow}</tbody>
-      </table>
-    </div>`;
-  }
+  window.CHARTS.renderPsriObDetailChart(chartId, agents, byAgent, metricTypes, isDark);
 }
 
 /* Top 2-3 headline facts, promoted above the KPI grid */

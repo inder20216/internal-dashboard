@@ -1108,6 +1108,7 @@ function renderPsriObDetailChart(id, agents, byAgent, metricTypes, isDark) {
   const ctx = getCtx(id);
   if (!ctx) return;
   const palette = [chartColors.blue, chartColors.green, chartColors.amber, chartColors.purple];
+  const textColor = isDark ? '#b0b5c0' : '#6b7280';
   ctx.chart = new Chart(ctx, {
     type: 'bar',
     data: {
@@ -1116,13 +1117,11 @@ function renderPsriObDetailChart(id, agents, byAgent, metricTypes, isDark) {
         label: m,
         data: agents.map(a => (byAgent.get(a) || {})[m] || 0),
         backgroundColor: palette[i % palette.length],
-        borderRadius: 3
+        borderRadius: 3,
+        datalabels: { anchor: 'end', align: 'end', offset: 2, clamp: true, color: textColor, font: { size: 9, weight: '700' }, formatter: dlFormatter }
       }))
     },
-    options: {
-      ...defaultOpts('', isDark),
-      plugins: { ...defaultOpts('', isDark).plugins, datalabels: { display: false } }
-    }
+    options: defaultOpts('', isDark)
   });
 }
 
