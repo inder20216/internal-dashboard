@@ -1101,13 +1101,38 @@ function renderQualityTrend(id, timeSeries, isDark) {
   });
 }
 
+/* PSRI Leads/No Show/OB Followups -- agent-wise grouped bar, one dataset per
+   metric type (Total/Connected/etc), agents along the x-axis. Reused across
+   all 3 activity panels, just with different byAgent maps + metric lists. */
+function renderPsriObDetailChart(id, agents, byAgent, metricTypes, isDark) {
+  const ctx = getCtx(id);
+  if (!ctx) return;
+  const palette = [chartColors.blue, chartColors.green, chartColors.amber, chartColors.purple];
+  ctx.chart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: agents,
+      datasets: metricTypes.map((m, i) => ({
+        label: m,
+        data: agents.map(a => (byAgent.get(a) || {})[m] || 0),
+        backgroundColor: palette[i % palette.length],
+        borderRadius: 3
+      }))
+    },
+    options: {
+      ...defaultOpts('', isDark),
+      plugins: { ...defaultOpts('', isDark).plugins, datalabels: { display: false } }
+    }
+  });
+}
+
 window.CHARTS = {
   renderTrendChart, renderProcessComparison, renderAgentRanking,
   renderPareto, renderDailyTrend, renderQualityTrend,
   renderAgentHeatmap, renderMiniChart, renderDayWiseChart,
   renderAgentProductivity, renderBreakDuration, renderQualityRatio, renderAgentMissed, renderAgentHangup, renderTrainingByAgent, renderDowntimeByAgent, renderAppreciationEscalation, renderStatBar, renderHourlyMissed, renderFreshCallsComparison,
   renderFacilityCallCases, renderFacilityEmailCases, renderEmailSentAgentWise, renderIBCasesAppointments,
-  renderObActivityCombo,
+  renderObActivityCombo, renderPsriObDetailChart,
   renderHstCountsByLeadSource, renderHstFollowUpStatus, renderHstClosedConversionIssues,
   chartColors, colorPalette
 };

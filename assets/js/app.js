@@ -411,19 +411,24 @@ function renderDashboard() {
       <div class="panel-body" style="height:300px;"><canvas id="ibCasesAppointmentsChart"></canvas></div>
     </div>
 
-    <div class="panel">
-      <div class="panel-header"><i class="ti ti-users"></i> Leads Management — Agent Wise</div>
-      <div class="panel-body" style="overflow-y:auto;max-height:400px;" id="psriLeadsByAgentTable"></div>
-    </div>
+    <div class="grid-3">
+      <div class="panel">
+        <div class="panel-header"><i class="ti ti-users"></i> Leads Management — Agent Wise</div>
+        <div class="panel-body"><div class="chart-container chart-container-sm" id="psriLeadsByAgentChart"></div></div>
+        <div class="panel-body" style="overflow-y:auto;max-height:300px;" id="psriLeadsByAgentTable"></div>
+      </div>
 
-    <div class="panel">
-      <div class="panel-header"><i class="ti ti-calendar-x"></i> No Show — Agent Wise</div>
-      <div class="panel-body" style="overflow-y:auto;max-height:400px;" id="psriNoShowByAgentTable"></div>
-    </div>
+      <div class="panel">
+        <div class="panel-header"><i class="ti ti-calendar-x"></i> No Show — Agent Wise</div>
+        <div class="panel-body"><div class="chart-container chart-container-sm" id="psriNoShowByAgentChart"></div></div>
+        <div class="panel-body" style="overflow-y:auto;max-height:300px;" id="psriNoShowByAgentTable"></div>
+      </div>
 
-    <div class="panel">
-      <div class="panel-header"><i class="ti ti-phone-outgoing"></i> OB Follow-ups on IB Calls — Agent Wise</div>
-      <div class="panel-body" style="overflow-y:auto;max-height:400px;" id="psriObFollowupsByAgentTable"></div>
+      <div class="panel">
+        <div class="panel-header"><i class="ti ti-phone-outgoing"></i> OB Follow-ups on IB Calls — Agent Wise</div>
+        <div class="panel-body"><div class="chart-container chart-container-sm" id="psriObFollowupsByAgentChart"></div></div>
+        <div class="panel-body" style="overflow-y:auto;max-height:300px;" id="psriObFollowupsByAgentTable"></div>
+      </div>
     </div>` : ''}
 
 
@@ -591,9 +596,9 @@ function renderDashboard() {
   // combined_summary), scoped to the dashboard's selected date range.
   const psriObDetailReady = processName === 'PSRI'
     ? data.fetchPsriObDetail(range.from, range.to).then(rows => {
-      buildPsriObDetailTable('psriLeadsByAgentTable', rows, 'Leads', ['Total', 'Connected', 'Booked+Visited']);
-      buildPsriObDetailTable('psriNoShowByAgentTable', rows, 'No Show', ['Total', 'Connected', 'Already Visited', 'Rescheduled']);
-      buildPsriObDetailTable('psriObFollowupsByAgentTable', rows, 'OB Followups', ['Total', 'Connected', 'Booked+Already Visited']);
+      renderPsriObDetailPanel('psriLeadsByAgentChart', 'psriLeadsByAgentTable', rows, 'Leads', ['Total', 'Connected', 'Booked+Visited'], isDarkNow);
+      renderPsriObDetailPanel('psriNoShowByAgentChart', 'psriNoShowByAgentTable', rows, 'No Show', ['Total', 'Connected', 'Already Visited', 'Rescheduled'], isDarkNow);
+      renderPsriObDetailPanel('psriObFollowupsByAgentChart', 'psriObFollowupsByAgentTable', rows, 'OB Followups', ['Total', 'Connected', 'Booked+Already Visited'], isDarkNow);
     })
     : Promise.resolve();
 
@@ -1178,21 +1183,21 @@ function buildHstOpenAgentMonthTable(containerId, hstAllocationRows) {
   </div>`;
 }
 
-/* PSRI Leads/No Show/OB Followups -- agent-wise table from the long-format
-   (source, metric_type, agent_name, value) rows tracker-psri-ob-detail
-   returns. One table per source/activity, columns = the metric types that
-   activity tracks, rows = agents (alphabetical) + a Grand Total row.
+/* PSRI Leads/No Show/OB Followups -- agent-wise chart + table from the
+   long-format (source, metric_type, agent_name, value) rows
+   tracker-psri-ob-detail returns. One grouped-bar chart + one table per
+   source/activity, columns/datasets = the metric types that activity
+   tracks, rows = agents (alphabetical) + a Grand Total row on the table.
    Agent names normalized through PSRI's alias map (data.normalizeAgentName)
    since these come straight from the raw Excel sheets, unlike the rest of
    the dashboard's agent names which are already normalized upstream. */
-function buildPsriObDetailTable(containerId, allRows, source, metricTypes) {
-  const el = document.getElementById(containerId);
-  if (!el) return;
+function renderPsriObDetailPanel(chartId, tableId, allRows, source, metricTypes, isDark) {
+  const tableEl = document.getElementById(tableId);
   const data = window.APP_DATA;
 
   const rows = (allRows || []).filter(r => r.source === source);
   if (!rows.length) {
-    el.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted);">No data for this range.</div>';
+    if (tableEl) tableEl.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted);">No data for this range.</div>';
     return;
   }
 
@@ -1204,33 +1209,37 @@ function buildPsriObDetailTable(containerId, allRows, source, metricTypes) {
   });
   const agents = [...byAgent.keys()].sort((a, b) => String(a).localeCompare(String(b)));
 
-  const colTotals = {};
-  metricTypes.forEach(m => { colTotals[m] = 0; });
+  if (document.getElementById(chartId)) window.CHARTS.renderPsriObDetailChart(chartId, agents, byAgent, metricTypes, isDark);
 
-  const bodyRows = agents.map(agent => {
-    const vals = byAgent.get(agent) || {};
-    const cells = metricTypes.map(m => {
-      const v = vals[m] || 0;
-      colTotals[m] += v;
-      return `<td style="text-align:center;">${v}</td>`;
+  if (tableEl) {
+    const colTotals = {};
+    metricTypes.forEach(m => { colTotals[m] = 0; });
+
+    const bodyRows = agents.map(agent => {
+      const vals = byAgent.get(agent) || {};
+      const cells = metricTypes.map(m => {
+        const v = vals[m] || 0;
+        colTotals[m] += v;
+        return `<td style="text-align:center;">${v}</td>`;
+      }).join('');
+      return `<tr><td>${agent}</td>${cells}</tr>`;
     }).join('');
-    return `<tr><td>${agent}</td>${cells}</tr>`;
-  }).join('');
 
-  const totalRow = `<tr style="font-weight:700;">
-      <td>Grand Total</td>
-      ${metricTypes.map(m => `<td style="text-align:center;">${colTotals[m]}</td>`).join('')}
-    </tr>`;
+    const totalRow = `<tr style="font-weight:700;">
+        <td>Grand Total</td>
+        ${metricTypes.map(m => `<td style="text-align:center;">${colTotals[m]}</td>`).join('')}
+      </tr>`;
 
-  el.innerHTML = `<div class="table-wrap">
-    <table>
-      <thead><tr>
-        <th>Agent</th>
-        ${metricTypes.map(m => `<th style="text-align:center;">${m}</th>`).join('')}
-      </tr></thead>
-      <tbody>${bodyRows}${totalRow}</tbody>
-    </table>
-  </div>`;
+    tableEl.innerHTML = `<div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Agent</th>
+          ${metricTypes.map(m => `<th style="text-align:center;">${m}</th>`).join('')}
+        </tr></thead>
+        <tbody>${bodyRows}${totalRow}</tbody>
+      </table>
+    </div>`;
+  }
 }
 
 /* Top 2-3 headline facts, promoted above the KPI grid */
