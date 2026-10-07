@@ -409,6 +409,21 @@ function renderDashboard() {
     <div class="panel">
       <div class="panel-header"><i class="ti ti-calendar-event"></i> IB Calls vs CRM Cases vs Appointments — Agent Wise</div>
       <div class="panel-body" style="height:300px;"><canvas id="ibCasesAppointmentsChart"></canvas></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header"><i class="ti ti-users"></i> Leads Management — Agent Wise</div>
+      <div class="panel-body" style="overflow-y:auto;max-height:400px;" id="psriLeadsByAgentTable"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header"><i class="ti ti-calendar-x"></i> No Show — Agent Wise</div>
+      <div class="panel-body" style="overflow-y:auto;max-height:400px;" id="psriNoShowByAgentTable"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header"><i class="ti ti-phone-outgoing"></i> OB Follow-ups on IB Calls — Agent Wise</div>
+      <div class="panel-body" style="overflow-y:auto;max-height:400px;" id="psriObFollowupsByAgentTable"></div>
     </div>` : ''}
 
 
@@ -571,6 +586,17 @@ function renderDashboard() {
     })
     : Promise.resolve();
 
+  // PSRI Leads Management / No Show / OB Follow-ups -- agent-wise, separate
+  // fetch since it comes from its own 3 tables (synced from Excel, not
+  // combined_summary), scoped to the dashboard's selected date range.
+  const psriObDetailReady = processName === 'PSRI'
+    ? data.fetchPsriObDetail(range.from, range.to).then(rows => {
+      buildPsriObDetailTable('psriLeadsByAgentTable', rows, 'Leads', ['Total', 'Connected', 'Booked+Visited']);
+      buildPsriObDetailTable('psriNoShowByAgentTable', rows, 'No Show', ['Total', 'Connected', 'Already Visited', 'Rescheduled']);
+      buildPsriObDetailTable('psriObFollowupsByAgentTable', rows, 'OB Followups', ['Total', 'Connected', 'Booked+Already Visited']);
+    })
+    : Promise.resolve();
+
   // HST Fulfilment (ResMed only) -- separate fetch/render chain since its data
   // shape doesn't fit the generic tracker-insights pipeline above.
   // Only "HST Counts -- Lead Source Wise" is scoped to the dashboard's
@@ -670,7 +696,7 @@ function renderDashboard() {
     })
     : Promise.resolve();
 
-  data.dashboardRenderReady = Promise.all([chartsReady, insightsReady, hstReady, hstAllocationReady, vmmProductivityReady, nihonProductivityReady, infresProductivityReady]);
+  data.dashboardRenderReady = Promise.all([chartsReady, insightsReady, psriObDetailReady, hstReady, hstAllocationReady, vmmProductivityReady, nihonProductivityReady, infresProductivityReady]);
 }
 
 /* ── AGENT BENCHMARK ── */
@@ -1146,6 +1172,61 @@ function buildHstOpenAgentMonthTable(containerId, hstAllocationRows) {
         <th>Row Labels</th>
         ${months.map(m => `<th style="text-align:center;">${m}</th>`).join('')}
         <th style="text-align:center;">Grand Total</th>
+      </tr></thead>
+      <tbody>${bodyRows}${totalRow}</tbody>
+    </table>
+  </div>`;
+}
+
+/* PSRI Leads/No Show/OB Followups -- agent-wise table from the long-format
+   (source, metric_type, agent_name, value) rows tracker-psri-ob-detail
+   returns. One table per source/activity, columns = the metric types that
+   activity tracks, rows = agents (alphabetical) + a Grand Total row.
+   Agent names normalized through PSRI's alias map (data.normalizeAgentName)
+   since these come straight from the raw Excel sheets, unlike the rest of
+   the dashboard's agent names which are already normalized upstream. */
+function buildPsriObDetailTable(containerId, allRows, source, metricTypes) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  const data = window.APP_DATA;
+
+  const rows = (allRows || []).filter(r => r.source === source);
+  if (!rows.length) {
+    el.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted);">No data for this range.</div>';
+    return;
+  }
+
+  const byAgent = new Map();
+  rows.forEach(r => {
+    const agent = data.normalizeAgentName('PSRI', r.agent_name);
+    if (!byAgent.has(agent)) byAgent.set(agent, {});
+    byAgent.get(agent)[r.metric_type] = (byAgent.get(agent)[r.metric_type] || 0) + (Number(r.value) || 0);
+  });
+  const agents = [...byAgent.keys()].sort((a, b) => String(a).localeCompare(String(b)));
+
+  const colTotals = {};
+  metricTypes.forEach(m => { colTotals[m] = 0; });
+
+  const bodyRows = agents.map(agent => {
+    const vals = byAgent.get(agent) || {};
+    const cells = metricTypes.map(m => {
+      const v = vals[m] || 0;
+      colTotals[m] += v;
+      return `<td style="text-align:center;">${v}</td>`;
+    }).join('');
+    return `<tr><td>${agent}</td>${cells}</tr>`;
+  }).join('');
+
+  const totalRow = `<tr style="font-weight:700;">
+      <td>Grand Total</td>
+      ${metricTypes.map(m => `<td style="text-align:center;">${colTotals[m]}</td>`).join('')}
+    </tr>`;
+
+  el.innerHTML = `<div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th>Agent</th>
+        ${metricTypes.map(m => `<th style="text-align:center;">${m}</th>`).join('')}
       </tr></thead>
       <tbody>${bodyRows}${totalRow}</tbody>
     </table>

@@ -841,6 +841,24 @@ async function fetchHstAllocationReport() {
   }
 }
 
+/* PSRI Leads Management / No Show / OB Follow-ups on IB Calls -- agent-wise
+   breakdown of the 3 Excel-sourced activity sheets, date-range scoped (by
+   report_date, via the dashboard's from/to). PSRI only. Long format rows:
+   {source, metric_type, agent_name, value}, same shape convention as the
+   rest of tracker-insights so the frontend pivots it client-side. */
+async function fetchPsriObDetail(from, to) {
+  try {
+    const params = new URLSearchParams({ from, to });
+    const res = await fetch(`${INSIGHTS_BASE}tracker-psri-ob-detail?${params.toString()}`);
+    if (!res.ok) throw new Error(`tracker-psri-ob-detail ${res.status}`);
+    const data = await res.json();
+    return Array.isArray(data) ? data : (Array.isArray(data.data) ? data.data : []);
+  } catch (err) {
+    console.error('fetchPsriObDetail failed:', err);
+    return [];
+  }
+}
+
 /* VMM Agent Productivity extras (Case Update / Case Logged Email / Resolved /
    Reminder) -- queried live from VMM's own CRM database (a separate MySQL
    instance from combined_summary), keyed by date+agent name the same way the
@@ -998,8 +1016,8 @@ const APP_DATA = {
   aggregateProcess, getTimeSeries, getBenchmarkData, computeSixSigma,
   fetchData, toNumber, formatPercent, excelDayToSeconds, secondsToHms,
   avgSeconds, sumSeconds, toSeconds, parseTimeToSeconds, computeDefaultRange,
-  agentName, hasActivity, rowsInRange, latestActiveDate, parseLoginHour, emailHandled,
-  fetchTrackerInsights, fetchHstSummary, fetchHstAllocationReport, fetchVmmProductivity, fetchNihonProductivity, fetchInfresProductivity
+  agentName, hasActivity, rowsInRange, latestActiveDate, parseLoginHour, emailHandled, normalizeAgentName,
+  fetchTrackerInsights, fetchHstSummary, fetchHstAllocationReport, fetchPsriObDetail, fetchVmmProductivity, fetchNihonProductivity, fetchInfresProductivity
 };
 // sumNumber/avgNumber/sumSecondsRaw are used internally but also exposed for app.js
 APP_DATA.sumNumber = sumNumber;
