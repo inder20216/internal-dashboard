@@ -329,6 +329,82 @@ function renderAgentProductivity(id, agents, isDark, extras) {
 }
 
 /* ── BREAK DURATION vs 1-HOUR TARGET (total if 1 day selected, daily average otherwise) ── */
+/* ── AGENT LOGIN WINDOW — First Login to Last Logout (Gantt-style) ──
+   One floating horizontal bar per agent spanning firstLoginSec..lastLogoutSec
+   (both clock-of-day values, converted to decimal hours for the x-axis).
+   Works for any process since it reads straight off processData.agents. */
+function hourClockLabel(h) {
+  if (h === null || h === undefined || !Number.isFinite(h)) return '';
+  let hh = Math.floor(h);
+  let mm = Math.round((h - hh) * 60);
+  if (mm === 60) { mm = 0; hh += 1; }
+  hh = ((hh % 24) + 24) % 24;
+  const period = hh >= 12 ? 'PM' : 'AM';
+  let h12 = hh % 12; if (h12 === 0) h12 = 12;
+  return `${h12}:${String(mm).padStart(2, '0')} ${period}`;
+}
+
+function renderAgentLoginRange(id, agents, isDark) {
+  const ctx = getCtx(id);
+  if (!ctx) return;
+  const textColor = isDark ? '#b0b5c0' : '#6b7280';
+  const sorted = (agents || [])
+    .filter(a => a.firstLoginSec != null && a.lastLogoutSec != null && a.lastLogoutSec > a.firstLoginSec)
+    .sort((a, b) => a.firstLoginSec - b.firstLoginSec);
+
+  const firstHrs = sorted.map(a => a.firstLoginSec / 3600);
+  const lastHrs = sorted.map(a => a.lastLogoutSec / 3600);
+  const minScale = sorted.length ? Math.max(0, Math.floor(Math.min(...firstHrs)) - 1) : 0;
+  const maxScale = sorted.length ? Math.min(24, Math.ceil(Math.max(...lastHrs)) + 1) : 24;
+
+  ctx.chart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: sorted.map(a => a.agent),
+      datasets: [{
+        label: 'Login Window',
+        data: sorted.map(a => [a.firstLoginSec / 3600, a.lastLogoutSec / 3600]),
+        backgroundColor: 'rgba(37,99,235,0.65)',
+        borderRadius: 4,
+        barThickness: 14,
+        datalabels: {
+          anchor: 'end', align: 'right', offset: 2, color: textColor, font: { size: 9, weight: '600' },
+          formatter: (v, c) => {
+            const a = sorted[c.dataIndex];
+            return `${hourClockLabel(a.firstLoginSec / 3600)}–${hourClockLabel(a.lastLogoutSec / 3600)} · ${a.loginDuration}`;
+          }
+        }
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: isDark ? '#1a1d2e' : '#fff', titleColor: isDark ? '#e8eaed' : '#1a1d2e',
+          bodyColor: isDark ? '#b0b5c0' : '#6b7280', borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+          borderWidth: 1, padding: 10, cornerRadius: 8,
+          callbacks: {
+            label: c => {
+              const a = sorted[c.dataIndex];
+              return [
+                `First Login: ${hourClockLabel(a.firstLoginSec / 3600)}`,
+                `Last Logout: ${hourClockLabel(a.lastLogoutSec / 3600)}`,
+                `Total Login Duration: ${a.loginDuration}`
+              ];
+            }
+          }
+        }
+      },
+      scales: {
+        x: { min: minScale, max: maxScale, ticks: { color: textColor, font: { size: 10 }, stepSize: 1, callback: v => hourClockLabel(v) }, grid: { display: false } },
+        y: { ticks: { color: textColor, font: { size: 10 } }, grid: { display: false } }
+      }
+    }
+  });
+}
+
 function renderBreakDuration(id, agents, isDark) {
   const ctx = getCtx(id);
   if (!ctx) return;
@@ -1131,7 +1207,7 @@ window.CHARTS = {
   renderAgentHeatmap, renderMiniChart, renderDayWiseChart,
   renderAgentProductivity, renderBreakDuration, renderQualityRatio, renderAgentMissed, renderAgentHangup, renderTrainingByAgent, renderDowntimeByAgent, renderAppreciationEscalation, renderStatBar, renderHourlyMissed, renderFreshCallsComparison,
   renderFacilityCallCases, renderFacilityEmailCases, renderEmailSentAgentWise, renderIBCasesAppointments,
-  renderObActivityCombo, renderPsriObDetailChart,
+  renderObActivityCombo, renderPsriObDetailChart, renderAgentLoginRange,
   renderHstCountsByLeadSource, renderHstFollowUpStatus, renderHstClosedConversionIssues,
   chartColors, colorPalette
 };

@@ -660,6 +660,15 @@ function aggregateAgents(rows, includeProcess) {
     // that silently flags "exactly 1 hour" as exceeding the target, even though
     // the displayed HH:MM:SS shows exactly 1:00:00.
     const breakSecForTarget = Math.round(dayCount > 1 ? breakSecTotal / dayCount : breakSecTotal);
+    // First Login / Last Logout across the whole date range -- earliest
+    // "Login Time" and latest "Login Out" clock-of-day value seen for this
+    // agent, used by the Agent Login Window (Gantt-style) chart. These are
+    // clock times (seconds since midnight), not durations, so min/max across
+    // rows is the right reduction, unlike the duration fields above which sum.
+    const loginTimesSec = a.rows.map(r => parseTimeToSeconds(r["Login Time"])).filter(v => v !== null && v > 0);
+    const logoutTimesSec = a.rows.map(r => parseTimeToSeconds(r["Login Out"])).filter(v => v !== null && v > 0);
+    const firstLoginSec = loginTimesSec.length ? Math.min(...loginTimesSec) : null;
+    const lastLogoutSec = logoutTimesSec.length ? Math.max(...logoutTimesSec) : null;
     return {
       ...a,
       productivityTotal: a.inboundAnswered + a.outboundAll + a.emailsHandled,
@@ -671,6 +680,7 @@ function aggregateAgents(rows, includeProcess) {
       // distinct from the blended "AHT" column which mixes IB+OB.
       ahtInboundSec: a.inboundAnswered > 0 ? Math.round(ibSec / a.inboundAnswered) : 0,
       ahtOutboundSec: a.obAnswered > 0 ? Math.round(obSec / a.obAnswered) : 0,
+      firstLoginSec, lastLogoutSec,
       loginDuration: sumSeconds(a.rows, "Hours", "Hours (formatted)"),
       breakDuration: sumSeconds(a.rows, "Break time", "Break time (formatted)"),
       breakDaysCount: dayCount,

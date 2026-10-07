@@ -352,6 +352,11 @@ function renderDashboard() {
       </div>
     </div>
 
+    <div class="panel">
+      <div class="panel-header"><i class="ti ti-login-2"></i> Agent Login Window — First Login to Last Logout</div>
+      <div class="panel-body"><div class="chart-container" id="agentLoginRangeChart" style="height:${Math.max(220, processData.agents.filter(a => a.firstLoginSec != null).length * 30)}px;"></div></div>
+    </div>
+
     ${processName === 'Baxter' ? `
     <div class="panel">
       <div class="panel-header"><i class="ti ti-checklist"></i> Closed &amp; Partial Closed — ${range.from === range.to ? range.from : `${range.from} → ${range.to}`}</div>
@@ -521,6 +526,7 @@ function renderDashboard() {
     charts.renderAgentProductivity('agentProductivityChart', processData.agents, isDarkNow);
     charts.renderBreakDuration('breakDurationChart', processData.agents, isDarkNow);
     charts.renderAgentMissed('agentMissedChart', processData.agentMissedBreakdown, isDarkNow);
+    charts.renderAgentLoginRange('agentLoginRangeChart', processData.agents, isDarkNow);
     if (document.getElementById('agentHangupChart')) charts.renderAgentHangup('agentHangupChart', processData.agents, isDarkNow);
     if (document.getElementById('emailSentAgentChart')) charts.renderEmailSentAgentWise('emailSentAgentChart', processData.agents, isDarkNow);
     if (document.getElementById('appreciationEscalationChart')) charts.renderAppreciationEscalation('appreciationEscalationChart', processData.agents, isDarkNow);
