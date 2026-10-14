@@ -360,27 +360,39 @@ function aggregateProcess(rows, processName) {
   const ranged = rowsInRange(scoped, dateFrom, dateTo);
   const latest = latestActiveDate(scoped);
   const daily = dateFrom || dateTo ? ranged : (latest ? scoped.filter(r => r.Date === latest) : scoped);
+  // Every genuinely per-agent-attributable sum below must exclude transfer/
+  // department/dummy pseudo-agent rows (TRANS_*, FWD_*, Emergency, Insurance,
+  // etc.) -- same rule aggregateAgents/aggregateAgentMissed already apply.
+  // Without this, a transferred call's department-leg row adds a second
+  // "Inbound Answer" on top of the agent's own leg, so this process-level
+  // total can exceed totalCalls (a true process-day-constant) and disagree
+  // with the agent table, which already excludes these rows. Fields pulled
+  // via sumProcessDayConstant (totalCalls, totalMissed, queueMissed, etc.)
+  // are untouched -- that function dedupes to one value per (process, date)
+  // regardless of which row it reads it from, so filtering wouldn't change
+  // their result.
+  const realAgentDaily = daily.filter(r => !isTransferPseudoAgent(agentName(r)));
 
   const reportLabel = dateFrom && dateTo ? (dateFrom === dateTo ? dateFrom : `${dateFrom} → ${dateTo}`)
     : dateFrom ? `${dateFrom} onward` : dateTo ? `up to ${dateTo}` : latest || '';
 
   /* Core metrics */
-  const ib = sumNumber(daily, "Inbound Answer");
-  const ob = sumNumber(daily, "Outbound All");
-  const obAns = sumNumber(daily, "OB Answer");
+  const ib = sumNumber(realAgentDaily, "Inbound Answer");
+  const ob = sumNumber(realAgentDaily, "Outbound All");
+  const obAns = sumNumber(realAgentDaily, "OB Answer");
   // Email Received is a process-wide daily total (broadcast to every agent row
   // for that process+day, same as Total Inbound Calls) — take one value per
   // (process, date), not a per-row sum. Email Sent is the same story before the
   // tagging cutover, genuinely per-agent after it — sumEmailSentCount() branches
   // on that date. CRM(E-Mail)/CRM(Call) are genuinely per-agent, so a plain sum.
-  const email = sumNumber(daily, "Emails Handled") + sumNumber(daily, "Email Handled") + sumNumber(daily, "E-Mail Handled")
-    + sumProcessDayConstant(daily, "Email Received") + sumEmailSentCount(daily)
-    + sumNumber(daily, "CRM(E-Mail)") + sumNumber(daily, "CRM(Call)");
-  const totalCalls = sumProcessDayConstant(daily, "Total Inbound Calls") || sumNumber(daily, "Inbound Offered") || sumNumber(daily, "Calls Offered") || sumNumber(daily, "Offered");
+  const email = sumNumber(realAgentDaily, "Emails Handled") + sumNumber(realAgentDaily, "Email Handled") + sumNumber(realAgentDaily, "E-Mail Handled")
+    + sumProcessDayConstant(daily, "Email Received") + sumEmailSentCount(realAgentDaily)
+    + sumNumber(realAgentDaily, "CRM(E-Mail)") + sumNumber(realAgentDaily, "CRM(Call)");
+  const totalCalls = sumProcessDayConstant(daily, "Total Inbound Calls") || sumNumber(realAgentDaily, "Inbound Offered") || sumNumber(realAgentDaily, "Calls Offered") || sumNumber(realAgentDaily, "Offered");
   const totalMissed = sumProcessDayConstant(daily, "Total IB Missed");
-  const agentMissedIb = sumNumber(daily, "Agent Missed(IB)");
-  const agentMissedOb = sumNumber(daily, "Agent Missed (OB)");
-  const customerMissed = sumNumber(daily, "Customer Missed");
+  const agentMissedIb = sumNumber(realAgentDaily, "Agent Missed(IB)");
+  const agentMissedOb = sumNumber(realAgentDaily, "Agent Missed (OB)");
+  const customerMissed = sumNumber(realAgentDaily, "Customer Missed");
   // Queue/IVR/Service Missed are process-day-constant (same as Total Inbound
   // Calls) — these aren't attributable to a specific agent, process-level only.
   const queueMissed = sumProcessDayConstant(daily, "Queue Missed");
@@ -438,33 +450,33 @@ function aggregateProcess(rows, processName) {
 
   /* Time metrics — these fields arrive as "HH:MM:SS" strings, so they must be
      summed per-row via sumSecondsRaw(), not sumNumber() (which can't parse them). */
-  const breakSec = sumSecondsRaw(daily, "Break time");
-  const loginSec = sumSecondsRaw(daily, "Login Out");
-  const workSec = sumSecondsRaw(daily, "Hours");
-  const ibTTSec = sumSecondsRaw(daily, "IB TT");
-  const obTTSec = sumSecondsRaw(daily, "OB TT");
+  const breakSec = sumSecondsRaw(realAgentDaily, "Break time");
+  const loginSec = sumSecondsRaw(realAgentDaily, "Login Out");
+  const workSec = sumSecondsRaw(realAgentDaily, "Hours");
+  const ibTTSec = sumSecondsRaw(realAgentDaily, "IB TT");
+  const obTTSec = sumSecondsRaw(realAgentDaily, "OB TT");
   const talkSec = ibTTSec + obTTSec;
   // Total/Avg AHT stat charts are agent-wise metrics too — for ResMed they must
-  // reflect only the 4 real agents, same as every other agent-wise panel, even
-  // though the rest of this function's totals stay unfiltered (real KPIs/volume).
-  const ahtRows = processName === 'ResMed' ? daily.filter(r => RESMED_AGENT_ALLOWLIST.has(agentName(r))) : daily;
+  // reflect only the 4 allowlisted agents on top of the pseudo-agent exclusion
+  // every other process here already gets via realAgentDaily.
+  const ahtRows = processName === 'ResMed' ? realAgentDaily.filter(r => RESMED_AGENT_ALLOWLIST.has(agentName(r))) : realAgentDaily;
   const ahtIbTTSec = sumSecondsRaw(ahtRows, "IB TT");
   const ahtObTTSec = sumSecondsRaw(ahtRows, "OB TT");
   const ahtIbAnswered = sumNumber(ahtRows, "Inbound Answer");
   const ahtObAnswered = sumNumber(ahtRows, "OB Answer");
 
   /* Quality metrics */
-  const hangupIB = sumNumber(daily, "Call Hangup With in 10 Sec-IB");
-  const hangupOB = sumNumber(daily, "Call Hangup With in 10 Sec-OB");
+  const hangupIB = sumNumber(realAgentDaily, "Call Hangup With in 10 Sec-IB");
+  const hangupOB = sumNumber(realAgentDaily, "Call Hangup With in 10 Sec-OB");
   const totalHangup = hangupIB + hangupOB;
-  const emailDurationSec = sumEmailSentDurationSec(daily);
+  const emailDurationSec = sumEmailSentDurationSec(realAgentDaily);
   const emailDuration = secondsToHms(emailDurationSec);
-  const crmCall = sumNumber(daily, "CRM(Call)");
-  const crmEmail = sumNumber(daily, "CRM(E-Mail)");
-  const nonTrading = sumNumber(daily, "Non Trading");
+  const crmCall = sumNumber(realAgentDaily, "CRM(Call)");
+  const crmEmail = sumNumber(realAgentDaily, "CRM(E-Mail)");
+  const nonTrading = sumNumber(realAgentDaily, "Non Trading");
 
   /* Derived metrics */
-  const lateCount = daily.filter(r => { const h = parseLoginHour(r["Login Time"]); return h !== null && h > 9.5; }).length;
+  const lateCount = realAgentDaily.filter(r => { const h = parseLoginHour(r["Login Time"]); return h !== null && h > 9.5; }).length;
   // Facility spans 3 real processes, so its agent table should show the Process
   // column too, same as the true "all processes" admin view.
   const showProcessColumn = !processName || processName === 'Facility';
@@ -494,7 +506,7 @@ function aggregateProcess(rows, processName) {
 
   return {
     processName, reportLabel, isOverall: showProcessColumn,
-    agentCount: new Set(daily.map(agentName).filter(Boolean)).size,
+    agentCount: new Set(realAgentDaily.map(agentName).filter(Boolean)).size,
     /* Volume */
     totalCalls, inboundAnswered: ib, outboundAll: ob, obAnswered: obAns, emailsHandled: email,
     obAnswerPercent: ob > 0 ? obAns / ob : 0,
@@ -525,16 +537,13 @@ function aggregateProcess(rows, processName) {
     shrinkage: loginSec > 0 ? breakSec / loginSec : 0,
     occupancy: workSec > 0 ? talkSec / workSec : 0,
     productivity: loginSec > 0 ? workSec / loginSec : 0,
-    aht: avgSeconds(daily, "AHT", "AHT (formatted)"),
-    // Pick time is a per-agent metric like AHT -- a transfer/forwarded/queue
-    // pseudo-agent row isn't a real person picking up a call, so it shouldn't
-    // pull the process-wide average around. For ResMed, ahtRows is already
-    // narrowed to the 4-agent allowlist (same "real agents only" rule as
-    // Agent Productivity/AHT) -- other processes fall back to daily, so the
-    // pseudo-agent filter below still does the work there.
-    apt: avgSeconds(ahtRows.filter(r => !isTransferPseudoAgent(agentName(r))), "APT", "APT (formatted)"),
-    ibTalkTime: sumSeconds(daily, "IB TT", "IB TT (formatted)"),
-    obTalkTime: sumSeconds(daily, "OB TT", "OB TT (formatted)"),
+    aht: avgSeconds(realAgentDaily, "AHT", "AHT (formatted)"),
+    // Pick time is a per-agent metric like AHT -- ahtRows is already pseudo-
+    // agent-filtered (via realAgentDaily), narrowed further to the 4-agent
+    // allowlist for ResMed.
+    apt: avgSeconds(ahtRows, "APT", "APT (formatted)"),
+    ibTalkTime: sumSeconds(realAgentDaily, "IB TT", "IB TT (formatted)"),
+    obTalkTime: sumSeconds(realAgentDaily, "OB TT", "OB TT (formatted)"),
     ibTalkTimeSec: ahtIbTTSec,
     obTalkTimeSec: ahtObTTSec,
     /* AHT split by direction: total talk time on that side / calls answered on that side */
