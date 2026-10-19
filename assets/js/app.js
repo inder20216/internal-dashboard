@@ -499,9 +499,11 @@ function renderDashboard() {
     charts.renderStatBar('statChartIB', ['Total', 'Answered', 'Missed'],
       [processData.totalCalls || 0, processData.inboundAnswered || 0, processData.totalMissed || 0],
       ['rgba(37,99,235,0.75)', 'rgba(5,150,105,0.75)', 'rgba(220,38,38,0.75)'], isDarkNow);
+    const obDialedTotal = processData.outboundAll || 1;
     charts.renderStatBar('statChartOB', ['Dialed', 'Answered', 'No Answer'],
       [processData.outboundAll || 0, processData.obAnswered || 0, obNoAnswer],
-      ['rgba(37,99,235,0.75)', 'rgba(5,150,105,0.75)', 'rgba(217,119,6,0.75)'], isDarkNow);
+      ['rgba(37,99,235,0.75)', 'rgba(5,150,105,0.75)', 'rgba(217,119,6,0.75)'], isDarkNow,
+      (v, i) => i === 0 ? v : `${v} (${Math.round(v / obDialedTotal * 100)}%)`);
     charts.renderStatBar('statChartAHTAvg', ['IB Avg', 'OB Avg'],
       [processData.ahtInboundSec || 0, processData.ahtOutboundSec || 0],
       ['rgba(37,99,235,0.75)', 'rgba(234,88,12,0.75)'], isDarkNow, v => secondsToHms(v));

@@ -648,11 +648,15 @@ function renderStatBar(id, labels, values, colors, isDark, labelFormatter) {
   const ctx = getCtx(id);
   if (!ctx) return;
   const textColor = isDark ? '#b0b5c0' : '#6b7280';
+  // labelFormatter may be per-value (v => ...) or per-value-with-index
+  // (v, i) => ... -- the latter lets a bar's label depend on which bar it is,
+  // e.g. OB Bifurcation showing a raw count for "Dialed" but a "value (pct%)"
+  // breakdown for "Answered"/"No Answer".
   const fmt = labelFormatter || (v => v);
   // The longest label (e.g. a formatted duration) needs room reserved past the
   // bar end, or the highest-value bar's own label gets clipped by the card's
   // edge — this happened with a bar near the axis max ("37" got sliced off).
-  const maxLabelLen = Math.max(...values.map(v => String(fmt(v)).length), 1);
+  const maxLabelLen = Math.max(...values.map((v, i) => String(fmt(v, i)).length), 1);
   const maxVal = Math.max(...values, 1);
   ctx.chart = new Chart(ctx, {
     type: 'bar',
@@ -667,7 +671,7 @@ function renderStatBar(id, labels, values, colors, isDark, labelFormatter) {
       plugins: {
         legend: { display: false },
         tooltip: { enabled: false },
-        datalabels: { anchor: 'end', align: 'end', offset: 3, clamp: true, color: textColor, font: { size: 9.5, weight: '700' }, formatter: fmt }
+        datalabels: { anchor: 'end', align: 'end', offset: 3, clamp: true, color: textColor, font: { size: 9.5, weight: '700' }, formatter: (v, ctx) => fmt(v, ctx.dataIndex) }
       },
       scales: {
         x: { display: false, beginAtZero: true, suggestedMax: maxVal * 1.001 },
