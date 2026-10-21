@@ -1,0 +1,191 @@
+{
+  "name": "Tracker Nihon Productivity Webhook",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "nihon-productivity",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [-1200, 176],
+      "id": "np-0001-0000-4a11-9a11-000000000001",
+      "name": "On Nihon Productivity Request",
+      "webhookId": "nihon-productivity"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n  DATE(cl.date) AS date,\n  cl.user_id AS agent,\n  ccd.sourcesofcomplaint,\n  COUNT(*) AS CaseLogged\nFROM call_complaint_log cl\nINNER JOIN call_complaint cc ON cc.id = cl.pro_complaint_id\nINNER JOIN call_complaint_details ccd ON ccd.id = cc.complaint_id\nWHERE cc.date >= '{{ $('On Nihon Productivity Request').first().json.query.from }} 00:00:00'\nAND cc.date <= '{{ $('On Nihon Productivity Request').first().json.query.to }} 23:59:59'\nAND cl.user_id IN ('Prince', 'Sachin', 'Somansh', 'yakoob', 'Anish')\nAND cl.id = (\n  SELECT MIN(cl2.id) \n  FROM call_complaint_log cl2 \n  WHERE cl2.pro_complaint_id = cl.pro_complaint_id\n)\nGROUP BY DATE(cl.date), cl.user_id, ccd.sourcesofcomplaint\nORDER BY DATE(cl.date) ASC, cl.user_id ASC;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [-960, -160],
+      "id": "np-0002-0000-4a11-9a11-000000000002",
+      "name": "Fetch Case Logged",
+      "credentials": {
+        "mySql": { "id": "LYMPd9ognZIF7eQT", "name": "MySQL - Nihon" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Only the E-mail-sourced cases count toward \"Cases Logged (Email)\" --\n// Call-sourced ones are a different metric this chart doesn't need.\nreturn items\n  .filter(item => (item.json.sourcesofcomplaint || '') === 'E-mail')\n  .map(item => ({ json: { date: item.json.date, agent: item.json.agent, CaseLogged: item.json.CaseLogged, dataType: 'caselogged' } }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-736, -160],
+      "id": "np-0003-0000-4a11-9a11-000000000003",
+      "name": "Tag Case Logged Email"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n  DATE(cl.date) AS date,\n  cl.user_id AS agent,\n  COUNT(*) AS CasesClosed\nFROM call_complaint_log cl\nWHERE cl.date >= '{{ $('On Nihon Productivity Request').first().json.query.from }} 00:00:00'\nAND cl.date <= '{{ $('On Nihon Productivity Request').first().json.query.to }} 23:59:59'\nAND cl.complaint_status = 'Resolved'\nAND cl.user_id IN ('Prince', 'Sachin', 'Somansh', 'yakoob', 'Anish')\nGROUP BY DATE(cl.date), cl.user_id\nORDER BY DATE(cl.date) ASC, cl.user_id ASC",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [-976, 64],
+      "id": "np-0004-0000-4a11-9a11-000000000004",
+      "name": "Fetch Resolved",
+      "credentials": {
+        "mySql": { "id": "LYMPd9ognZIF7eQT", "name": "MySQL - Nihon" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.map(item => ({ json: { date: item.json.date, agent: item.json.agent, CasesClosed: item.json.CasesClosed, dataType: 'casesclosed' } }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-752, 64],
+      "id": "np-0005-0000-4a11-9a11-000000000005",
+      "name": "Tag Resolved"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n  DATE(rl.created) AS date,\n  rl.userid AS agent,\n  COUNT(*) AS Reassigned\nFROM call_reassign_engineer_logs rl\nWHERE rl.created >= '{{ $('On Nihon Productivity Request').first().json.query.from }} 00:00:00'\nAND rl.created <= '{{ $('On Nihon Productivity Request').first().json.query.to }} 23:59:59'\nAND rl.userid IN ('Prince', 'Sachin', 'Somansh', 'yakoob', 'Anish')\nGROUP BY DATE(rl.created), rl.userid\nORDER BY DATE(rl.created) ASC, rl.userid ASC",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [-976, 288],
+      "id": "np-0006-0000-4a11-9a11-000000000006",
+      "name": "Fetch Reassigned",
+      "credentials": {
+        "mySql": { "id": "LYMPd9ognZIF7eQT", "name": "MySQL - Nihon" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.map(item => ({ json: { date: item.json.date, agent: item.json.agent, Reassigned: item.json.Reassigned, dataType: 'reassigned' } }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-752, 288],
+      "id": "np-0007-0000-4a11-9a11-000000000007",
+      "name": "Tag Reassigned"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT DATE_FORMAT(report_date, '%Y-%m-%d') AS date, agent_name AS agent, case_update AS CaseUpdate\nFROM calls.crm_daily_summary\nWHERE service_id = 338\n  AND report_date >= '{{ $('On Nihon Productivity Request').first().json.query.from }}'\n  AND report_date <= '{{ $('On Nihon Productivity Request').first().json.query.to }}'\nORDER BY report_date ASC, agent_name ASC",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [-976, 512],
+      "id": "np-0012-0000-4a11-9a11-00000000000c",
+      "name": "Fetch Case Update",
+      "credentials": {
+        "mySql": { "id": "WxmqiR4rdcTGsGYq", "name": "Calls" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.map(item => ({ json: { date: item.json.date, agent: item.json.agent, CaseUpdate: item.json.CaseUpdate, dataType: 'caseupdate' } }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-752, 512],
+      "id": "np-0013-0000-4a11-9a11-00000000000d",
+      "name": "Tag Case Update"
+    },
+    {
+      "parameters": {
+        "numberInputs": 4
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [-480, 64],
+      "id": "np-0008-0000-4a11-9a11-000000000008",
+      "name": "Merge Productivity Sources"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Same short-code -> full-name normalization the original MTD email-report\n// workflow applies post-merge, so agent names here match what\n// combined_summary already uses (e.g. \"Prince\" -> \"Prince Kumar Singh\").\nconst NAME_MAP = { 'Prince': 'Prince Kumar Singh', 'Sachin': 'Sachin Yadav' };\nconst CASE_MAP = { 'yakoob': 'Yakoob' };\n\nreturn items.map(item => {\n  let agent = item.json.agent || '';\n  if (NAME_MAP[agent]) agent = NAME_MAP[agent];\n  const lower = agent.toLowerCase();\n  if (CASE_MAP[lower]) agent = CASE_MAP[lower];\n  return { json: { ...item.json, agent } };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-288, 64],
+      "id": "np-0009-0000-4a11-9a11-000000000009",
+      "name": "Normalize Agent Names"
+    },
+    {
+      "parameters": {
+        "jsCode": "const counts = {};\n\nitems.forEach(item => {\n  const { date, agent } = item.json;\n  const key = `${date}__${agent}`;\n\n  if (!counts[key]) {\n    counts[key] = { date, agent, CaseLogged: 0, Resolved: 0, Reassigned: 0, CaseUpdate: 0 };\n  }\n\n  if (item.json.dataType === 'caselogged') counts[key].CaseLogged += item.json.CaseLogged || 0;\n  if (item.json.dataType === 'casesclosed') counts[key].Resolved += item.json.CasesClosed || 0;\n  if (item.json.dataType === 'reassigned') counts[key].Reassigned += item.json.Reassigned || 0;\n  if (item.json.dataType === 'caseupdate') counts[key].CaseUpdate += item.json.CaseUpdate || 0;\n});\n\nreturn Object.values(counts)\n  .filter(row => row.date && row.agent)\n  .map(row => ({\n    json: {\n      date: row.date,\n      agent: row.agent,\n      caseLoggedEmail: row.CaseLogged,\n      resolved: row.Resolved,\n      reassigned: row.Reassigned,\n      caseUpdate: row.CaseUpdate\n    }\n  }))\n  .sort((a, b) => a.json.date.localeCompare(b.json.date) || a.json.agent.localeCompare(b.json.agent));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-96, 64],
+      "id": "np-0010-0000-4a11-9a11-00000000000a",
+      "name": "Merge by Date+Agent"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $input.all().map(item => item.json) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [144, 64],
+      "id": "np-0011-0000-4a11-9a11-00000000000b",
+      "name": "Respond With Nihon Productivity"
+    }
+  ],
+  "connections": {
+    "On Nihon Productivity Request": {
+      "main": [
+        [
+          { "node": "Fetch Case Logged", "type": "main", "index": 0 },
+          { "node": "Fetch Resolved", "type": "main", "index": 0 },
+          { "node": "Fetch Reassigned", "type": "main", "index": 0 },
+          { "node": "Fetch Case Update", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Fetch Case Logged": { "main": [[{ "node": "Tag Case Logged Email", "type": "main", "index": 0 }]] },
+    "Tag Case Logged Email": { "main": [[{ "node": "Merge Productivity Sources", "type": "main", "index": 0 }]] },
+    "Fetch Resolved": { "main": [[{ "node": "Tag Resolved", "type": "main", "index": 0 }]] },
+    "Tag Resolved": { "main": [[{ "node": "Merge Productivity Sources", "type": "main", "index": 1 }]] },
+    "Fetch Reassigned": { "main": [[{ "node": "Tag Reassigned", "type": "main", "index": 0 }]] },
+    "Tag Reassigned": { "main": [[{ "node": "Merge Productivity Sources", "type": "main", "index": 2 }]] },
+    "Fetch Case Update": { "main": [[{ "node": "Tag Case Update", "type": "main", "index": 0 }]] },
+    "Tag Case Update": { "main": [[{ "node": "Merge Productivity Sources", "type": "main", "index": 3 }]] },
+    "Merge Productivity Sources": { "main": [[{ "node": "Normalize Agent Names", "type": "main", "index": 0 }]] },
+    "Normalize Agent Names": { "main": [[{ "node": "Merge by Date+Agent", "type": "main", "index": 0 }]] },
+    "Merge by Date+Agent": { "main": [[{ "node": "Respond With Nihon Productivity", "type": "main", "index": 0 }]] }
+  },
+  "pinData": {},
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "meta": {
+    "instanceId": "f9fad0dcada8947f02e42f7bc73ab7aefa92368c9ea1c4bf120cfada06c5c72c"
+  },
+  "tags": []
+}

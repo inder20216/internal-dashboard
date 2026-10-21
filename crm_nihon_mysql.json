@@ -1,29 +1,22 @@
 {
+  "name": "Nihon CRM to MySQL",
   "nodes": [
     {
       "parameters": {
-        "jsCode": "const counts = {};\n\nitems.forEach(item => {\n  if (item.json.dataType === 'caselogged') {\n    const { date, agent, source } = item.json;\n    if (source !== 'E-mail') return;\n    const key = `${date}__${agent}`;\n    if (!counts[key]) {\n      counts[key] = { date, agent, CaseLogged: 0, CaseLoggedCall: 0, Resolved: 0, Reassigned: 0, EmailTags: 0 };\n    }\n    counts[key].CaseLogged += item.json.CaseLogged || 0;\n    return;\n  }\n\n  if (item.json.dataType === 'caseloggedcall') {\n    const { date, agent } = item.json;\n    const key = `${date}__${agent}`;\n    if (!counts[key]) {\n      counts[key] = { date, agent, CaseLogged: 0, CaseLoggedCall: 0, Resolved: 0, Reassigned: 0, EmailTags: 0 };\n    }\n    counts[key].CaseLoggedCall += item.json.CaseLoggedCall || 0;\n    return;\n  }\n\n  if (item.json.dataType === 'casesclosed') {\n    const { date, agent } = item.json;\n    const key = `${date}__${agent}`;\n    if (!counts[key]) {\n      counts[key] = { date, agent, CaseLogged: 0, CaseLoggedCall: 0, Resolved: 0, Reassigned: 0, EmailTags: 0 };\n    }\n    counts[key].Resolved += item.json.CasesClosed || 0;\n    return;\n  }\n\n  if (item.json.dataType === 'reassigned') {\n    const { date, agent } = item.json;\n    const key = `${date}__${agent}`;\n    if (!counts[key]) {\n      counts[key] = { date, agent, CaseLogged: 0, CaseLoggedCall: 0, Resolved: 0, Reassigned: 0, EmailTags: 0 };\n    }\n    counts[key].Reassigned += item.json.Reassigned || 0;\n    return;\n  }\n\n  if (item.json.sourceFolder === 'Sent') {\n    const categories = item.json.categories || [];\n    const rawDate = item.json.sentDateTime;\n    const date = rawDate ? rawDate.slice(0, 10) : null;\n    if (!date) return;\n\n    const NON_AGENT_CATEGORIES = [\n      'case logged','urgent','follow up','resolved','pending',\n      'inbox','sent','important mail','important','high priority',\n      'low priority','escalated','on hold','closed',\n      'case closed','cases closed','case update','house keeping',\n      'housekeeping','fm','non relevant','auto response','vmm','it','store',\n      'ho','engineer','rm','unassigned'\n    ];\n\n    let agent = 'Unassigned';\n    for (const cat of categories) {\n      const catLower = cat.toLowerCase().trim();\n      if (/^\\d+$/.test(catLower)) continue;\n      if (catLower && !NON_AGENT_CATEGORIES.includes(catLower)) {\n        agent = cat;\n        break;\n      }\n    }\n\n    const NAME_MAP = {\n      'Prince Kumar Singh': 'Prince',\n      'Sachin Yadav': 'Sachin'\n    };\n    if (NAME_MAP[agent]) agent = NAME_MAP[agent];\n\n    const key = `${date}__${agent}`;\n    if (!counts[key]) {\n      counts[key] = { date, agent, CaseLogged: 0, CaseLoggedCall: 0, Resolved: 0, Reassigned: 0, EmailTags: 0 };\n    }\n\n    const isCaseLogged = categories.some(c => c.toLowerCase().includes('case logged'));\n    if (isCaseLogged) counts[key].EmailTags += 1;\n    return;\n  }\n});\n\nreturn Object.values(counts)\n  .filter(row => row.date && row.agent)\n  .sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.agent || '').localeCompare(b.agent || ''))\n  .map(row => ({ json: row }));"
+        "jsCode": "const counts = {};\n\nitems.forEach(item => {\n  if (item.json.dataType === 'caselogged') {\n    const { date, agent, source } = item.json;\n    if (source !== 'E-mail') return;\n    const key = `${date}__${agent}`;\n    if (!counts[key]) {\n      counts[key] = { date, agent, CaseLogged: 0, CaseLoggedCall: 0, Resolved: 0, Reassigned: 0, EmailTags: 0, CaseUpdate: 0 };\n    }\n    counts[key].CaseLogged += item.json.CaseLogged || 0;\n    return;\n  }\n\n  if (item.json.dataType === 'caseloggedcall') {\n    const { date, agent } = item.json;\n    const key = `${date}__${agent}`;\n    if (!counts[key]) {\n      counts[key] = { date, agent, CaseLogged: 0, CaseLoggedCall: 0, Resolved: 0, Reassigned: 0, EmailTags: 0, CaseUpdate: 0 };\n    }\n    counts[key].CaseLoggedCall += item.json.CaseLoggedCall || 0;\n    return;\n  }\n\n  if (item.json.dataType === 'casesclosed') {\n    const { date, agent } = item.json;\n    const key = `${date}__${agent}`;\n    if (!counts[key]) {\n      counts[key] = { date, agent, CaseLogged: 0, CaseLoggedCall: 0, Resolved: 0, Reassigned: 0, EmailTags: 0, CaseUpdate: 0 };\n    }\n    counts[key].Resolved += item.json.CasesClosed || 0;\n    return;\n  }\n\n  if (item.json.dataType === 'reassigned') {\n    const { date, agent } = item.json;\n    const key = `${date}__${agent}`;\n    if (!counts[key]) {\n      counts[key] = { date, agent, CaseLogged: 0, CaseLoggedCall: 0, Resolved: 0, Reassigned: 0, EmailTags: 0, CaseUpdate: 0 };\n    }\n    counts[key].Reassigned += item.json.Reassigned || 0;\n    return;\n  }\n\n  if (item.json.dataType === 'caseupdate') {\n    const { date, agent } = item.json;\n    const key = `${date}__${agent}`;\n    if (!counts[key]) {\n      counts[key] = { date, agent, CaseLogged: 0, CaseLoggedCall: 0, Resolved: 0, Reassigned: 0, EmailTags: 0, CaseUpdate: 0 };\n    }\n    counts[key].CaseUpdate += item.json.CaseUpdate || 0;\n    return;\n  }\n\n  if (item.json.sourceFolder === 'Sent') {\n    const categories = item.json.categories || [];\n    const rawDate = item.json.sentDateTime;\n    const date = rawDate ? rawDate.slice(0, 10) : null;\n    if (!date) return;\n\n    const NON_AGENT_CATEGORIES = [\n      'case logged','urgent','follow up','resolved','pending',\n      'inbox','sent','important mail','important','high priority',\n      'low priority','escalated','on hold','closed',\n      'case closed','cases closed','case update','house keeping',\n      'housekeeping','fm','non relevant','auto response','vmm','it','store',\n      'ho','engineer','rm','unassigned'\n    ];\n\n    let agent = 'Unassigned';\n    for (const cat of categories) {\n      const catLower = cat.toLowerCase().trim();\n      if (/^\\d+$/.test(catLower)) continue;\n      if (catLower && !NON_AGENT_CATEGORIES.includes(catLower)) {\n        agent = cat;\n        break;\n      }\n    }\n\n    const NAME_MAP = {\n      'Prince Kumar Singh': 'Prince',\n      'Sachin Yadav': 'Sachin'\n    };\n    if (NAME_MAP[agent]) agent = NAME_MAP[agent];\n\n    const key = `${date}__${agent}`;\n    if (!counts[key]) {\n      counts[key] = { date, agent, CaseLogged: 0, CaseLoggedCall: 0, Resolved: 0, Reassigned: 0, EmailTags: 0, CaseUpdate: 0 };\n    }\n\n    const isCaseLogged = categories.some(c => c.toLowerCase().includes('case logged'));\n    if (isCaseLogged) counts[key].EmailTags += 1;\n    return;\n  }\n});\n\nreturn Object.values(counts)\n  .filter(row => row.date && row.agent)\n  .sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.agent || '').localeCompare(b.agent || ''))\n  .map(row => ({ json: row }));"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        -256,
-        3424
-      ],
-      "id": "03eae00f-fd07-43e3-8de3-a438c1019f56",
+      "position": [336, 2512],
+      "id": "0c806a0b-b46d-49a4-8238-19b524d6c040",
       "name": "Count emails9"
     },
     {
-      "parameters": {
-        "numberInputs": 6
-      },
+      "parameters": { "numberInputs": 8 },
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
-      "position": [
-        -656,
-        3408
-      ],
-      "id": "350e599c-840e-42b2-9a67-ab1cc9955647",
+      "position": [-64, 2496],
+      "id": "3e2c7c34-5ad7-4b1b-ac25-dda0b3d1504c",
       "name": "Merge9"
     },
     {
@@ -32,30 +25,16 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        -1616,
-        3456
-      ],
-      "id": "d5d50cfe-86ec-4b11-9dbe-416195de9048",
+      "position": [-1024, 2544],
+      "id": "972e04da-7c9d-49e6-aaf2-9bfb2e956bca",
       "name": "Calculate Date Range Nihon1"
     },
     {
-      "parameters": {
-        "rule": {
-          "interval": [
-            {
-              "triggerAtHour": 11
-            }
-          ]
-        }
-      },
+      "parameters": { "rule": { "interval": [{ "triggerAtHour": 8 }] } },
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [
-        -1872,
-        3408
-      ],
-      "id": "cc25e1d8-573d-4608-a791-387f93939b6e",
+      "position": [-1280, 2496],
+      "id": "4064a6d2-22e9-446e-ab22-9b076a0f4e6d",
       "name": "MTD Nihon1"
     },
     {
@@ -66,18 +45,11 @@
       },
       "type": "n8n-nodes-base.mySql",
       "typeVersion": 2.4,
-      "position": [
-        -1168,
-        3232
-      ],
-      "id": "008299b3-0925-45ea-8c26-49591779c265",
+      "position": [-576, 2320],
+      "id": "b5585847-033e-450c-a83f-58836a4f9721",
       "name": "Fetch escalated complaints",
-      "credentials": {
-        "mySql": {
-          "id": "LYMPd9ognZIF7eQT",
-          "name": "MySQL - Nihon"
-        }
-      }
+      "alwaysOutputData": true,
+      "credentials": { "mySql": { "id": "XSKn0AYvBsSQ34Mg", "name": "Nihon" } }
     },
     {
       "parameters": {
@@ -87,18 +59,10 @@
       },
       "type": "n8n-nodes-base.mySql",
       "typeVersion": 2.4,
-      "position": [
-        -1168,
-        3424
-      ],
-      "id": "9be43c2c-083b-4630-acf2-88ca296a009d",
+      "position": [-576, 2512],
+      "id": "fb88f06c-75af-405e-9d6c-bfc4dc61a03b",
       "name": "Fetch closed complaints",
-      "credentials": {
-        "mySql": {
-          "id": "LYMPd9ognZIF7eQT",
-          "name": "MySQL - Nihon"
-        }
-      }
+      "credentials": { "mySql": { "id": "XSKn0AYvBsSQ34Mg", "name": "Nihon" } }
     },
     {
       "parameters": {
@@ -108,18 +72,10 @@
       },
       "type": "n8n-nodes-base.mySql",
       "typeVersion": 2.4,
-      "position": [
-        -1168,
-        3616
-      ],
-      "id": "69e8e84c-5ed7-4572-ba62-3fe981766920",
+      "position": [-576, 2704],
+      "id": "4101d98c-feb5-4250-8089-ad3b23d640ab",
       "name": "Fetch reasigned complaints",
-      "credentials": {
-        "mySql": {
-          "id": "LYMPd9ognZIF7eQT",
-          "name": "MySQL - Nihon"
-        }
-      }
+      "credentials": { "mySql": { "id": "XSKn0AYvBsSQ34Mg", "name": "Nihon" } }
     },
     {
       "parameters": {
@@ -127,11 +83,8 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        -944,
-        3232
-      ],
-      "id": "8b8bae35-816a-4686-aeb4-7380bde0c63e",
+      "position": [-352, 2320],
+      "id": "68ea1d30-2b6f-42ec-9a92-b613fa41cfba",
       "name": "Code34"
     },
     {
@@ -140,11 +93,8 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        -944,
-        3424
-      ],
-      "id": "b6a65bf8-07be-4fbe-a011-23b6344b11de",
+      "position": [-352, 2512],
+      "id": "077c6fb7-f60a-434a-a096-76de5a594af2",
       "name": "Code35"
     },
     {
@@ -153,11 +103,8 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        -944,
-        3616
-      ],
-      "id": "2adc29a4-e835-40e9-b527-b87eafe3e642",
+      "position": [-352, 2704],
+      "id": "85713eb9-4202-4298-ae92-907c4acdf520",
       "name": "Code36"
     },
     {
@@ -166,67 +113,22 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        -464,
-        3424
-      ],
-      "id": "5fd70169-0b47-4e66-8dd1-298bd0a5ba96",
+      "position": [128, 2512],
+      "id": "b0d72ab8-41c8-4a5b-b9f5-48ed382cde5c",
       "name": "Code in JavaScript4"
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT \n  DATE(cl.date) AS date,\n  u.name AS agent,\n  COUNT(*) AS CaseLoggedCall\nFROM call_complaint_log cl\nINNER JOIN call_complaint cc ON cc.id = cl.pro_complaint_id\nINNER JOIN call_complaint_details ccd ON ccd.id = cc.complaint_id\nINNER JOIN call_users u ON u.id = cl.uid\nWHERE cl.date >= '{{ $('Calculate Date Range Nihon1').first().json.startDate }}'\nAND cl.date <= '{{ $('Calculate Date Range Nihon1').first().json.endDate }}'\nAND cl.user_id IN ('Prince', 'Sachin', 'Somansh', 'yakoob', 'Anish')\nAND ccd.sourcesofcomplaint = 'Call'\nAND cl.id = (\n  SELECT MIN(cl2.id) \n  FROM call_complaint_log cl2 \n  WHERE cl2.pro_complaint_id = cl.pro_complaint_id\n)\nGROUP BY DATE(cl.date), cl.user_id\nORDER BY DATE(cl.date) ASC, cl.user_id ASC;",
+        "query": "SELECT \n  DATE(cl.date) AS date,\n  cl.user_id AS agent,\n  COUNT(*) AS CaseLoggedCall\nFROM call_complaint_log cl\nINNER JOIN call_complaint cc ON cc.id = cl.pro_complaint_id\nINNER JOIN call_complaint_details ccd ON ccd.id = cc.complaint_id\nWHERE cl.date >= '{{ $('Calculate Date Range Nihon1').first().json.startDate }}'\nAND cl.date <= '{{ $('Calculate Date Range Nihon1').first().json.endDate }}'\nAND cl.user_id IN ('Prince', 'Sachin', 'Somansh', 'yakoob', 'Anish')\nAND ccd.sourcesofcomplaint = 'Call'\nAND cl.id = (\n  SELECT MIN(cl2.id) \n  FROM call_complaint_log cl2 \n  WHERE cl2.pro_complaint_id = cl.pro_complaint_id\n)\nGROUP BY DATE(cl.date), cl.user_id\nORDER BY DATE(cl.date) ASC, cl.user_id ASC;\n",
         "options": {}
       },
       "type": "n8n-nodes-base.mySql",
       "typeVersion": 2.4,
-      "position": [
-        -1168,
-        3840
-      ],
-      "id": "10c7e897-2407-4f9f-a3f1-6856fb2828b0",
+      "position": [-576, 2928],
+      "id": "a70e1d83-9d78-4965-87c8-c4d29733c9ed",
       "name": "Fetch Call complaints",
-      "credentials": {
-        "mySql": {
-          "id": "LYMPd9ognZIF7eQT",
-          "name": "MySQL - Nihon"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "SELECT DATE(c.created_on) AS date, u.name AS agent, cp.source_of_complaint AS source, COUNT(*) AS cnt\nFROM complaints c\nJOIN complainants cp ON cp.id = c.complainant_id\nJOIN users u ON u.id = c.created_by\nWHERE c.created_by IN (142, 159, 211)\nAND c.created_on >= '{{ $('Calculate Date Range Nihon1').first().json.startDate }}'\nAND c.created_on <= '{{ $('Calculate Date Range Nihon1').first().json.endDate }}'\nAND cp.source_of_complaint IN ('Phone','Email')\nGROUP BY DATE(c.created_on), u.name, cp.source_of_complaint\nORDER BY date ASC, u.name ASC;",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.mySql",
-      "typeVersion": 2.4,
-      "position": [
-        -1168,
-        4080
-      ],
-      "id": "nihon-newcrm-0001-fetch",
-      "name": "Fetch New CRM Case Logged",
-      "credentials": {
-        "mySql": {
-          "id": "REPLACE_WITH_NEW_CRM_CREDENTIAL_ID",
-          "name": "MySQL - Nihon New CRM"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "jsCode": "// Mirrors Code37 (caseloggedcall) + Code34-filtered-to-email (caselogged) shapes,\n// so this new source merges into the same Count emails9 buckets as the old\n// CRM's data -- same (date, agent) key gets summed across both systems\n// (team is working in both CRMs concurrently, no cutover date).\n// Agent names normalized to the same short form the old pipeline converges\n// to ('Yakoob', 'Sachin') via Code in JavaScript4, or this source's rows\n// would land in a separate, un-merged bucket.\nconst NAME_MAP = { 'Yakoob Khan': 'Yakoob', 'Sachin Yadav': 'Sachin' };\nconst out = [];\nfor (const item of items) {\n  const j = item.json;\n  const agent = NAME_MAP[j.agent] || j.agent;\n  if (j.source === 'Phone') {\n    out.push({ json: { date: j.date, agent, CaseLoggedCall: j.cnt, dataType: 'caseloggedcall' } });\n  } else if (j.source === 'Email') {\n    out.push({ json: { date: j.date, agent, source: 'E-mail', CaseLogged: j.cnt, dataType: 'caselogged' } });\n  }\n}\nreturn out;"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        -944,
-        4080
-      ],
-      "id": "nihon-newcrm-0002-tag",
-      "name": "Tag New CRM Case Logged"
+      "credentials": { "mySql": { "id": "XSKn0AYvBsSQ34Mg", "name": "Nihon" } }
     },
     {
       "parameters": {
@@ -234,11 +136,8 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        -944,
-        3840
-      ],
-      "id": "6ae8ed9c-6a14-43f9-93b4-dc8ddd99dd55",
+      "position": [-352, 2928],
+      "id": "44fd3bfe-15a5-4a98-8ce1-a204f291b3b1",
       "name": "Code37"
     },
     {
@@ -246,20 +145,12 @@
         "operation": "getAll",
         "returnAll": true,
         "output": "fields",
-        "fields": [
-          "receivedDateTime",
-          "sentDateTime",
-          "lastModifiedDateTime",
-          "categories",
-          "subject"
-        ],
+        "fields": ["receivedDateTime", "sentDateTime", "lastModifiedDateTime", "categories", "subject"],
         "filtersUI": {
           "values": {
             "filters": {
               "custom": "=sentDateTime ge {{ $('Calculate Date Range Nihon1').first().json.startDate }} and sentDateTime le {{ $('Calculate Date Range Nihon1').first().json.endDate }}",
-              "foldersToInclude": [
-                "AAMkAGY2YmVlNGEzLTIxZjgtNDJhMS05M2RhLTNmYmU1NmRkYmY0ZQAuAAAAAACuITPe03zDSIpC5uRvvC1gAQAs1A1NlhT7TYbN6jRewvxsAAAAAAEJAAA="
-              ]
+              "foldersToInclude": ["AAMkAGY2YmVlNGEzLTIxZjgtNDJhMS05M2RhLTNmYmU1NmRkYmY0ZQAuAAAAAACuITPe03zDSIpC5uRvvC1gAQAs1A1NlhT7TYbN6jRewvxsAAAAAAEJAAA="]
             }
           }
         },
@@ -267,19 +158,11 @@
       },
       "type": "n8n-nodes-base.microsoftOutlook",
       "typeVersion": 2,
-      "position": [
-        -1376,
-        3968
-      ],
-      "id": "d6fc7304-6479-4a04-a27b-a3d09686fac6",
+      "position": [-784, 3056],
+      "id": "1acac098-0eb0-4128-816a-e803b75e4337",
       "name": "Sent yesterday5",
       "webhookId": "5c8c405e-b242-4f80-a519-a97b91f4feea",
-      "credentials": {
-        "microsoftOutlookOAuth2Api": {
-          "id": "VyNXT44THQSbZ7QD",
-          "name": "Nihon"
-        }
-      }
+      "credentials": { "microsoftOutlookOAuth2Api": { "id": "8GSiWSIf6GeQuUK9", "name": "Nihon" } }
     },
     {
       "parameters": {
@@ -287,301 +170,148 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        -704,
-        3984
-      ],
-      "id": "b2bcbd63-d105-4d96-8f22-dc3238e1dee4",
+      "position": [-112, 3072],
+      "id": "cfcc2384-1951-4a04-92c6-10d5adf6be61",
       "name": "Code28"
     },
     {
+      "parameters": {
+        "jsCode": "return items.map(item => {\n  const j = item.json;\n  return { json: {\n    service_id: 338,\n    report_date: j.date,\n    agent_name: j.agent,\n    resolved_cases: j.Resolved || 0,\n    case_logged_email: j.CaseLogged || 0,\n    case_logged_call: j.CaseLoggedCall || 0,\n    reassigned: j.Reassigned || 0,\n    email_tags: j.EmailTags || 0,\n    case_update: j.CaseUpdate || 0\n  }};\n});"
+      },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        16,
-        3424
-      ],
-      "id": "cc7de004-85a0-4140-a58b-050b0253bd50",
-      "name": "Map to CRM Schema",
-      "parameters": {
-        "jsCode": "return items.map(item => {\n  const j = item.json;\n  return { json: {\n    service_id: 338,\n    report_date: j.date,\n    agent_name: j.agent,\n    resolved_cases: j.Resolved || 0,\n    case_logged_email: j.CaseLogged || 0,\n    case_logged_call: j.CaseLoggedCall || 0,\n    reassigned: j.Reassigned || 0,\n    email_tags: j.EmailTags || 0\n  }};\n});"
-      }
+      "position": [608, 2512],
+      "id": "7025f3b3-abbc-4ac0-a9c1-3b8cd9b19ce8",
+      "name": "Map to CRM Schema3"
     },
     {
+      "parameters": {
+        "jsCode": "function sqlVal(v) {\n  if (v === null || v === undefined || v === '') return 'NULL';\n  if (typeof v === 'number') return Number.isFinite(v) ? String(v) : 'NULL';\n  return \"'\" + String(v).replace(/\\\\/g, '\\\\\\\\').replace(/'/g, \"''\") + \"'\";\n}\nif (items.length === 0) return [];\nconst cols = ['service_id','report_date','agent_name','resolved_cases','case_logged_email','case_logged_call','reassigned','email_tags','case_update'];\nconst rows = items.map(item => '(' + cols.map(c => sqlVal(item.json[c])).join(',') + ')');\nconst updateCols = cols.filter(c => !['service_id','agent_name','report_date'].includes(c));\nconst updateClause = updateCols.map(c => `${c}=VALUES(${c})`).join(', ');\nconst query = `INSERT INTO calls.crm_daily_summary (${cols.join(',')}) VALUES ${rows.join(',')} ON DUPLICATE KEY UPDATE ${updateClause};`;\nreturn [{ json: { query, rowCount: rows.length } }];"
+      },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        224,
-        3424
-      ],
-      "id": "c0214b65-fad1-43b9-8998-3bb644987de8",
-      "name": "Build Insert CRM",
-      "parameters": {
-        "jsCode": "function sqlVal(v) {\n  if (v === null || v === undefined || v === '') return 'NULL';\n  if (typeof v === 'number') return Number.isFinite(v) ? String(v) : 'NULL';\n  return \"'\" + String(v).replace(/\\\\/g, '\\\\\\\\').replace(/'/g, \"''\") + \"'\";\n}\nif (items.length === 0) return [];\nconst cols = ['service_id','report_date','agent_name','resolved_cases','case_logged_email','case_logged_call','reassigned','email_tags'];\nconst rows = items.map(item => '(' + cols.map(c => sqlVal(item.json[c])).join(',') + ')');\nconst updateCols = cols.filter(c => !['service_id','agent_name','report_date'].includes(c));\nconst updateClause = updateCols.map(c => `${c}=VALUES(${c})`).join(', ');\nconst query = `INSERT INTO calls.crm_daily_summary (${cols.join(',')}) VALUES ${rows.join(',')} ON DUPLICATE KEY UPDATE ${updateClause};`;\nreturn [{ json: { query, rowCount: rows.length } }];"
-      }
+      "position": [816, 2512],
+      "id": "6222cd26-b520-44e7-b512-b4289a8981bf",
+      "name": "Build Insert CRM3"
     },
     {
+      "parameters": { "operation": "executeQuery", "query": "{{ $json.query }}", "options": {} },
       "type": "n8n-nodes-base.mySql",
       "typeVersion": 2.5,
-      "position": [
-        432,
-        3424
-      ],
-      "id": "73376a91-7521-4ba7-b5f3-694a1cfbd8fb",
-      "name": "Insert CRM",
+      "position": [1024, 2512],
+      "id": "b55ea259-175d-48d0-8c88-5bb0596ef6f2",
+      "name": "Insert CRM3",
+      "credentials": { "mySql": { "id": "WxmqiR4rdcTGsGYq", "name": "Calls" } }
+    },
+    {
       "parameters": {
         "operation": "executeQuery",
-        "query": "={{ $json.query }}",
+        "query": "SELECT DATE(c.created_on) AS date, u.name AS agent, cp.source_of_complaint AS source, COUNT(*) AS cnt\nFROM complaints c\nJOIN complainants cp ON cp.id = c.complainant_id\nJOIN users u ON u.id = c.created_by\nWHERE c.created_by IN (142, 159, 211)\nAND c.created_on >= '{{ $('Calculate Date Range Nihon1').first().json.startDate }}'\nAND c.created_on <= '{{ $('Calculate Date Range Nihon1').first().json.endDate }}'\nAND cp.source_of_complaint IN ('Phone','Email')\nGROUP BY DATE(c.created_on), u.name, cp.source_of_complaint\nORDER BY date ASC, u.name ASC;\n",
         "options": {}
       },
-      "credentials": {
-        "mySql": {
-          "id": "LfmhMCKUYWqD0NS0",
-          "name": "MySQL-vantiv"
-        }
-      }
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [-576, 3184],
+      "id": "17b427c5-2462-4db9-bc09-c928eb3c3174",
+      "name": "Fetch Call complaints1",
+      "credentials": { "mySql": { "id": "q7QvwJKAwdDCo1Xd", "name": "Nihon newcrm" } }
+    },
+    {
+      "parameters": {
+        "jsCode": "const NAME_MAP = { 'Yakoob Khan': 'Yakoob', 'Sachin Yadav': 'Sachin' };\nconst out = [];\nfor (const item of items) {\n  const j = item.json;\n  const agent = NAME_MAP[j.agent] || j.agent;\n  if (j.source === 'Phone') {\n    out.push({ json: { date: j.date, agent, CaseLoggedCall: j.cnt, dataType: 'caseloggedcall' } });\n  } else if (j.source === 'Email') {\n    out.push({ json: { date: j.date, agent, source: 'E-mail', CaseLogged: j.cnt, dataType: 'caselogged' } });\n  }\n}\nreturn out;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-368, 3184],
+      "id": "a1685a56-ce7d-4a57-9294-6a467935ffd8",
+      "name": "Code in JavaScript10"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT DATE(cl.date) AS date, cl.user_id AS agent, COUNT(*) AS CaseUpdate\nFROM call_complaint_log cl\nJOIN (SELECT pro_complaint_id, MIN(id) AS min_id FROM call_complaint_log GROUP BY pro_complaint_id) first_log\n  ON first_log.pro_complaint_id = cl.pro_complaint_id\nWHERE cl.user_id IN ('Prince','Sachin','Somansh','yakoob','Anish')\n  AND cl.id <> first_log.min_id\n  AND cl.complaint_status <> 'Resolved'\n  AND cl.date >= '{{ $('Calculate Date Range Nihon1').first().json.startDate }}'\n  AND cl.date <= '{{ $('Calculate Date Range Nihon1').first().json.endDate }}'\nGROUP BY DATE(cl.date), cl.user_id\nORDER BY date ASC, agent ASC;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [-576, 3376],
+      "id": "nihon-caseupdate-old-fetch",
+      "name": "Fetch Case Update",
+      "credentials": { "mySql": { "id": "XSKn0AYvBsSQ34Mg", "name": "Nihon" } }
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.map(item => {\n  return {\n    json: {\n      date: item.json.date,\n      agent: item.json.agent,\n      CaseUpdate: item.json.CaseUpdate,\n      dataType: 'caseupdate'\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-352, 3376],
+      "id": "nihon-caseupdate-old-tag",
+      "name": "Tag Case Update"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT DATE(cl.created_on) AS date, u.name AS agent, COUNT(*) AS CaseUpdate\nFROM complaintlogs cl\nJOIN (SELECT complaint_id, MIN(id) AS min_id FROM complaintlogs GROUP BY complaint_id) first_log\n  ON first_log.complaint_id = cl.complaint_id\nLEFT JOIN users u ON u.id = cl.created_by\nWHERE cl.created_by IN (142,159,211)\n  AND cl.id <> first_log.min_id\n  AND cl.status NOT IN ('Closed','Resolved')\n  AND cl.created_on >= '{{ $('Calculate Date Range Nihon1').first().json.startDate }}'\n  AND cl.created_on <= '{{ $('Calculate Date Range Nihon1').first().json.endDate }}'\nGROUP BY DATE(cl.created_on), u.name\nORDER BY date ASC, u.name ASC;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.4,
+      "position": [-576, 3568],
+      "id": "nihon-caseupdate-new-fetch",
+      "name": "Fetch Case Update New CRM",
+      "credentials": { "mySql": { "id": "q7QvwJKAwdDCo1Xd", "name": "Nihon newcrm" } }
+    },
+    {
+      "parameters": {
+        "jsCode": "const NAME_MAP = { 'Yakoob Khan': 'Yakoob', 'Sachin Yadav': 'Sachin' };\nreturn items.map(item => {\n  const agent = NAME_MAP[item.json.agent] || item.json.agent;\n  return {\n    json: {\n      date: item.json.date,\n      agent,\n      CaseUpdate: item.json.CaseUpdate,\n      dataType: 'caseupdate'\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-352, 3568],
+      "id": "nihon-caseupdate-new-tag",
+      "name": "Tag Case Update New CRM"
     }
   ],
   "connections": {
-    "Merge9": {
-      "main": [
-        [
-          {
-            "node": "Code in JavaScript4",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
+    "Count emails9": { "main": [[{ "node": "Map to CRM Schema3", "type": "main", "index": 0 }]] },
+    "Merge9": { "main": [[{ "node": "Code in JavaScript4", "type": "main", "index": 0 }]] },
     "Calculate Date Range Nihon1": {
-      "main": [
-        [
-          {
-            "node": "Fetch escalated complaints",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Fetch closed complaints",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Fetch reasigned complaints",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Fetch Call complaints",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Sent yesterday5",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Fetch New CRM Case Logged",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[
+        { "node": "Fetch escalated complaints", "type": "main", "index": 0 },
+        { "node": "Fetch closed complaints", "type": "main", "index": 0 },
+        { "node": "Fetch reasigned complaints", "type": "main", "index": 0 },
+        { "node": "Fetch Call complaints", "type": "main", "index": 0 },
+        { "node": "Sent yesterday5", "type": "main", "index": 0 },
+        { "node": "Fetch Call complaints1", "type": "main", "index": 0 },
+        { "node": "Fetch Case Update", "type": "main", "index": 0 },
+        { "node": "Fetch Case Update New CRM", "type": "main", "index": 0 }
+      ]]
     },
-    "Fetch New CRM Case Logged": {
-      "main": [
-        [
-          {
-            "node": "Tag New CRM Case Logged",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Tag New CRM Case Logged": {
-      "main": [
-        [
-          {
-            "node": "Merge9",
-            "type": "main",
-            "index": 5
-          }
-        ]
-      ]
-    },
-    "MTD Nihon1": {
-      "main": [
-        [
-          {
-            "node": "Calculate Date Range Nihon1",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Fetch escalated complaints": {
-      "main": [
-        [
-          {
-            "node": "Code34",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Fetch closed complaints": {
-      "main": [
-        [
-          {
-            "node": "Code35",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Fetch reasigned complaints": {
-      "main": [
-        [
-          {
-            "node": "Code36",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Code34": {
-      "main": [
-        [
-          {
-            "node": "Merge9",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Code35": {
-      "main": [
-        [
-          {
-            "node": "Merge9",
-            "type": "main",
-            "index": 1
-          }
-        ]
-      ]
-    },
-    "Code36": {
-      "main": [
-        [
-          {
-            "node": "Merge9",
-            "type": "main",
-            "index": 2
-          }
-        ]
-      ]
-    },
-    "Code in JavaScript4": {
-      "main": [
-        [
-          {
-            "node": "Count emails9",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Fetch Call complaints": {
-      "main": [
-        [
-          {
-            "node": "Code37",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Code37": {
-      "main": [
-        [
-          {
-            "node": "Merge9",
-            "type": "main",
-            "index": 3
-          }
-        ]
-      ]
-    },
-    "Sent yesterday5": {
-      "main": [
-        [
-          {
-            "node": "Code28",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Code28": {
-      "main": [
-        [
-          {
-            "node": "Merge9",
-            "type": "main",
-            "index": 4
-          }
-        ]
-      ]
-    },
-    "Count emails9": {
-      "main": [
-        [
-          {
-            "node": "Map to CRM Schema",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Map to CRM Schema": {
-      "main": [
-        [
-          {
-            "node": "Build Insert CRM",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Build Insert CRM": {
-      "main": [
-        [
-          {
-            "node": "Insert CRM",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    }
+    "MTD Nihon1": { "main": [[{ "node": "Calculate Date Range Nihon1", "type": "main", "index": 0 }]] },
+    "Fetch escalated complaints": { "main": [[{ "node": "Code34", "type": "main", "index": 0 }]] },
+    "Fetch closed complaints": { "main": [[{ "node": "Code35", "type": "main", "index": 0 }]] },
+    "Fetch reasigned complaints": { "main": [[{ "node": "Code36", "type": "main", "index": 0 }]] },
+    "Code34": { "main": [[{ "node": "Merge9", "type": "main", "index": 0 }]] },
+    "Code35": { "main": [[{ "node": "Merge9", "type": "main", "index": 1 }]] },
+    "Code36": { "main": [[{ "node": "Merge9", "type": "main", "index": 2 }]] },
+    "Code in JavaScript4": { "main": [[{ "node": "Count emails9", "type": "main", "index": 0 }]] },
+    "Fetch Call complaints": { "main": [[{ "node": "Code37", "type": "main", "index": 0 }]] },
+    "Code37": { "main": [[{ "node": "Merge9", "type": "main", "index": 3 }]] },
+    "Sent yesterday5": { "main": [[{ "node": "Code28", "type": "main", "index": 0 }]] },
+    "Code28": { "main": [[{ "node": "Merge9", "type": "main", "index": 4 }]] },
+    "Map to CRM Schema3": { "main": [[{ "node": "Build Insert CRM3", "type": "main", "index": 0 }]] },
+    "Build Insert CRM3": { "main": [[{ "node": "Insert CRM3", "type": "main", "index": 0 }]] },
+    "Fetch Call complaints1": { "main": [[{ "node": "Code in JavaScript10", "type": "main", "index": 0 }]] },
+    "Code in JavaScript10": { "main": [[{ "node": "Merge9", "type": "main", "index": 5 }]] },
+    "Fetch Case Update": { "main": [[{ "node": "Tag Case Update", "type": "main", "index": 0 }]] },
+    "Tag Case Update": { "main": [[{ "node": "Merge9", "type": "main", "index": 6 }]] },
+    "Fetch Case Update New CRM": { "main": [[{ "node": "Tag Case Update New CRM", "type": "main", "index": 0 }]] },
+    "Tag Case Update New CRM": { "main": [[{ "node": "Merge9", "type": "main", "index": 7 }]] }
   },
   "pinData": {},
   "meta": {
     "templateCredsSetupCompleted": true,
-    "instanceId": "f9fad0dcada8947f02e42f7bc73ab7aefa92368c9ea1c4bf120cfada06c5c72c"
-  },
-  "name": "Nihon CRM to MySQL"
+    "instanceId": "8442590b0e55dbd54e355747c7c925a75dfcef3563273e7cbd717163cbe23470"
+  }
 }

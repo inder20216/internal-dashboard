@@ -661,15 +661,18 @@ function renderDashboard() {
     : Promise.resolve();
 
   // Nihon Agent Productivity extras (Resolved / Cases Logged (Email) /
-  // Reassigned) -- live from Nihon's own MySQL database, Nihon only.
+  // Reassigned / Case Update) -- live from Nihon's own MySQL database
+  // (Case Update reads from calls.crm_daily_summary, which already combines
+  // both Nihon CRMs), Nihon only.
   const nihonProductivityReady = processName === 'Nihon'
     ? data.fetchNihonProductivity(range.from, range.to).then(rows => {
       const byAgent = new Map();
       rows.forEach(r => {
-        const cur = byAgent.get(r.agent) || { caseLoggedEmail: 0, resolved: 0, reassigned: 0 };
+        const cur = byAgent.get(r.agent) || { caseLoggedEmail: 0, resolved: 0, reassigned: 0, caseUpdate: 0 };
         cur.caseLoggedEmail += Number(r.caseLoggedEmail) || 0;
         cur.resolved += Number(r.resolved) || 0;
         cur.reassigned += Number(r.reassigned) || 0;
+        cur.caseUpdate += Number(r.caseUpdate) || 0;
         byAgent.set(r.agent, cur);
       });
       productivityExtras = {
@@ -677,6 +680,7 @@ function renderDashboard() {
         fields: [
           { key: 'resolved', label: 'Resolved', color: 'rgba(16,185,129,0.75)' },
           { key: 'caseLoggedEmail', label: 'Cases Logged (Email)', color: 'rgba(220,38,38,0.75)' },
+          { key: 'caseUpdate', label: 'Case Update', color: 'rgba(37,99,235,0.75)' },
           { key: 'reassigned', label: 'Reassigned', color: 'rgba(124,58,237,0.75)' }
         ]
       };
