@@ -1,0 +1,99 @@
+{
+  "name": "Tracker Appreciation Escalation Webhook",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "tracker-appreciation-escalation",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-900, 300],
+      "id": "aer-0001-0000-4a11-9a11-000000000001",
+      "name": "On Insights Request",
+      "webhookId": "tracker-appreciation-escalation"
+    },
+    {
+      "parameters": {
+        "jsCode": "const SERVICE_IDS = {\n  PSRI: 1287, Baxter: 489, Nihon: 338, ONDC: 2023,\n  Infres: 741, VMM: 295, ResMed: 1702, LOTS: 805,\n  Facility: [741, 295, 338]\n};\n\nconst q = items[0].json.query || {};\nconst processName = q.process;\nconst rawServiceId = SERVICE_IDS[processName];\nif (!rawServiceId) throw new Error(`Unknown or missing process: ${processName}`);\nconst serviceIdCond = Array.isArray(rawServiceId) ? `IN (${rawServiceId.join(',')})` : `= ${rawServiceId}`;\nconst from = q.from;\nconst to = q.to;\nif (!from || !to) throw new Error('Missing from/to date params');\n\n// Both branches below normalize ResMed's raw activity_tracker spellings\n// ('Admin'/'Sagarika' -> 'Sagarika Bose', 'Gulshan' -> 'Gulshan Khan',\n// 'Avijit' -> 'Avijit Dey') the same way combined_summary_daily_job's\n// Step9 does, so this live feed lines up with the agent names the\n// dashboard already shows. Each branch groups twice (raw name, then\n// normalized name) so two raw spellings that collapse onto the same\n// canonical name never produce two rows for one agent.\nconst query = `\nSELECT 'appreciation' AS metric_type, process_name, agent_name, NULL AS category, NULL AS score, SUM(value) AS value, SUM(cnt) AS cnt\nFROM (\n  SELECT dp.process_name,\n    CASE\n      WHEN at.service_id = 1702 AND TRIM(at.agent_name) IN ('Admin','Sagarika') THEN 'Sagarika Bose'\n      WHEN at.service_id = 1702 AND TRIM(at.agent_name) = 'Gulshan' THEN 'Gulshan Khan'\n      WHEN at.service_id = 1702 AND TRIM(at.agent_name) = 'Avijit' THEN 'Avijit Dey'\n      ELSE TRIM(at.agent_name)\n    END COLLATE utf8mb4_unicode_ci AS agent_name,\n    SUM(COALESCE(at.count,1)) AS value, COUNT(*) AS cnt\n  FROM calls.activity_tracker at\n  JOIN calls.dim_process dp ON dp.service_id = at.service_id\n  WHERE at.service_id ${serviceIdCond} AND at.type = 'Appreciation'\n    AND (at.final_status IS NULL OR at.final_status <> 'No')\n    AND at.report_date BETWEEN '${from}' AND '${to}'\n  GROUP BY TRIM(at.agent_name), dp.process_name\n) raw_appr\nGROUP BY process_name, agent_name\n\nUNION ALL\n\nSELECT 'escalation' AS metric_type, process_name, agent_name, NULL AS category, NULL AS score, SUM(value) AS value, SUM(cnt) AS cnt\nFROM (\n  SELECT dp.process_name,\n    CASE\n      WHEN at.service_id = 1702 AND TRIM(at.agent_name) IN ('Admin','Sagarika') THEN 'Sagarika Bose'\n      WHEN at.service_id = 1702 AND TRIM(at.agent_name) = 'Gulshan' THEN 'Gulshan Khan'\n      WHEN at.service_id = 1702 AND TRIM(at.agent_name) = 'Avijit' THEN 'Avijit Dey'\n      ELSE TRIM(at.agent_name)\n    END COLLATE utf8mb4_unicode_ci AS agent_name,\n    SUM(COALESCE(at.count,1)) AS value, COUNT(*) AS cnt\n  FROM calls.activity_tracker at\n  JOIN calls.dim_process dp ON dp.service_id = at.service_id\n  WHERE at.service_id ${serviceIdCond} AND at.type = 'Escalation'\n    AND at.report_date BETWEEN '${from}' AND '${to}'\n  GROUP BY TRIM(at.agent_name), dp.process_name\n) raw_esc\nGROUP BY process_name, agent_name;\n`;\n\nreturn [{ json: { query } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-660, 300],
+      "id": "aer-0002-0000-4a11-9a11-000000000002",
+      "name": "Build Insights Query"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.query }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "alwaysOutputData": true,
+      "position": [-420, 300],
+      "id": "aer-0003-0000-4a11-9a11-000000000003",
+      "name": "Run Insights Query",
+      "credentials": {
+        "mySql": {
+          "id": "LfmhMCKUYWqD0NS0",
+          "name": "MySQL-vantiv"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $input.all().map(item => item.json) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [-180, 300],
+      "id": "aer-0004-0000-4a11-9a11-000000000004",
+      "name": "Respond With Insights"
+    }
+  ],
+  "connections": {
+    "On Insights Request": {
+      "main": [
+        [
+          {
+            "node": "Build Insights Query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Insights Query": {
+      "main": [
+        [
+          {
+            "node": "Run Insights Query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Insights Query": {
+      "main": [
+        [
+          {
+            "node": "Respond With Insights",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "f9fad0dcada8947f02e42f7bc73ab7aefa92368c9ea1c4bf120cfada06c5c72c"
+  }
+}

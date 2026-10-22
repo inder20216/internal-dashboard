@@ -389,7 +389,7 @@ function renderDashboard() {
         <div class="panel-header"><i class="ti ti-heart-handshake"></i> Appreciation &amp; Escalation — Agent Wise</div>
         <div class="panel-body">
           <div class="chart-container chart-container-sm" id="appreciationEscalationChart"></div>
-          ${buildAppreciationEscalationTable(processData.agents)}
+          <div id="appreciationEscalationTableBody">${buildAppreciationEscalationTable(processData.agents)}</div>
         </div>
       </div>` : ''}
     </div>` : ''}
@@ -593,6 +593,23 @@ function renderDashboard() {
       if (document.getElementById('facilityCallCasesChart')) window.CHARTS.renderFacilityCallCases('facilityCallCasesChart', processData.agents, insights.stgTagging, isDarkNow);
       if (document.getElementById('facilityEmailCasesChart')) window.CHARTS.renderFacilityEmailCases('facilityEmailCasesChart', processData.agents, isDarkNow);
       if (document.getElementById('ibCasesAppointmentsChart')) window.CHARTS.renderIBCasesAppointments('ibCasesAppointmentsChart', processData.agents, insights.psriAppointments, isDarkNow);
+      // Appreciation/Escalation counts override combined_summary's precomputed
+      // ones with this live activity_tracker read (see fetchTrackerInsights) --
+      // CRM escalation sub-breakdown (Open/Pending Field/Pending RHC) stays
+      // from processData.agents since that's sourced from crm_daily_summary,
+      // not activity_tracker, and this endpoint doesn't touch it.
+      if ((insights.appreciation && insights.appreciation.length) || (insights.escalation && insights.escalation.length)) {
+        const apprByAgent = new Map((insights.appreciation || []).map(a => [a.agent, a.count]));
+        const escByAgent = new Map((insights.escalation || []).map(a => [a.agent, a.count]));
+        const liveAeAgents = processData.agents.map(a => ({
+          ...a,
+          appreciationCount: apprByAgent.has(a.agent) ? apprByAgent.get(a.agent) : (a.appreciationCount || 0),
+          escalationCount: escByAgent.has(a.agent) ? escByAgent.get(a.agent) : (a.escalationCount || 0)
+        }));
+        const aeTableEl = document.getElementById('appreciationEscalationTableBody');
+        if (aeTableEl) aeTableEl.innerHTML = buildAppreciationEscalationTable(liveAeAgents);
+        if (document.getElementById('appreciationEscalationChart')) window.CHARTS.renderAppreciationEscalation('appreciationEscalationChart', liveAeAgents, isDarkNow);
+      }
     })
     : Promise.resolve();
 

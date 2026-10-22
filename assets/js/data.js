@@ -815,7 +815,7 @@ const INSIGHTS_BASE = "https://automation.openmindhelpline.com/webhook/";
 const INSIGHTS_ENDPOINTS = [
   'tracker-training', 'tracker-quality', 'tracker-downtime', 'tracker-conversion',
   'tracker-ob-activity', 'tracker-hourly', 'tracker-fresh-calls', 'tracker-stg-tagging',
-  'tracker-email-productivity'
+  'tracker-email-productivity', 'tracker-appreciation-escalation'
 ];
 
 /* HST Fulfilment summary (ResMed only) -- separate fetch since its row shape
@@ -958,7 +958,7 @@ async function fetchTrackerInsights(processName, from, to) {
     return aggregateTrackerInsights(results.flat());
   } catch (err) {
     console.error('fetchTrackerInsights failed:', err);
-    return { training: [], quality: [], downtime: [], conversions: [], obActivity: [], hourlyMissed: [], freshCallsComparison: [], stgTagging: [], psriAppointments: [], emailProductivity: [] };
+    return { training: [], quality: [], downtime: [], conversions: [], obActivity: [], hourlyMissed: [], freshCallsComparison: [], stgTagging: [], psriAppointments: [], emailProductivity: [], appreciation: [], escalation: [] };
   }
 }
 
@@ -1026,7 +1026,18 @@ function aggregateTrackerInsights(rows) {
     agent: normalizeAgentName(r.process_name, r.agent_name), process: r.process_name,
     totalEmails: Number(r.value) || 0, daysLogged: Number(r.cnt) || 0
   })).filter(o => !isTransferPseudoAgent(o.agent));
-  return { training, quality, downtime, conversions, obActivity, hourlyMissed, freshCallsComparison, stgTagging, psriAppointments, emailProductivity };
+  // Live agent-wise Appreciation/Escalation (activity_tracker), queried
+  // directly rather than via combined_summary's precomputed columns -- same
+  // no-next-day-lag reasoning as emailProductivity above: a submission made
+  // today for yesterday's report_date needs to show up immediately, not wait
+  // for the next combined_summary_daily_job run.
+  const appreciation = rows.filter(r => r.metric_type === 'appreciation').map(r => ({
+    agent: normalizeAgentName(r.process_name, r.agent_name), process: r.process_name, count: Number(r.value) || 0
+  })).filter(o => passesResmedAllowlist(o.process, o.agent) && !isTransferPseudoAgent(o.agent));
+  const escalation = rows.filter(r => r.metric_type === 'escalation').map(r => ({
+    agent: normalizeAgentName(r.process_name, r.agent_name), process: r.process_name, count: Number(r.value) || 0
+  })).filter(o => passesResmedAllowlist(o.process, o.agent) && !isTransferPseudoAgent(o.agent));
+  return { training, quality, downtime, conversions, obActivity, hourlyMissed, freshCallsComparison, stgTagging, psriAppointments, emailProductivity, appreciation, escalation };
 }
 
 /* ── EXPORT GLOBALLY ── */
