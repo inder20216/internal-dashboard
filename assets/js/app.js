@@ -1437,17 +1437,11 @@ function buildAppreciationEscalationTable(agents) {
         <th>Agent</th>
         <th>Appreciation</th>
         <th>Escalation</th>
-        <th>Esc. Open</th>
-        <th>Esc. Pending (Field)</th>
-        <th>Esc. Pending (RHC)</th>
       </tr></thead>
       <tbody>${rows.map(a => `<tr>
         <td>${a.agent}</td>
         <td>${a.appreciationCount || 0}</td>
         <td>${a.escalationCount || 0}</td>
-        <td>${a.crmEscalationOpen || 0}</td>
-        <td>${a.crmEscalationPendingField || 0}</td>
-        <td>${a.crmEscalationPendingRhc || 0}</td>
       </tr>`).join('')}</tbody>
     </table>
   </div>`;
