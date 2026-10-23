@@ -1189,6 +1189,8 @@ function renderPsriObDetailChart(id, agents, byAgent, metricTypes, isDark) {
   if (!ctx) return;
   const palette = [chartColors.blue, chartColors.green, chartColors.amber, chartColors.purple];
   const textColor = isDark ? '#b0b5c0' : '#6b7280';
+  // Every bar after the first (Total) shows its % share of that agent's Total,
+  // same "value (pct%)" pattern used for OB Bifurcation's Answered/No Answer.
   ctx.chart = new Chart(ctx, {
     type: 'bar',
     data: {
@@ -1198,7 +1200,15 @@ function renderPsriObDetailChart(id, agents, byAgent, metricTypes, isDark) {
         data: agents.map(a => (byAgent.get(a) || {})[m] || 0),
         backgroundColor: palette[i % palette.length],
         borderRadius: 3,
-        datalabels: { anchor: 'end', align: 'end', offset: 2, clamp: true, color: textColor, font: { size: 9, weight: '700' }, formatter: dlFormatter }
+        datalabels: {
+          anchor: 'end', align: 'end', offset: 2, clamp: true, color: textColor, font: { size: 9, weight: '700' },
+          formatter: (v, dctx) => {
+            if (i === 0) return dlFormatter(v);
+            if (!v) return '';
+            const total = (byAgent.get(agents[dctx.dataIndex]) || {})[metricTypes[0]] || 0;
+            return total ? `${v} (${Math.round(v / total * 100)}%)` : dlFormatter(v);
+          }
+        }
       }))
     },
     options: defaultOpts('', isDark)
