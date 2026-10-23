@@ -1065,7 +1065,7 @@ function buildKPICards(d, prevData) {
       label: 'SLA — Answered ≤15s', icon: 'ti-clock-bolt',
       value: sla15sPct.toFixed(1) + '%',
       status: pctStatus(sla15sPct, { good: 90, warn: 70, higherIsBetter: true }),
-      sub: `${d.sla15sAnsweredWorkingHours || 0} of ${d.ibAnsweredWorkingHours || 0} answered ≤15s (working hours) · Target ≥90%`
+      sub: `${d.sla15sAnsweredWorkingHours || 0} of ${d.ibAnsweredWorkingHours || 0} answered ≤15s · Target ≥90%`
     }
   ];
 
