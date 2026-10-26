@@ -255,6 +255,10 @@
         <div class="tf-section-title"><i class="ti ti-adjustments"></i> Call Tag Correction</div>
         <div id="tagCorrectionNotResmed" class="tf-need-process">Call Tag Correction is only available for ResMed.</div>
         <div id="tagCorrectionFields">
+          <div class="tf-grid" style="margin-bottom:10px;">
+            <div class="tf-field"><label>From</label><input type="date" class="form-input w-full" id="tagCorrectionFrom"></div>
+            <div class="tf-field"><label>To</label><input type="date" class="form-input w-full" id="tagCorrectionTo"></div>
+          </div>
           <div id="tagCorrectionRows"><div class="tf-need-process">Select ResMed as Process to load flagged calls...</div></div>
           <div class="tf-grid" id="tagCorrectionPickFields" style="margin-top:12px;display:none;">
             <div class="tf-field full"><label>Corrected Category *</label>
@@ -263,6 +267,10 @@
               </select>
             </div>
             <div class="tf-field full"><label>Remarks</label><input type="text" class="form-input w-full" id="tagCorrectionRemarks"></div>
+          </div>
+          <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);">
+            <button type="button" class="btn btn-secondary" id="sendResmedReportBtn"><i class="ti ti-mail-forward"></i> Send ResMed Daily Report Now</button>
+            <span id="sendResmedReportMsg" style="font-size:12px;margin-left:10px;"></span>
           </div>
         </div>
       </div>
@@ -322,6 +330,7 @@ const WEBHOOK_URL = 'https://automation.openmindhelpline.com/webhook/unified-tra
 const LAST_SUBMISSIONS_URL = 'https://automation.openmindhelpline.com/webhook/tracker-last-submissions';
 const ONDC_AGENT_NAMES_URL = 'https://automation.openmindhelpline.com/webhook/tracker-ondc-agent-names';
 const RESMED_FLAGGED_TAGS_URL = 'https://automation.openmindhelpline.com/webhook/resmed-flagged-tags';
+const RESMED_SEND_REPORT_URL = 'https://automation.openmindhelpline.com/webhook/resmed-send-daily-report';
 
 /* Microsoft login (MSAL Browser) — auto-fills who filled out the form (audited_by)
    instead of a free-text name field. Same Azure AD app used elsewhere at Open Mind;
@@ -831,19 +840,16 @@ const OUTBOUND_CATEGORIES = ['OB - Fresh HST Follow Ups', 'OB - Fresh HST', 'OB 
   'OB - AirMini Upselling', 'OB - Feedback Calls', 'Other Outbound Calls'];
 const INBOUND_CATEGORIES = ['Sales Lead', 'Service Query', 'Rewards & Registration', 'Non Customer Query', 'Other Inbound', 'Handled by Sales Team'];
 
-let flaggedTagsCache = null;
 let selectedFlaggedCall = null;
-async function fetchFlaggedTags() {
-  if (flaggedTagsCache) return flaggedTagsCache;
+// No caching here (unlike the ONDC mapping list) -- the date range is user-
+// adjustable, so every call to this function is for a range the user just
+// picked and should hit the API fresh rather than return a stale cached list.
+async function fetchFlaggedTags(from, to) {
   try {
-    const to = new Date().toISOString().slice(0, 10);
-    const from = new Date(Date.now() - 60 * 86400000).toISOString().slice(0, 10);
     const res = await fetch(`${RESMED_FLAGGED_TAGS_URL}?from=${from}&to=${to}`);
     if (!res.ok) throw new Error(`Flagged tags API ${res.status}`);
     const data = await res.json();
-    const rows = Array.isArray(data) ? data : (Array.isArray(data.data) ? data.data : []);
-    flaggedTagsCache = rows;
-    return rows;
+    return Array.isArray(data) ? data : (Array.isArray(data.data) ? data.data : []);
   } catch (err) {
     console.error('fetchFlaggedTags failed:', err);
     return null;
@@ -860,12 +866,15 @@ function selectFlaggedCall(row, el) {
 }
 async function renderFlaggedTagRows() {
   const container = document.getElementById('tagCorrectionRows');
+  const from = document.getElementById('tagCorrectionFrom').value;
+  const to = document.getElementById('tagCorrectionTo').value;
+  if (!from || !to) { container.innerHTML = '<div class="tf-need-process">Pick a From/To date range.</div>'; return; }
   container.innerHTML = '<div class="tf-need-process">Loading flagged calls…</div>';
   document.getElementById('tagCorrectionPickFields').style.display = 'none';
   selectedFlaggedCall = null;
-  const rows = await fetchFlaggedTags();
+  const rows = await fetchFlaggedTags(from, to);
   if (rows === null) { container.innerHTML = '<div class="tf-need-process">Failed to load flagged calls — try again.</div>'; return; }
-  if (!rows.length) { container.innerHTML = '<div class="tf-need-process">No calls currently flagged for correction.</div>'; return; }
+  if (!rows.length) { container.innerHTML = '<div class="tf-need-process">No calls flagged for correction in this date range.</div>'; return; }
 
   container.innerHTML = '<div class="mp-row mp-row-header"><div class="mp-agent">Call</div><div class="mp-sf">Current Category</div></div>' +
     rows.map((r, i) => `
@@ -875,12 +884,43 @@ async function renderFlaggedTagRows() {
     </div>`).join('');
   window.__flaggedRows = rows;
 }
+// Defaults to the last 7 days -- narrow enough that "the list" isn't the
+// entire backlog by default, widen via the date fields as needed.
+function setDefaultTagCorrectionDates() {
+  const toEl = document.getElementById('tagCorrectionTo');
+  const fromEl = document.getElementById('tagCorrectionFrom');
+  if (toEl.value && fromEl.value) return;
+  toEl.value = new Date().toISOString().slice(0, 10);
+  fromEl.value = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+}
 function updateCallTagCorrectionVisibility() {
   const isResmed = processSelect.value === 'ResMed';
   document.getElementById('tagCorrectionNotResmed').style.display = isResmed ? 'none' : 'block';
   document.getElementById('tagCorrectionFields').classList.toggle('tf-hidden', !isResmed);
-  if (isResmed) renderFlaggedTagRows();
+  if (isResmed) { setDefaultTagCorrectionDates(); renderFlaggedTagRows(); }
 }
+document.getElementById('tagCorrectionFrom').addEventListener('change', renderFlaggedTagRows);
+document.getElementById('tagCorrectionTo').addEventListener('change', renderFlaggedTagRows);
+
+document.getElementById('sendResmedReportBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('sendResmedReportBtn');
+  const msgEl = document.getElementById('sendResmedReportMsg');
+  btn.disabled = true;
+  msgEl.style.color = 'var(--muted)';
+  msgEl.textContent = 'Sending…';
+  try {
+    const res = await fetch(RESMED_SEND_REPORT_URL);
+    const body = await res.json().catch(() => null);
+    if (!res.ok) throw new Error('Server responded ' + res.status);
+    msgEl.style.color = 'var(--accent2)';
+    msgEl.textContent = 'Sent: ' + (body && body.subject ? body.subject : 'Report sent.');
+  } catch (err) {
+    msgEl.style.color = 'var(--accent4)';
+    msgEl.textContent = 'Failed to send: ' + err.message;
+  } finally {
+    btn.disabled = false;
+  }
+});
 
 function updateVisibility() {
   const t = typeSelect.value;
@@ -1130,7 +1170,7 @@ document.getElementById('trackerForm').addEventListener('submit', async (e) => {
     // Mapping rows are pre-filled from a cached fetch -- invalidate it so the
     // re-render after this submit shows the values just saved, not stale ones.
     if (preservedType === 'Agent Name Mapping') ondcAgentMappingsCache = null;
-    if (preservedType === 'Call Tag Correction') flaggedTagsCache = null;
+    if (preservedType === 'Call Tag Correction') renderFlaggedTagRows();
     document.getElementById('trackerForm').reset();
     typeSelect.value = preservedType;
     processSelect.value = preservedProcess;
