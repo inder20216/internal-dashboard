@@ -846,15 +846,22 @@ let selectedFlaggedCall = null;
 // adjustable, so every call to this function is for a range the user just
 // picked and should hit the API fresh rather than return a stale cached list.
 async function fetchFlaggedTags(from, to) {
-  try {
-    const res = await fetch(`${RESMED_FLAGGED_TAGS_URL}?from=${from}&to=${to}`);
-    if (!res.ok) throw new Error(`Flagged tags API ${res.status}`);
-    const data = await res.json();
-    return Array.isArray(data) ? data : (Array.isArray(data.data) ? data.data : []);
-  } catch (err) {
-    console.error('fetchFlaggedTags failed:', err);
-    return null;
+  // One retry after a short delay -- this call fires right after a correction
+  // submit, back-to-back with the n8n execution that just ran, and has shown
+  // the occasional transient failure in that window. A single retry absorbs
+  // that without surfacing a false "failed to load" to the user.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const res = await fetch(`${RESMED_FLAGGED_TAGS_URL}?from=${from}&to=${to}`);
+      if (!res.ok) throw new Error(`Flagged tags API ${res.status}`);
+      const data = await res.json();
+      return Array.isArray(data) ? data : (Array.isArray(data.data) ? data.data : []);
+    } catch (err) {
+      console.error('fetchFlaggedTags failed (attempt ' + (attempt + 1) + '):', err);
+      if (attempt === 0) await new Promise(r => setTimeout(r, 1500));
+    }
   }
+  return null;
 }
 function selectFlaggedCall(row, el) {
   selectedFlaggedCall = row;
