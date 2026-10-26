@@ -1,0 +1,426 @@
+{
+  "name": "ResMed Daily Report Email",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 10
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1200,
+        300
+      ],
+      "id": "rr-0001-trigger",
+      "name": "Daily at 10am"
+    },
+    {
+      "parameters": {
+        "jsCode": "const now = new Date();\nconst istOffset = 5.5 * 3600000;\nconst nowIst = new Date(now.getTime() + istOffset);\nconst todayIst = new Date(Date.UTC(nowIst.getUTCFullYear(), nowIst.getUTCMonth(), nowIst.getUTCDate()));\nconst yesterdayIst = new Date(todayIst.getTime() - 86400000);\nconst pad = n => String(n).padStart(2, '0');\nconst day = yesterdayIst.getUTCFullYear() + '-' + pad(yesterdayIst.getUTCMonth() + 1) + '-' + pad(yesterdayIst.getUTCDate());\nconst dayFormatted = pad(yesterdayIst.getUTCDate()) + '/' + pad(yesterdayIst.getUTCMonth() + 1) + '/' + yesterdayIst.getUTCFullYear();\nconst monthStart = yesterdayIst.getUTCFullYear() + '-' + pad(yesterdayIst.getUTCMonth() + 1) + '-01';\nconst MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];\nconst monthLabel = MONTH_NAMES[yesterdayIst.getUTCMonth()] + \"'\" + String(yesterdayIst.getUTCFullYear()).slice(2);\nreturn [{ json: { day, dayFormatted, monthStart, monthLabel } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -960,
+        300
+      ],
+      "id": "rr-0002-dates",
+      "name": "Compute Dates"
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $('Compute Dates').first().json.day;\n// Team attribution:\n//  - Answer/Outbound: by resolved_sip (agent_alt_numbers-resolved agent_number)\n//    matched against our 4 known ResMed agents (Gulshan Khan, Avijit Dey,\n//    Mohit Kumar, Admin/Sagarika Bose) -- whoever actually picked up.\n//  - Agent Missed / Queue Missed: by skill, since there's no real\n//    answering agent to resolve -- 'Renting CPAP and BiPAP' is ResMed's\n//    own in-house team's queue, everything else is ours.\n// Validated against 2026-10-19 data -- every cell matched the client report exactly.\nconst OUR_SIPS = \"'10170226','10170201','10170203','10170200'\";\nconst query = `SELECT\n  SUM(CASE WHEN r.call_type='INBOUND' AND r.disposition='Answer' THEN 1 ELSE 0 END) AS ib_answer_total,\n  SUM(CASE WHEN r.call_type='INBOUND' AND r.disposition='Answer' AND r.resolved_sip IN (${OUR_SIPS}) THEN 1 ELSE 0 END) AS ib_answer_om,\n  SUM(CASE WHEN r.call_type='INBOUND' AND r.disposition='Answer' AND r.resolved_sip IS NOT NULL AND r.resolved_sip NOT IN (${OUR_SIPS}) THEN 1 ELSE 0 END) AS ib_answer_resmed,\n  SUM(CASE WHEN r.disposition='Agent Missed' THEN 1 ELSE 0 END) AS agent_missed_total,\n  SUM(CASE WHEN r.disposition='Agent Missed' AND (r.skill IS NULL OR r.skill <> 'Renting CPAP and BiPAP') THEN 1 ELSE 0 END) AS agent_missed_om,\n  SUM(CASE WHEN r.disposition='Agent Missed' AND r.skill = 'Renting CPAP and BiPAP' THEN 1 ELSE 0 END) AS agent_missed_resmed,\n  SUM(CASE WHEN r.disposition='Queue Missed' THEN 1 ELSE 0 END) AS queue_missed_total,\n  SUM(CASE WHEN r.disposition='Queue Missed' AND (r.skill IS NULL OR r.skill <> 'Renting CPAP and BiPAP') THEN 1 ELSE 0 END) AS queue_missed_om,\n  SUM(CASE WHEN r.disposition='Queue Missed' AND r.skill = 'Renting CPAP and BiPAP' THEN 1 ELSE 0 END) AS queue_missed_resmed,\n  SUM(CASE WHEN r.disposition='IVR Missed' AND TIME(r.start_time) BETWEEN ps.login_time AND ps.logout_time AND (ps.days_pattern='All days' OR DAYOFWEEK(r.start_time)<>1) THEN 1 ELSE 0 END) AS ivr_missed_wh,\n  SUM(CASE WHEN r.disposition='IVR Missed' AND NOT (TIME(r.start_time) BETWEEN ps.login_time AND ps.logout_time AND (ps.days_pattern='All days' OR DAYOFWEEK(r.start_time)<>1)) THEN 1 ELSE 0 END) AS ivr_missed_nwh,\n  SUM(CASE WHEN r.call_type='OUTBOUND' THEN 1 ELSE 0 END) AS ob_total,\n  SUM(CASE WHEN r.call_type='OUTBOUND' AND r.resolved_sip IN (${OUR_SIPS}) THEN 1 ELSE 0 END) AS ob_om,\n  SUM(CASE WHEN r.call_type='OUTBOUND' AND r.resolved_sip IS NOT NULL AND r.resolved_sip NOT IN (${OUR_SIPS}) THEN 1 ELSE 0 END) AS ob_resmed,\n  SUM(CASE WHEN r.call_type='OUTBOUND' AND r.disposition='Answer' THEN 1 ELSE 0 END) AS ob_answer,\n  SUM(CASE WHEN r.call_type='OUTBOUND' AND r.disposition='Answer' AND r.resolved_sip IN (${OUR_SIPS}) THEN 1 ELSE 0 END) AS ob_answer_om,\n  SUM(CASE WHEN r.call_type='OUTBOUND' AND r.disposition='Answer' AND r.resolved_sip IS NOT NULL AND r.resolved_sip NOT IN (${OUR_SIPS}) THEN 1 ELSE 0 END) AS ob_answer_resmed,\n  SUM(CASE WHEN r.call_type='OUTBOUND' AND r.disposition='No Answer' THEN 1 ELSE 0 END) AS ob_noanswer,\n  SUM(CASE WHEN r.call_type='OUTBOUND' AND r.disposition='No Answer' AND r.resolved_sip IN (${OUR_SIPS}) THEN 1 ELSE 0 END) AS ob_noanswer_om,\n  SUM(CASE WHEN r.call_type='OUTBOUND' AND r.disposition='No Answer' AND r.resolved_sip IS NOT NULL AND r.resolved_sip NOT IN (${OUR_SIPS}) THEN 1 ELSE 0 END) AS ob_noanswer_resmed\nFROM (\n  SELECT cd.*, COALESCE(aan.sip, cd.agent_number) AS resolved_sip\n  FROM calls.call_disposition cd\n  LEFT JOIN calls.agent_alt_numbers aan ON aan.service_id = cd.service_id AND aan.alt_number = cd.agent_number\n  WHERE cd.service_id = 1702 AND cd.call_date = '${d}'\n) r\nJOIN calls.process_shift_schedule ps ON ps.service_id = 1702;`;\nreturn [{ json: { query } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -720,
+        300
+      ],
+      "id": "rr-0003-build1",
+      "name": "Build Query Table1"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.query }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        -480,
+        300
+      ],
+      "id": "rr-0004-exec1",
+      "name": "Exec Query Table1",
+      "credentials": {
+        "mySql": {
+          "id": "WxmqiR4rdcTGsGYq",
+          "name": "Calls"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $('Compute Dates').first().json.day;\n// corrected_category overrides the note-derived category whenever a TL has\n// submitted a fix via the Tracker form's 'Call Tag Correction' type (e.g. an\n// agent mistagged an Inbound call with an Outbound 'OB - ...' category) --\n// so once corrected, every future report run picks it up automatically.\nconst query = `SELECT cd.received_by, cd.note, cd.ivr, ctc.corrected_category\nFROM calls.call_disposition cd\nLEFT JOIN calls.call_tag_corrections ctc ON ctc.txn_id = cd.txn_id\nWHERE cd.service_id = 1702 AND cd.call_date = '${d}' AND cd.call_type='INBOUND' AND cd.disposition='Answer';`;\nreturn [{ json: { query } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -720,
+        520
+      ],
+      "id": "rr-0007-build2",
+      "name": "Build Query Table2"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.query }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        -480,
+        520
+      ],
+      "id": "rr-0008-exec2",
+      "name": "Exec Query Table2",
+      "credentials": {
+        "mySql": {
+          "id": "WxmqiR4rdcTGsGYq",
+          "name": "Calls"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const dates = $('Compute Dates').first().json;\nconst r = $('Exec Query Table1').first().json;\nfunction n(v) { return Number(v) || 0; }\n\nconst ibAnswer = { total: n(r.ib_answer_total), om: n(r.ib_answer_om), resmed: n(r.ib_answer_resmed) };\nconst agentMissed = { total: n(r.agent_missed_total), om: n(r.agent_missed_om), resmed: n(r.agent_missed_resmed) };\nconst queueMissed = { total: n(r.queue_missed_total), om: n(r.queue_missed_om), resmed: n(r.queue_missed_resmed) };\nconst ivrMissedWh = n(r.ivr_missed_wh);\nconst ivrMissedNwh = n(r.ivr_missed_nwh);\n\n// \"Inbound\" header total deliberately excludes IVR-level drop-offs (they\n// never reached a real queue/agent) -- matches the client report exactly.\nconst ibTotal = { total: ibAnswer.total + agentMissed.total + queueMissed.total,\n  om: ibAnswer.om + agentMissed.om + queueMissed.om,\n  resmed: ibAnswer.resmed + agentMissed.resmed + queueMissed.resmed };\n\nconst obTotal = n(r.ob_total), obOm = n(r.ob_om), obResmed = n(r.ob_resmed);\nconst obAnswer = { total: n(r.ob_answer), om: n(r.ob_answer_om), resmed: n(r.ob_answer_resmed) };\nconst obNoAnswer = { total: n(r.ob_noanswer), om: n(r.ob_noanswer_om), resmed: n(r.ob_noanswer_resmed) };\n\nconst grandTotal = { total: ibTotal.total + obTotal, om: ibTotal.om + obOm, resmed: ibTotal.resmed + obResmed };\n// \"Total Handled\" = Inbound Answered (only actually-connected inbound counts\n// as handled) + all Outbound dialed (effort counts even if unanswered).\nconst totalHandled = { total: ibAnswer.total + obTotal, om: ibAnswer.om + obOm, resmed: ibAnswer.resmed + obResmed };\nconst obTotalRow = { total: obTotal, om: obOm, resmed: obResmed };\n\nconst YELLOW = '#FFFF00';\nconst BLUE = '#DCE6F0';\nconst PEACH = '#FBE0CE';\nconst cell = 'padding:5px 10px;border:1px solid #999;font-family:Arial,sans-serif;font-size:12px;box-sizing:border-box;white-space:nowrap;';\nconst nf = v => (typeof v === 'number' ? v.toLocaleString('en-IN') : v);\nconst COL_WIDTHS = ['220px', '130px', '130px', '130px'];\n\nfunction row(label, total, om, resmed, opts) {\n  opts = opts || {};\n  const bg = opts.bg || '#ffffff';\n  const bold = opts.bold ? 'font-weight:bold;' : '';\n  const td = (v, i, align) => '<td style=\"' + cell + 'width:' + COL_WIDTHS[i] + ';background:' + bg + ';' + bold + (align ? 'text-align:' + align + ';' : '') + '\">' + v + '</td>';\n  return '<tr>' + td(label, 0) + td(nf(total), 1, 'center') + td(nf(om), 2, 'center') + td(nf(resmed), 3, 'center') + '</tr>';\n}\n\nlet html = '<div style=\"font-family:Arial,sans-serif;\">';\nhtml += '<p style=\"font-weight:bold;font-style:italic;text-decoration:underline;font-size:14px;\">Overall Calls Summary</p>';\nhtml += '<table style=\"border-collapse:collapse;table-layout:fixed;width:610px;\">';\nhtml += '<tr><td colspan=\"4\" style=\"' + cell + 'background:' + YELLOW + ';text-align:center;font-weight:bold;\">' + dates.dayFormatted + '</td></tr>';\nhtml += row('Total Calls', 'Total Calls', 'Team Open Mind', 'Team ResMed', { bg: BLUE, bold: true });\nhtml += row('Inbound', ibTotal.total, ibTotal.om, ibTotal.resmed, { bg: PEACH, bold: true });\nhtml += row('ANSWER', ibAnswer.total, ibAnswer.om, ibAnswer.resmed);\nhtml += row('Agent Missed', agentMissed.total, agentMissed.om, agentMissed.resmed);\nhtml += row('Queue Missed', queueMissed.total, queueMissed.om, queueMissed.resmed);\nhtml += row('Ivr Missed (Working Hour)', ivrMissedWh, '-', '-');\nhtml += row('Non Working Hour', ivrMissedNwh, '-', '-');\nhtml += row('Outbound', obTotalRow.total, obTotalRow.om, obTotalRow.resmed, { bg: PEACH, bold: true });\nhtml += row('Answer', obAnswer.total, obAnswer.om, obAnswer.resmed);\nhtml += row('Noanswer', obNoAnswer.total, obNoAnswer.om, obNoAnswer.resmed);\nhtml += row('Grand Total', grandTotal.total, grandTotal.om, grandTotal.resmed, { bg: BLUE, bold: true });\nhtml += row('Total Handled IB + OB', totalHandled.total, totalHandled.om, totalHandled.resmed, { bg: BLUE, bold: true });\nhtml += '</table></div>';\n\n// --- Table 2: IVR Input Bifurcation ---\n// Validated against 2026-10-19 data, every cell matched the client report\n// exactly. Category comes from the note field's first comma-segment, UNLESS\n// the second segment is literally 'Repeat Call' (override to 'Other Inbound')\n// or the first name in received_by isn't one of our 4 OM agents (override to\n// 'Handled by Sales Team', since ResMed's own staff answered it directly).\nconst OUR_NAMES = ['Gulshan Khan', 'Avijit Dey', 'Mohit Kumar', 'Admin', 'Sagarika Bose'];\nconst t2Rows = $('Exec Query Table2').all().map(item => item.json);\nconst colMap = v => v === 'Booking Test' ? 'Col1' : v === 'Renting CPAP and BiPAP' ? 'Col2' : v === 'Others' ? 'Col3' : 'NoIVR';\nconst COLS = ['Col1', 'Col2', 'Col3', 'NoIVR'];\nconst COL_LABELS = { Col1: 'To book a home sleep test-1', Col2: 'To rent or purchase a CPAP or BiPAP device-2', Col3: 'For device service or any other support-3', NoIVR: 'No IVR Input' };\n// Fixed order/list matching the client report exactly (so a zero row like\n// 'Rewards & Registration' still shows) -- any category outside this set\n// (e.g. a call with no note, or stray note text) folds into 'Other Inbound'\n// as a catch-all, so the grand total never silently drops a call.\nconst CATEGORY_ORDER = ['Sales Lead', 'Service Query', 'Rewards & Registration', 'Non Customer Query', 'Other Inbound', 'Handled by Sales Team'];\n\nconst grid = {};\nconst colTotals = { Col1: 0, Col2: 0, Col3: 0, NoIVR: 0 };\nCATEGORY_ORDER.forEach(c => { grid[c] = { Col1: 0, Col2: 0, Col3: 0, NoIVR: 0 }; });\nt2Rows.forEach(row => {\n  let category;\n  if (row.corrected_category) {\n    // TL-submitted correction (Tracker form, 'Call Tag Correction') always wins\n    // over whatever the agent originally tagged.\n    category = row.corrected_category;\n  } else {\n    const firstReceiver = (row.received_by || '').split(',')[0].trim();\n    const isOurs = OUR_NAMES.includes(firstReceiver);\n    if (!isOurs) {\n      category = 'Handled by Sales Team';\n    } else if (row.note) {\n      const parts = row.note.split(',').map(s => s.trim());\n      category = (parts[1] === 'Repeat Call') ? 'Other Inbound' : parts[0];\n    } else {\n      category = 'Other Inbound';\n    }\n  }\n  if (!CATEGORY_ORDER.includes(category)) category = 'Other Inbound';\n  const col = colMap(row.ivr);\n  grid[category][col] += 1;\n  colTotals[col] += 1;\n});\nconst catTotals = {};\nCATEGORY_ORDER.forEach(c => { catTotals[c] = COLS.reduce((s, col) => s + grid[c][col], 0); });\nconst grandTotalT2 = Object.values(catTotals).reduce((s, v) => s + v, 0);\n\nconst COL_WIDTHS_T2 = ['180px', '160px', '190px', '190px', '110px', '90px'];\nfunction row2(label, cells, opts) {\n  opts = opts || {};\n  const bg = opts.bg || '#ffffff';\n  const bold = opts.bold ? 'font-weight:bold;' : '';\n  const td = (v, i, align) => '<td style=\"' + cell + 'width:' + COL_WIDTHS_T2[i] + ';background:' + bg + ';' + bold + (align ? 'text-align:' + align + ';' : '') + '\">' + v + '</td>';\n  return '<tr>' + td(label, 0) + cells.map((v, i) => td(nf(v), i + 1, 'center')).join('') + '</tr>';\n}\n\nhtml += '<div style=\"font-family:Arial,sans-serif;margin-top:20px;\">';\nhtml += '<p style=\"font-weight:bold;font-style:italic;text-decoration:underline;font-size:14px;\">Inbound - IVR Input Bifurcation</p>';\nhtml += '<table style=\"border-collapse:collapse;table-layout:fixed;width:920px;\">';\nhtml += '<tr><td style=\"' + cell + 'width:' + COL_WIDTHS_T2[0] + ';background:' + YELLOW + ';text-align:center;font-weight:bold;\">' + dates.dayFormatted + '</td><td colspan=\"5\" style=\"border:none;background:transparent;padding:0;\"></td></tr>';\nhtml += row2('Inbound', [COL_LABELS.Col1, COL_LABELS.Col2, COL_LABELS.Col3, COL_LABELS.NoIVR, 'Total'], { bg: PEACH, bold: true });\nCATEGORY_ORDER.forEach(catName => {\n  const cells = COLS.map(c => grid[catName][c]);\n  cells.push(catTotals[catName]);\n  html += row2(catName, cells);\n});\nhtml += row2('Total', [colTotals.Col1, colTotals.Col2, colTotals.Col3, colTotals.NoIVR, grandTotalT2], { bg: BLUE, bold: true });\nhtml += '</table></div>';\n\n\n// --- Table 3: Bifurcation of the Calls Handled (Day + MTD) ---\n// Inbound reuses Table 2's exact categories/logic (received_by-based team\n// check). Outbound uses resolved_sip-based team check (Table 1's proven\n// method) since received_by isn't a reliable field for who dialed out, and\n// counts ALL dispositions (not just Answer) -- agents tag the campaign on\n// an outbound attempt regardless of whether it connected. Both apply the\n// same corrected_category override as Table 2. Validated against\n// 2026-10-25 data -- every day-level cell matched the client report exactly.\nconst t3Rows = $('Exec Query Table3').all().map(item => item.json);\nconst OUTBOUND_CATEGORY_ORDER = ['OB - AirMini Upselling', 'OB - AV Registration', 'OB - Call Back on Missed Calls',\n  'OB - Extended Warranty', 'OB - Feedback Calls', 'OB - Fresh HST', 'OB - Fresh HST Follow Ups',\n  'OB - Inaudible or Disconnected Calls', 'OB - Resupply Follow-ups', 'OB - Sleep Quiz',\n  'OB - AirSense 11 Upselling', 'Other Outbound Calls', 'Calls By Sales Team'];\n\nfunction categorizeT3(row) {\n  if (row.corrected_category) return row.corrected_category;\n  if (row.call_type === 'INBOUND') {\n    const firstReceiver = (row.received_by || '').split(',')[0].trim();\n    const isOurs = OUR_NAMES.includes(firstReceiver);\n    if (!isOurs) return 'Handled by Sales Team';\n    if (row.note) {\n      const parts = row.note.split(',').map(s => s.trim());\n      return (parts[1] === 'Repeat Call') ? 'Other Inbound' : parts[0];\n    }\n    return 'Other Inbound';\n  }\n  const isOurs = row.resolved_sip && OUR_SIPS_ARR.includes(String(row.resolved_sip));\n  if (!isOurs) return 'Calls By Sales Team';\n  if (row.note) return row.note.split(',')[0].trim();\n  return 'Other Outbound Calls';\n}\nconst OUR_SIPS_ARR = ['10170226', '10170201', '10170203', '10170200'];\n\nconst ibDay = {}, ibMtd = {}, obDay = {}, obMtd = {};\nlet ibDayTotal = 0, ibMtdTotal = 0, obDayTotal = 0, obMtdTotal = 0;\nt3Rows.forEach(row => {\n  let cat = categorizeT3(row);\n  const isInbound = row.call_type === 'INBOUND';\n  const list = isInbound ? CATEGORY_ORDER : OUTBOUND_CATEGORY_ORDER;\n  if (!list.includes(cat)) cat = isInbound ? 'Other Inbound' : 'Other Outbound Calls';\n  const dayBucket = isInbound ? ibDay : obDay, mtdBucket = isInbound ? ibMtd : obMtd;\n  mtdBucket[cat] = (mtdBucket[cat] || 0) + 1;\n  if (isInbound) ibMtdTotal++; else obMtdTotal++;\n  if (row.call_date === dates.day) {\n    dayBucket[cat] = (dayBucket[cat] || 0) + 1;\n    if (isInbound) ibDayTotal++; else obDayTotal++;\n  }\n});\n\nconst COL_WIDTHS_T3 = ['260px', '175px', '175px'];\nfunction row3(label, dayV, mtdV, opts) {\n  opts = opts || {};\n  const bg = opts.bg || '#ffffff';\n  const bold = opts.bold ? 'font-weight:bold;' : '';\n  const td = (v, i, align) => '<td style=\"' + cell + 'width:' + COL_WIDTHS_T3[i] + ';background:' + bg + ';' + bold + (align ? 'text-align:' + align + ';' : '') + '\">' + v + '</td>';\n  return '<tr>' + td(label, 0) + td(nf(dayV), 1, 'center') + td(nf(mtdV), 2, 'center') + '</tr>';\n}\n\nhtml += '<div style=\"font-family:Arial,sans-serif;margin-top:20px;\">';\nhtml += '<p style=\"font-weight:bold;font-style:italic;text-decoration:underline;font-size:14px;\">Bifurcation of the calls handled</p>';\nhtml += '<table style=\"border-collapse:collapse;table-layout:fixed;width:610px;\">';\nhtml += row3('Call Type &amp; Activity', dates.dayFormatted, 'MTD', { bg: BLUE, bold: true });\nhtml += row3('Total Calls Handled', ibDayTotal + obDayTotal, ibMtdTotal + obMtdTotal, { bg: BLUE, bold: true });\nhtml += row3('Inbound', ibDayTotal, ibMtdTotal, { bg: PEACH, bold: true });\nCATEGORY_ORDER.forEach(c => html += row3(c, ibDay[c] || 0, ibMtd[c] || 0));\nhtml += row3('Outbound', obDayTotal, obMtdTotal, { bg: PEACH, bold: true });\nOUTBOUND_CATEGORY_ORDER.forEach(c => html += row3(c, obDay[c] || 0, obMtd[c] || 0));\nhtml += '</table></div>';\n\n// --- Table 4: HST Conversions (Day + MTD, agent-wise) ---\nconst t4Rows = $('Exec Query Table4').all().map(item => item.json);\nconst convDay = {}, convMtd = {};\nlet convDayTotal = 0, convMtdTotal = 0;\nt4Rows.forEach(row => {\n  const firstName = (row.agent_name || 'Unassigned').split(' ')[0].trim();\n  convMtd[firstName] = (convMtd[firstName] || 0) + 1;\n  convMtdTotal++;\n  if (row.payment_date === dates.day) {\n    convDay[firstName] = (convDay[firstName] || 0) + 1;\n    convDayTotal++;\n  }\n});\nconst convAgents = Object.keys(convMtd).sort();\n\nhtml += '<div style=\"font-family:Arial,sans-serif;margin-top:20px;\">';\nhtml += '<p style=\"font-weight:bold;font-style:italic;text-decoration:underline;font-size:14px;\">HST Conversions</p>';\nhtml += '<table style=\"border-collapse:collapse;table-layout:fixed;width:610px;\">';\nhtml += '<tr>' +\n  '<td style=\"' + cell + 'width:260px;background:' + BLUE + ';font-weight:bold;\">HST Conversion</td>' +\n  '<td style=\"' + cell + 'width:175px;background:' + YELLOW + ';text-align:center;font-weight:bold;\">' + dates.dayFormatted + '</td>' +\n  '<td style=\"' + cell + 'width:175px;background:' + BLUE + ';text-align:center;font-weight:bold;\">' + dates.monthLabel + '</td></tr>';\nhtml += '<tr>' +\n  '<td style=\"' + cell + 'width:260px;background:' + BLUE + ';\"></td>' +\n  '<td style=\"' + cell + 'width:175px;background:' + BLUE + ';text-align:center;font-weight:bold;\">HST</td>' +\n  '<td style=\"' + cell + 'width:175px;background:' + BLUE + ';text-align:center;font-weight:bold;\">MTD</td></tr>';\nhtml += row3('Total Conversion', convDayTotal, convMtdTotal, { bg: PEACH, bold: true });\nconvAgents.forEach(a => html += row3(a, convDay[a] || 0, convMtd[a] || 0));\nhtml += '</table></div>';\n\nconst subject = 'ResMed Daily Call Report - ' + dates.dayFormatted;\nreturn [{ json: { html, subject } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -240,
+        300
+      ],
+      "id": "rr-0005-email",
+      "name": "Build Email HTML"
+    },
+    {
+      "parameters": {
+        "sendTo": "FILL_IN_RECIPIENT_EMAIL@example.com",
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.html }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        300
+      ],
+      "id": "rr-0006-gmail",
+      "name": "Send Gmail"
+    },
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "resmed-send-daily-report",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1200,
+        480
+      ],
+      "id": "rr-0009-webhook",
+      "name": "On Demand Trigger"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: 'sent', subject: $('Build Email HTML').item.json.subject } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        240,
+        480
+      ],
+      "id": "rr-0010-respond",
+      "name": "Respond To Trigger"
+    },
+    {
+      "parameters": {
+        "jsCode": "const dates = $('Compute Dates').first().json;\n// Inbound: Answer only (matches Table 2 exactly). Outbound: ALL dispositions --\n// agents tag the campaign/category on an outbound attempt regardless of whether\n// it connected, unlike inbound where the note describes the resolution.\n// corrected_category (from the Call Tag Correction tracker type) overrides the\n// note-derived category here too, same as Table 2.\nconst query = `SELECT DATE_FORMAT(cd.call_date, '%Y-%m-%d') AS call_date, cd.call_type, cd.received_by, cd.note, ctc.corrected_category,\n  COALESCE(aan.sip, cd.agent_number) AS resolved_sip\nFROM calls.call_disposition cd\nLEFT JOIN calls.agent_alt_numbers aan ON aan.service_id = cd.service_id AND aan.alt_number = cd.agent_number\nLEFT JOIN calls.call_tag_corrections ctc ON ctc.txn_id = cd.txn_id\nWHERE cd.service_id = 1702\n  AND ((cd.call_type = 'INBOUND' AND cd.disposition = 'Answer') OR cd.call_type = 'OUTBOUND')\n  AND cd.call_date BETWEEN '${dates.monthStart}' AND '${dates.day}';`;\nreturn [{ json: { query } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -720,
+        740
+      ],
+      "id": "rr-0011-build3",
+      "name": "Build Query Table3"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.query }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        -480,
+        740
+      ],
+      "id": "rr-0012-exec3",
+      "name": "Exec Query Table3",
+      "credentials": {
+        "mySql": {
+          "id": "WxmqiR4rdcTGsGYq",
+          "name": "Calls"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const dates = $('Compute Dates').first().json;\nconst query = `SELECT DATE_FORMAT(payment_date, '%Y-%m-%d') AS payment_date, agent_name\nFROM calls.resmed_conversion\nWHERE service_id = 1702 AND payment_date BETWEEN '${dates.monthStart}' AND '${dates.day}';`;\nreturn [{ json: { query } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -720,
+        960
+      ],
+      "id": "rr-0013-build4",
+      "name": "Build Query Table4"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.query }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        -480,
+        960
+      ],
+      "id": "rr-0014-exec4",
+      "name": "Exec Query Table4",
+      "credentials": {
+        "mySql": {
+          "id": "WxmqiR4rdcTGsGYq",
+          "name": "Calls"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "numberInputs": 4
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -120,
+        450
+      ],
+      "id": "rr-0015-merge",
+      "name": "Merge Query Results"
+    }
+  ],
+  "connections": {
+    "Daily at 10am": {
+      "main": [
+        [
+          {
+            "node": "Compute Dates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compute Dates": {
+      "main": [
+        [
+          {
+            "node": "Build Query Table1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Build Query Table2",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Build Query Table3",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Build Query Table4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Query Table1": {
+      "main": [
+        [
+          {
+            "node": "Exec Query Table1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Query Table2": {
+      "main": [
+        [
+          {
+            "node": "Exec Query Table2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Exec Query Table1": {
+      "main": [
+        [
+          {
+            "node": "Merge Query Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Exec Query Table2": {
+      "main": [
+        [
+          {
+            "node": "Merge Query Results",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Build Email HTML": {
+      "main": [
+        [
+          {
+            "node": "Send Gmail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "On Demand Trigger": {
+      "main": [
+        [
+          {
+            "node": "Compute Dates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Gmail": {
+      "main": [
+        [
+          {
+            "node": "Respond To Trigger",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Query Table3": {
+      "main": [
+        [
+          {
+            "node": "Exec Query Table3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Query Table4": {
+      "main": [
+        [
+          {
+            "node": "Exec Query Table4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Exec Query Table3": {
+      "main": [
+        [
+          {
+            "node": "Merge Query Results",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Exec Query Table4": {
+      "main": [
+        [
+          {
+            "node": "Merge Query Results",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Merge Query Results": {
+      "main": [
+        [
+          {
+            "node": "Build Email HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "instanceId": "f9fad0dcada8947f02e42f7bc73ab7aefa92368c9ea1c4bf120cfada06c5c72c"
+  },
+  "tags": []
+}
