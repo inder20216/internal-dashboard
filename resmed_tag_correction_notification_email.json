@@ -1,0 +1,166 @@
+{
+  "name": "ResMed Call Tag Correction Notification Email",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1200,
+        300
+      ],
+      "id": "rtc-0001-trigger",
+      "name": "Daily at 9am"
+    },
+    {
+      "parameters": {
+        "jsCode": "const now = new Date();\nconst istOffset = 5.5 * 3600000;\nconst nowIst = new Date(now.getTime() + istOffset);\nconst todayIst = new Date(Date.UTC(nowIst.getUTCFullYear(), nowIst.getUTCMonth(), nowIst.getUTCDate()));\nconst yesterdayIst = new Date(todayIst.getTime() - 86400000);\nconst pad = n => String(n).padStart(2, '0');\nconst day = yesterdayIst.getUTCFullYear() + '-' + pad(yesterdayIst.getUTCMonth() + 1) + '-' + pad(yesterdayIst.getUTCDate());\nconst dayFormatted = pad(yesterdayIst.getUTCDate()) + '/' + pad(yesterdayIst.getUTCMonth() + 1) + '/' + yesterdayIst.getUTCFullYear();\nreturn [{ json: { day, dayFormatted } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -960,
+        300
+      ],
+      "id": "rtc-0002-dates",
+      "name": "Compute Dates"
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $('Compute Dates').first().json.day;\n// Same two mistag patterns as resmed_flagged_tags_webhook.json, scoped to\n// yesterday only (this is a daily digest, not a full-history dump) and\n// excluding anything already corrected.\nconst query = `\nSELECT cd.txn_id, cd.call_date, cd.start_time, cd.call_type, cd.received_by,\n  SUBSTRING_INDEX(cd.note, ',', 1) AS category, cd.recording_url\nFROM calls.call_disposition cd\nLEFT JOIN calls.call_tag_corrections ctc ON ctc.txn_id = cd.txn_id\nWHERE cd.service_id = 1702 AND cd.call_date = '${d}' AND ctc.txn_id IS NULL\n  AND (\n    (cd.call_type = 'OUTBOUND' AND SUBSTRING_INDEX(cd.note, ',', 1) IN ('Sales Lead','Service Query','Rewards & Registration','Non Customer Query','Other Inbound','Handled by Sales Team'))\n    OR\n    (cd.call_type = 'INBOUND' AND cd.note LIKE 'OB -%')\n  )\nORDER BY cd.received_by, cd.start_time;\n`;\nreturn [{ json: { query } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -720,
+        300
+      ],
+      "id": "rtc-0003-build",
+      "name": "Build Flagged Query"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.query }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        -480,
+        300
+      ],
+      "id": "rtc-0004-exec",
+      "name": "Exec Flagged Query",
+      "credentials": {
+        "mySql": {
+          "id": "WxmqiR4rdcTGsGYq",
+          "name": "Calls"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const dates = $('Compute Dates').first().json;\nconst rows = $('Exec Flagged Query').all().map(item => item.json);\n\n// Human-readable description of exactly what's wrong + what the fix should\n// look like, so the TL doesn't have to guess what 'flagged' means per row.\nfunction issueText(row) {\n  if (row.call_type === 'OUTBOUND') {\n    return `Outbound call tagged with an Inbound category (\"${row.category}\") -- should be one of the \"OB - ...\" Outbound categories.`;\n  }\n  return `Inbound call tagged with an Outbound category (\"${row.category}\") -- should be one of: Sales Lead, Service Query, Rewards & Registration, Non Customer Query, Other Inbound, Handled by Sales Team.`;\n}\n\nconst byAgent = {};\nrows.forEach(row => {\n  const agent = (row.received_by || 'Unassigned').split(',')[0].trim();\n  if (!byAgent[agent]) byAgent[agent] = [];\n  byAgent[agent].push(row);\n});\nconst agents = Object.keys(byAgent).sort();\n\nconst cell = 'padding:6px 10px;border:1px solid #999;font-family:Arial,sans-serif;font-size:12px;box-sizing:border-box;vertical-align:top;';\nconst headerBg = '#DCE6F0';\nconst agentBg = '#FBE0CE';\n\nlet html = '<div style=\"font-family:Arial,sans-serif;\">';\nhtml += '<p style=\"font-weight:bold;font-style:italic;text-decoration:underline;font-size:14px;\">ResMed -- Calls Needing Tag Correction (' + dates.dayFormatted + ')</p>';\n\nif (!agents.length) {\n  html += '<p>No mistagged calls found for ' + dates.dayFormatted + '.</p>';\n} else {\n  html += '<table style=\"border-collapse:collapse;width:900px;\">';\n  html += '<tr>'\n    + '<td style=\"' + cell + 'background:' + headerBg + ';font-weight:bold;width:140px;\">Transaction ID</td>'\n    + '<td style=\"' + cell + 'background:' + headerBg + ';font-weight:bold;width:80px;\">Call Type</td>'\n    + '<td style=\"' + cell + 'background:' + headerBg + ';font-weight:bold;width:100px;\">Recording</td>'\n    + '<td style=\"' + cell + 'background:' + headerBg + ';font-weight:bold;\">What to Correct</td>'\n    + '</tr>';\n  agents.forEach(agent => {\n    html += '<tr><td colspan=\"4\" style=\"' + cell + 'background:' + agentBg + ';font-weight:bold;\">' + agent + ' (' + byAgent[agent].length + ')</td></tr>';\n    byAgent[agent].forEach(row => {\n      html += '<tr>'\n        + '<td style=\"' + cell + '\">' + row.txn_id + '</td>'\n        + '<td style=\"' + cell + '\">' + row.call_type + '</td>'\n        + '<td style=\"' + cell + '\">' + (row.recording_url ? '<a href=\"' + row.recording_url + '\">Listen</a>' : '-') + '</td>'\n        + '<td style=\"' + cell + '\">' + issueText(row) + '</td>'\n        + '</tr>';\n    });\n  });\n  html += '</table>';\n}\nhtml += '<div style=\"margin-top:16px;padding-top:14px;border-top:1px solid #ccc;\"><a href=\"https://automation.openmindhelpline.com/webhook/resmed-send-daily-report\" style=\"display:inline-block;padding:8px 16px;background:#2563eb;color:#ffffff;text-decoration:none;border-radius:4px;font-weight:bold;font-size:13px;\">Send ResMed Daily Report Now</a></div>';\nhtml += '</div>';\n\nconst subject = 'ResMed - ' + rows.length + ' Call(s) Needing Tag Correction - ' + dates.dayFormatted;\nreturn [{ json: { html, subject, flaggedCount: rows.length } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -240,
+        300
+      ],
+      "id": "rtc-0005-email",
+      "name": "Build Notification Email"
+    },
+    {
+      "parameters": {
+        "sendTo": "FILL_IN_RECIPIENT_EMAIL@example.com",
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.html }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        300
+      ],
+      "id": "rtc-0006-gmail",
+      "name": "Send Gmail"
+    }
+  ],
+  "connections": {
+    "Daily at 9am": {
+      "main": [
+        [
+          {
+            "node": "Compute Dates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compute Dates": {
+      "main": [
+        [
+          {
+            "node": "Build Flagged Query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Flagged Query": {
+      "main": [
+        [
+          {
+            "node": "Exec Flagged Query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Exec Flagged Query": {
+      "main": [
+        [
+          {
+            "node": "Build Notification Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Notification Email": {
+      "main": [
+        [
+          {
+            "node": "Send Gmail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "instanceId": "f9fad0dcada8947f02e42f7bc73ab7aefa92368c9ea1c4bf120cfada06c5c72c"
+  },
+  "tags": []
+}
