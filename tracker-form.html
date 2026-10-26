@@ -1,0 +1,1152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Process Tracker — MIS Command Center</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
+<link rel="stylesheet" href="assets/css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3/lib/msal-browser.min.js"></script>
+<style>
+  body { overflow-y: auto; background: var(--bg);
+    background-image: radial-gradient(ellipse at 20% 0%, rgba(37,99,235,0.06) 0%, transparent 60%),
+                       radial-gradient(ellipse at 80% 20%, rgba(5,150,105,0.06) 0%, transparent 60%); }
+  .tf-wrap { max-width: 620px; margin: 0 auto; padding: 32px 20px 60px; }
+  .tf-brand { text-align: center; margin-bottom: 24px; }
+  .tf-brand i { font-size: 36px; color: var(--accent); }
+  .tf-brand h1 { font-size: 19px; font-weight: 800; margin-top: 8px; letter-spacing: -0.02em; }
+  .tf-brand p { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .tf-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 28px; box-shadow: var(--shadow-lg); }
+  .tf-section-title { font-size: 12px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.06em; margin: 22px 0 12px; padding-top: 14px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 6px; }
+  .tf-section-title:first-of-type { margin-top: 0; padding-top: 0; border-top: none; }
+  .tf-section-hint { font-size: 10px; color: var(--muted); font-weight: 500; text-transform: none; letter-spacing: normal; margin-left: 4px; }
+  .tf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .tf-grid .full { grid-column: 1 / -1; }
+  .tf-field label { display: block; font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 5px; }
+  .tf-hidden { display: none !important; }
+  .tf-submit-row { margin-top: 24px; display: flex; align-items: center; gap: 12px; }
+  .tf-msg { font-size: 12px; padding: 10px 14px; border-radius: var(--radius-sm); margin-top: 14px; display: none; }
+  .tf-msg.show { display: block; }
+  .tf-msg.success { background: rgba(5,150,105,0.1); color: var(--accent2); border: 1px solid rgba(5,150,105,0.3); }
+  .tf-msg.error { background: rgba(220,38,38,0.1); color: var(--accent4); border: 1px solid rgba(220,38,38,0.3); }
+  .tf-need-process { font-size: 12px; color: var(--muted); font-style: italic; padding: 8px 0; }
+  .tf-auth-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 12px 14px; border-radius: var(--radius-sm); border: 1px solid var(--border);
+    background: rgba(37,99,235,0.06); font-size: 13px; margin-bottom: 20px; }
+  .tf-auth-banner.signed-in { background: rgba(5,150,105,0.08); border-color: rgba(5,150,105,0.3); }
+  #formFieldset { border: none; margin: 0; padding: 0; }
+  #formFieldset:disabled { opacity: 0.5; pointer-events: none; }
+  #lastSubmissionsPanel { margin-bottom: 20px; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px 14px; background: var(--surface2); }
+  #lastSubmissionsPanel .ls-title { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+  #lastSubmissionsPanel .ls-row { display: flex; align-items: baseline; gap: 8px; padding: 5px 0; font-size: 12px; border-top: 1px solid var(--border); }
+  #lastSubmissionsPanel .ls-row:first-of-type { border-top: none; }
+  #lastSubmissionsPanel .ls-type { font-weight: 700; color: var(--accent); min-width: 88px; flex-shrink: 0; }
+  #lastSubmissionsPanel .ls-detail { color: var(--text); flex: 1; }
+  #lastSubmissionsPanel .ls-when { color: var(--muted); font-size: 11px; white-space: nowrap; }
+  .mp-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: center; padding: 8px 0; border-top: 1px solid var(--border); }
+  .mp-row:first-of-type { border-top: none; }
+  .mp-row-header { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; border-top: none; padding-bottom: 6px; }
+  .mp-agent { font-size: 13px; font-weight: 600; color: var(--text); }
+  .mp-sf input { width: 100%; }
+  .mp-row.mp-changed { background: rgba(37,99,235,0.05); margin: 0 -10px; padding: 8px 10px; border-radius: 6px; }
+  @media (max-width: 640px) { .tf-grid { grid-template-columns: 1fr; } .mp-row { grid-template-columns: 1fr; gap: 4px; } .tf-auth-banner { flex-direction: column; align-items: stretch; } #lastSubmissionsPanel .ls-row { flex-wrap: wrap; } }
+</style>
+</head>
+<body>
+
+<div class="tf-wrap">
+  <div class="tf-brand">
+    <i class="ti ti-clipboard-list"></i>
+    <h1>Process Tracker</h1>
+    <p>Log Downtime, Appreciation, Escalation, Quality, Training, Conversion, Email Productivity, or Agent Name Mapping entries</p>
+  </div>
+
+  <div class="tf-card">
+    <div id="authBanner" class="tf-auth-banner">
+      <span id="authStatusText">Checking sign-in status…</span>
+      <button type="button" id="authActionBtn" class="btn btn-secondary">Sign in with Microsoft</button>
+    </div>
+    <div id="lastSubmissionsPanel" class="tf-hidden"></div>
+    <form id="trackerForm">
+      <fieldset id="formFieldset" disabled>
+      <div class="tf-grid">
+        <div class="tf-field full">
+          <label>Tracker Type *</label>
+          <select class="form-select w-full" id="trackerType" required>
+            <option value="">Select type...</option>
+            <option value="Downtime">Downtime</option>
+            <option value="Appreciation">Appreciation</option>
+            <option value="Escalation">Escalation</option>
+            <option value="Quality">Quality</option>
+            <option value="Training">Training</option>
+            <option value="Conversion">Conversion</option>
+            <option value="Email Productivity">Email Productivity</option>
+            <option value="Agent Name Mapping">Agent Name Mapping</option>
+            <option value="Call Tag Correction">Call Tag Correction</option>
+          </select>
+        </div>
+        <div class="tf-field">
+          <label>Process Name *</label>
+          <select class="form-select w-full" id="processName" required>
+            <option value="">Select process...</option>
+            <option>Baxter</option><option>PSRI</option><option>ResMed</option><option>LOTS</option>
+            <option>ONDC</option><option>Infres</option><option>VMM</option><option>Nihon</option>
+          </select>
+        </div>
+        <div class="tf-field" id="dateFieldWrap">
+          <label id="dateLabel">Date *</label>
+          <input type="date" class="form-input w-full" id="date" required>
+        </div>
+        <div class="tf-field full" id="agentNameFieldWrap">
+          <label>Agent Name *</label>
+          <select class="form-select w-full" id="agentName" required>
+            <option value="">Select process first...</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Downtime: duration (via start/end) + reason dropdown + description -->
+      <div class="tf-group" data-type="Downtime">
+        <div class="tf-section-title"><i class="ti ti-plug-connected-x"></i> Downtime</div>
+        <div class="tf-grid">
+          <div class="tf-field"><label>Start Time *</label><input type="time" class="form-input w-full" id="startTime"></div>
+          <div class="tf-field"><label>End Time *</label><input type="time" class="form-input w-full" id="endTime"></div>
+          <div class="tf-field full"><label>Reason *</label>
+            <select class="form-select w-full" id="reasonCategory">
+              <option value="">—</option>
+              <option>Application / Portal Issue</option>
+              <option>Calling / Telephony Issue</option>
+              <option>System / Network Connectivity Issue</option>
+              <option>Power / Electricity Issue</option>
+              <option>External / Other</option>
+            </select>
+          </div>
+          <div class="tf-field full"><label>Description *</label><textarea class="form-input w-full" id="reasonDetail"></textarea></div>
+        </div>
+      </div>
+
+      <!-- Quality: process-specific scoring parameters + call reference -->
+      <div class="tf-group" data-type="Quality">
+        <div class="tf-section-title"><i class="ti ti-star"></i> Quality Scoring <span class="tf-section-hint" id="qualityProcessHint"></span></div>
+        <div class="tf-grid tf-hidden" id="qualityAuditTypeWrap">
+          <div class="tf-field full">
+            <label>Audit Type *</label>
+            <select class="form-select w-full" id="auditType">
+              <option value="">—</option>
+              <option value="Call">Call Audit</option>
+              <option value="Email">Email Audit</option>
+            </select>
+          </div>
+        </div>
+        <div class="tf-grid" id="qualityCallFieldsWrap">
+          <div class="tf-field"><label>Call Transaction ID *</label><input type="text" class="form-input w-full" id="transactionId"></div>
+          <div class="tf-field"><label>Call Recording Link *</label><input type="text" class="form-input w-full" id="recordingUrl"></div>
+        </div>
+        <div class="tf-grid">
+          <div class="tf-field"><label>Date of Audit *</label><input type="date" class="form-input w-full" id="dateOfAudit"></div>
+        </div>
+        <div id="qualityNeedsProcess" class="tf-need-process">Select a Process above to see this process's scoring parameters.</div>
+        <div class="tf-grid" id="qualityScoreFields"></div>
+        <div class="tf-grid" id="qualityTotalWrap" style="margin-top:14px;">
+          <div class="tf-field"><label>Total Score</label><input type="number" step="0.01" class="form-input w-full" id="qualityOverallScore" readonly></div>
+          <div class="tf-field"><label>Percentage</label><input type="text" class="form-input w-full" id="qualityPercentageDisplay" readonly></div>
+          <div class="tf-field full" style="font-size:11px;color:var(--muted);">
+            Auto-calculated from the parameters above (Hangup By: Agent = 0, Customer = 10; Fatal Error = Yes forces 0). Not editable.
+          </div>
+        </div>
+      </div>
+
+      <!-- Training: type/reason dropdown + duration + description -->
+      <div class="tf-group" data-type="Training">
+        <div class="tf-section-title"><i class="ti ti-school"></i> Training</div>
+        <div class="tf-grid">
+          <div class="tf-field full"><label>Type of Training *</label>
+            <select class="form-select w-full" id="typeOfTraining">
+              <option value="">—</option>
+              <option>Training</option>
+              <option>Quality Feedback</option>
+              <option>TL Feedback</option>
+              <option>ACW</option>
+              <option>Internal Followup</option>
+              <option>Process Training</option>
+              <option>Process Huddle</option>
+              <option>Discussion / Meeting / Guidance</option>
+              <option>Operational / CRM Work</option>
+              <option>Audit / Quality Feedback</option>
+              <option>HR / Admin</option>
+              <option>Office Activity</option>
+              <option>Soft Skill Session</option>
+              <option>Worked in other process</option>
+              <option>New Joinee Training</option>
+            </select>
+          </div>
+          <div class="tf-field"><label>Start Time *</label><input type="time" class="form-input w-full" id="trainStartTime"></div>
+          <div class="tf-field"><label>End Time *</label><input type="time" class="form-input w-full" id="trainEndTime"></div>
+          <div class="tf-field full"><label>Description *</label><textarea class="form-input w-full" id="description"></textarea></div>
+        </div>
+      </div>
+
+      <!-- Conversion: ResMed only — payment/sales conversion log -->
+      <div class="tf-group" data-type="Conversion">
+        <div class="tf-section-title"><i class="ti ti-cash"></i> Conversion</div>
+        <div id="conversionNotResmed" class="tf-need-process">Conversion tracking is only available for ResMed.</div>
+        <div class="tf-grid" id="conversionFields">
+          <div class="tf-field"><label>Closure Type *</label>
+            <select class="form-select w-full" id="closureType">
+              <option value="">—</option>
+              <option>HST</option>
+              <option>Accessories</option>
+              <option>Device Purchase</option>
+              <option>Extended Warranty</option>
+              <option>Rental</option>
+            </select>
+          </div>
+          <div class="tf-field"><label>Mobile Number *</label><input type="text" class="form-input w-full" id="conversionMobile"></div>
+          <div class="tf-field full"><label>Email *</label><input type="email" class="form-input w-full" id="conversionEmail"></div>
+        </div>
+      </div>
+
+      <!-- Email Productivity: ResMed + Facility (Infres/VMM/Nihon) — one count per
+           agent/day, going into the same email_tagged_daily table Baxter's
+           Outlook-tagging workflow feeds. -->
+      <div class="tf-group" data-type="Email Productivity">
+        <div class="tf-section-title"><i class="ti ti-mail"></i> Email Productivity</div>
+        <div id="emailProdNotResmed" class="tf-need-process">Email Productivity tracking is only available for ResMed, Infres, VMM, and Nihon.</div>
+        <div class="tf-grid" id="emailProdFields">
+          <div class="tf-field full">
+            <label>Emails Sent *</label>
+            <input type="number" min="0" step="1" class="form-input w-full" id="emailCount" placeholder="Total emails sent by this agent on this date">
+          </div>
+        </div>
+      </div>
+
+      <!-- Agent Name Mapping: ONDC only — agents keep a different (often
+           unrelated/pseudonymous) display name in Salesforce so they aren't
+           personally identifiable if feedback comes in negative. This maps
+           that Salesforce name to the real SparkTG identity so reports can
+           reconcile the two systems. Append-only: every submission adds a
+           new row (no update/delete) so historical reports keep resolving
+           against whichever mapping was active at the time, while new
+           reports automatically pick up the latest one for that agent. -->
+      <div class="tf-group" data-type="Agent Name Mapping">
+        <div class="tf-section-title"><i class="ti ti-user-check"></i> Agent Name Mapping</div>
+        <div id="mappingNotOndc" class="tf-need-process">Agent Name Mapping is only available for ONDC.</div>
+        <div id="mappingFields">
+          <div class="mp-row mp-row-header">
+            <div class="mp-agent">SparkTG Agent Name</div>
+            <div class="mp-sf">Salesforce Agent Name</div>
+          </div>
+          <div id="mappingAgentRows">
+            <div class="tf-need-process">Select ONDC as Process to load agents...</div>
+          </div>
+          <div style="font-size:11px;color:var(--muted);margin-top:10px;">
+            Already-mapped agents show their current Salesforce name — only edit the ones that changed
+            (agent left, name reassigned, etc). Rows you don't touch are skipped on submit.
+          </div>
+        </div>
+      </div>
+
+      <!-- Call Tag Correction: ResMed only -- agents sometimes pick the wrong
+           note category (an Outbound call tagged with an Inbound category like
+           "Sales Lead", or an Inbound call tagged with an Outbound "OB - ..."
+           category). Lists calls still needing review (live, excludes anything
+           already corrected) and lets the TL pick one + the correct category. -->
+      <div class="tf-group" data-type="Call Tag Correction">
+        <div class="tf-section-title"><i class="ti ti-adjustments"></i> Call Tag Correction</div>
+        <div id="tagCorrectionNotResmed" class="tf-need-process">Call Tag Correction is only available for ResMed.</div>
+        <div id="tagCorrectionFields">
+          <div id="tagCorrectionRows"><div class="tf-need-process">Select ResMed as Process to load flagged calls...</div></div>
+          <div class="tf-grid" id="tagCorrectionPickFields" style="margin-top:12px;display:none;">
+            <div class="tf-field full"><label>Corrected Category *</label>
+              <select class="form-select w-full" id="correctedCategory">
+                <option value="">—</option>
+              </select>
+            </div>
+            <div class="tf-field full"><label>Remarks</label><input type="text" class="form-input w-full" id="tagCorrectionRemarks"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Appreciation / Escalation: Process + Date + Agent (above) + total count for that agent/date -->
+      <div class="tf-group" data-type="Appreciation,Escalation">
+        <div class="tf-section-title"><i class="ti ti-hash"></i> Count</div>
+        <div class="tf-grid">
+          <div class="tf-field full">
+            <label>Total Count *</label>
+            <input type="number" min="1" step="1" class="form-input w-full" id="activityCount" placeholder="Total count for this agent on this date">
+          </div>
+          <div class="tf-field full">
+            <label>Received Via *</label>
+            <select class="form-select w-full" id="receivedVia">
+              <option value="">—</option>
+              <option>Call</option>
+              <option>Email</option>
+              <option>Chat</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="tf-grid tf-hidden" id="receivedViaCallFields">
+          <div class="tf-field"><label>Phone Number *</label><input type="text" class="form-input w-full" id="viaPhoneNumber"></div>
+          <div class="tf-field"><label>Call Transaction ID *</label><input type="text" class="form-input w-full" id="viaCallTxnId"></div>
+          <div class="tf-field full"><label>Call Link *</label><input type="text" class="form-input w-full" id="viaCallLink"></div>
+        </div>
+
+        <div class="tf-grid tf-hidden" id="receivedViaEmailFields">
+          <div class="tf-field full"><label>Email Subject *</label><input type="text" class="form-input w-full" id="viaEmailSubject"></div>
+          <div class="tf-field full"><label>Sender *</label><input type="text" class="form-input w-full" id="viaSender"></div>
+        </div>
+
+        <div class="tf-grid tf-hidden" id="receivedViaChatFields">
+          <div class="tf-field"><label>Chat ID *</label><input type="text" class="form-input w-full" id="viaChatId"></div>
+          <div class="tf-field full"><label>Chat Subject *</label><input type="text" class="form-input w-full" id="viaChatSubject"></div>
+        </div>
+
+        <div class="tf-grid">
+          <div class="tf-field full"><label>Remarks</label><textarea class="form-input w-full" id="activityRemarks" rows="2" placeholder="Optional notes"></textarea></div>
+        </div>
+      </div>
+
+      <div class="tf-submit-row">
+        <button type="submit" class="btn btn-primary" id="submitBtn"><i class="ti ti-send"></i> Submit Entry</button>
+        <button type="reset" class="btn btn-secondary">Clear</button>
+      </div>
+      </fieldset>
+      <div class="tf-msg" id="tfMsg"></div>
+    </form>
+  </div>
+</div>
+
+<script>
+const WEBHOOK_URL = 'https://automation.openmindhelpline.com/webhook/unified-tracker-form';
+const LAST_SUBMISSIONS_URL = 'https://automation.openmindhelpline.com/webhook/tracker-last-submissions';
+const ONDC_AGENT_NAMES_URL = 'https://automation.openmindhelpline.com/webhook/tracker-ondc-agent-names';
+const RESMED_FLAGGED_TAGS_URL = 'https://automation.openmindhelpline.com/webhook/resmed-flagged-tags';
+
+/* Microsoft login (MSAL Browser) — auto-fills who filled out the form (audited_by)
+   instead of a free-text name field. Same Azure AD app used elsewhere at Open Mind;
+   redirectUri is derived at runtime so it matches wherever this page is hosted —
+   that exact URL still needs to be added under Azure Portal > App Registrations >
+   this app > Authentication > Add a platform > Single-page application. */
+const msalConfig = {
+  auth: {
+    clientId: 'b8cda595-fd20-4d3c-a0e4-9cdf62af2028',
+    authority: 'https://login.microsoftonline.com/common',
+    redirectUri: window.location.origin + window.location.pathname
+  },
+  cache: { cacheLocation: 'sessionStorage', storeAuthStateInCookie: false }
+};
+const loginRequest = { scopes: ['User.Read', 'email', 'openid', 'profile'] };
+const msalInstance = new msal.PublicClientApplication(msalConfig);
+let currentUser = null;
+
+function setSignedOutUI() {
+  currentUser = null;
+  const banner = document.getElementById('authBanner');
+  banner.classList.remove('signed-in');
+  document.getElementById('authStatusText').textContent = 'Sign in with your Microsoft account to submit entries.';
+  const btn = document.getElementById('authActionBtn');
+  btn.textContent = 'Sign in with Microsoft';
+  btn.onclick = handleSignIn;
+  document.getElementById('formFieldset').disabled = true;
+  const panel = document.getElementById('lastSubmissionsPanel');
+  panel.classList.add('tf-hidden');
+  panel.innerHTML = '';
+}
+
+const TRACKER_TYPE_LABELS = {
+  Downtime: 'Downtime', Appreciation: 'Appreciation', Escalation: 'Escalation',
+  Quality: 'Quality', Training: 'Training', Conversion: 'Conversion'
+};
+
+function timeAgo(isoLike) {
+  if (!isoLike) return '';
+  const then = new Date(String(isoLike).replace(' ', 'T'));
+  if (isNaN(then)) return '';
+  const diffMin = Math.round((Date.now() - then.getTime()) / 60000);
+  if (diffMin < 1) return 'just now';
+  if (diffMin < 60) return diffMin + 'm ago';
+  const diffHr = Math.round(diffMin / 60);
+  if (diffHr < 24) return diffHr + 'h ago';
+  return Math.round(diffHr / 24) + 'd ago';
+}
+
+/* Shows what this signed-in user last submitted, one row per tracker type
+   (Email Productivity excluded — email_tagged_daily has no submitter column
+   to look this up by). Refreshed on sign-in and again after each submission
+   so it always reflects the latest state. */
+async function loadLastSubmissions() {
+  const panel = document.getElementById('lastSubmissionsPanel');
+  if (!currentUser) { panel.classList.add('tf-hidden'); return; }
+  try {
+    const url = `${LAST_SUBMISSIONS_URL}?auditedBy=${encodeURIComponent(currentUser.name)}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Last-submissions API ${res.status}`);
+    const data = await res.json();
+    const rows = Array.isArray(data) ? data : (Array.isArray(data.data) ? data.data : []);
+    if (!rows.length) {
+      panel.innerHTML = '<div class="ls-title">Your last submissions</div><div class="ls-row" style="border-top:none;color:var(--muted);">No entries found yet.</div>';
+      panel.classList.remove('tf-hidden');
+      return;
+    }
+    const byType = new Map(rows.map(r => [r.tracker_type, r]));
+    const html = Object.keys(TRACKER_TYPE_LABELS).map(type => {
+      const r = byType.get(type);
+      if (!r) return '';
+      const detail = [r.process_name, r.agent_name, r.detail].filter(Boolean).join(' · ');
+      return `<div class="ls-row"><span class="ls-type">${TRACKER_TYPE_LABELS[type]}</span><span class="ls-detail">${detail}</span><span class="ls-when">${timeAgo(r.submitted_at)}</span></div>`;
+    }).join('');
+    panel.innerHTML = '<div class="ls-title">Your last submissions</div>' + (html || '<div class="ls-row" style="border-top:none;color:var(--muted);">No entries found yet.</div>');
+    panel.classList.remove('tf-hidden');
+  } catch (err) {
+    console.error('loadLastSubmissions failed:', err);
+    panel.classList.add('tf-hidden');
+  }
+}
+
+function setSignedInUI(account) {
+  currentUser = { name: account.name || account.username, email: account.username };
+  const banner = document.getElementById('authBanner');
+  banner.classList.add('signed-in');
+  document.getElementById('authStatusText').textContent = 'Signed in as ' + currentUser.name + ' (' + currentUser.email + ')';
+  const btn = document.getElementById('authActionBtn');
+  btn.textContent = 'Sign out';
+  btn.onclick = handleSignOut;
+  document.getElementById('formFieldset').disabled = false;
+  loadLastSubmissions();
+}
+
+async function handleSignIn() {
+  const statusText = document.getElementById('authStatusText');
+  try {
+    statusText.textContent = 'Signing in…';
+    const result = await msalInstance.loginPopup(loginRequest);
+    msalInstance.setActiveAccount(result.account);
+    setSignedInUI(result.account);
+  } catch (err) {
+    setSignedOutUI();
+    statusText.textContent = 'Sign-in failed: ' + err.message;
+  }
+}
+
+async function handleSignOut() {
+  const account = msalInstance.getActiveAccount();
+  try {
+    await msalInstance.logoutPopup({ account });
+  } catch (err) { /* proceed to local sign-out UI regardless */ }
+  setSignedOutUI();
+}
+
+async function initAuth() {
+  try {
+    await msalInstance.initialize();
+    await msalInstance.handleRedirectPromise();
+    const accounts = msalInstance.getAllAccounts();
+    if (accounts.length > 0) {
+      msalInstance.setActiveAccount(accounts[0]);
+      setSignedInUI(accounts[0]);
+    } else {
+      setSignedOutUI();
+    }
+  } catch (err) {
+    setSignedOutUI();
+    document.getElementById('authStatusText').textContent = 'Sign-in unavailable: ' + err.message;
+  }
+}
+initAuth();
+
+/* Per-process Quality rubrics — matches each process's real historical audit sheet
+   exactly, including which extra fields (Fatal Error, Hangup By, Remarks, etc.)
+   that process actually uses. Overall Score / Percentage / Final Score / Total Score
+   are derived automatically from the numeric fields below, not entered manually. */
+const FATAL_YESNO = { id: 'fatal_error', label: 'Fatal Error', type: 'select', options: ['No', 'Yes'] };
+const HANGUP_AGENT_CUSTOMER = { id: 'hangup_by', label: 'Hangup By', type: 'select', options: ['Agent', 'Customer'] };
+const AREAS_IMPROVEMENT = { id: 'areas_of_improvement', label: 'Areas of Improvement', type: 'textarea' };
+const TRAINING_REQUIREMENT = { id: 'training_requirement', label: 'Training Requirement', type: 'textarea' };
+const TYPE_OF_CALL = { id: 'call_type', label: 'Type of Call', type: 'select', options: ['Inbound', 'Outbound'] };
+
+const FACILITY_RUBRIC = [ // Infres / VMM / Nihon / PSRI share this rubric (from the "Facility" sheet)
+  { id: 'script', label: 'Script Adherence (0-10)' },
+  { id: 'domain', label: 'Domain Knowledge (0-10)' },
+  { id: 'soft', label: 'Soft Skills (0-10)' },
+  { id: 'accuracy', label: 'Accuracy of Resolution (0-10)' },
+  TYPE_OF_CALL,
+  FATAL_YESNO,
+  { id: 'crm', label: 'CRM / E-mail Tagging (0-10)' },
+  HANGUP_AGENT_CUSTOMER,
+  AREAS_IMPROVEMENT,
+  TRAINING_REQUIREMENT,
+  // Every other process's Call audit rubric (ResMed/Baxter/LOTS/ONDC) has a
+  // Remarks field -- this one was missing it, for all 4 processes sharing it.
+  { id: 'remarks', label: 'Remarks', type: 'textarea' }
+];
+// Infres/VMM/Nihon's Call audit also needs a Complaint Number field (already
+// present on their Email audit rubric below, same id/column -- just wasn't on
+// the Call side), plus a Call/Query Regarding dropdown (reuses the same
+// call_regarding id/column Baxter and ONDC already use, just with Facility's
+// own option set). PSRI shares FACILITY_RUBRIC too but wasn't asked for
+// either of these, so it gets its own variant rather than changing the base array.
+const FACILITY_RUBRIC_WITH_COMPLAINT = [...FACILITY_RUBRIC,
+  { id: 'complaint_no', label: 'Complaint Number', type: 'text' },
+  { id: 'call_regarding', label: 'Call/Query Regarding', type: 'select', options: ['Logged', 'Process Enquiry', 'Case Resolved', 'Non-Relevant'] }
+];
+// PSRI shares FACILITY_RUBRIC too, but Hangup By isn't relevant for PSRI's
+// calls -- own variant with that field dropped, rather than changing the
+// base array (same reasoning as FACILITY_RUBRIC_WITH_COMPLAINT above).
+const FACILITY_RUBRIC_NO_HANGUP = FACILITY_RUBRIC.filter(f => f.id !== 'hangup_by');
+const QUALITY_RUBRIC = {
+  Infres: FACILITY_RUBRIC_WITH_COMPLAINT, VMM: FACILITY_RUBRIC_WITH_COMPLAINT, Nihon: FACILITY_RUBRIC_WITH_COMPLAINT,
+  PSRI: FACILITY_RUBRIC_NO_HANGUP,
+  ResMed: [
+    { id: 'opening_script', label: 'Call Opening / Script (Greetings/Self & Comp Intro/Script/Hold & Unhold & Transfer/Closing Statement) (0-10)' },
+    { id: 'process_knowledge', label: 'Process Knowledge/Protocols (RM-Domain/OM-Process Knowledge) (0-10)' },
+    { id: 'soft', label: 'Soft Skills (0-10)' },
+    { id: 'solution', label: 'Solution provided (0-10)' },
+    { id: 'crm', label: 'CRM Tagging (SFDC/SparkTg(Customer name)/Form) (0-10)' },
+    TYPE_OF_CALL,
+    { id: 'fatal', label: 'Fatal (Yes/No)', type: 'select', options: ['No', 'Yes'] },
+    { id: 'remarks', label: 'Remarks', type: 'textarea' }
+  ],
+  Baxter: [
+    { id: 'script', label: 'Script Adherence (0-10)' },
+    { id: 'domain', label: 'Domain Knowledge (0-10)' },
+    { id: 'call_type', label: 'Call Type', type: 'select', options: ['Inbound', 'Outbound'] },
+    { id: 'call_regarding', label: 'Call Regarding', type: 'select', options: [
+      'Scheme Call', 'Follow Up calls', 'Transfer set Changed', 'ITP Calls', 'PD4 Validation',
+      'Extraneal Validation', 'APD Validation', 'Enquiry', 'APD Rental', 'Escalations call'
+    ] },
+    { id: 'crm', label: 'CRM Tagging (0-10)' },
+    { id: 'soft', label: 'Soft Skills (0-10)' },
+    { id: 'resolution', label: 'Resolution Provided (0-10)' },
+    { id: 'call_hungup', label: 'Call Hung up', type: 'select', options: ['Agent', 'Customer'] },
+    FATAL_YESNO,
+    { id: 'remark', label: 'Remark', type: 'textarea' }
+  ],
+  LOTS: [
+    { id: 'script', label: 'Greetings and Script Adherence (0-10)' },
+    { id: 'domain', label: 'Domain Knowledge (0-10)' },
+    { id: 'soft', label: 'Soft Skills (0-10)' },
+    { id: 'accuracy', label: 'Accuracy of resolution (0-10)' },
+    { id: 'crm', label: 'CRM tagging (0-10)' },
+    TYPE_OF_CALL,
+    { id: 'call_hungby', label: 'Call Hung By Customer or Agent', type: 'select', options: ['Customer', 'Agent'] },
+    FATAL_YESNO,
+    { id: 'remarks', label: 'Remarks', type: 'textarea' }
+  ],
+  ONDC: [
+    { id: 'case_id', label: 'Case Id/Chat id', type: 'text' },
+    { id: 'conversation_type', label: 'Type of Conversation', type: 'select', options: ['Email', 'Chat'] },
+    { id: 'domain', label: 'Domain Knowledge (Yes/No)', type: 'select', options: ['Yes', 'No'] },
+    { id: 'sf_tagging', label: 'SF Tagging (0-10)' },
+    { id: 'first_response_time', label: 'First Response Time', type: 'text', placeholder: 'e.g. < 2 Hrs' },
+    { id: 'first_response_score', label: 'First Response Score (0-10)' },
+    { id: 'writing_skills', label: 'Email/Chat Writing Skills (0-10)' },
+    { id: 'opening_closing', label: 'Opening/closing Message (0-10)' },
+    { id: 'resolution', label: 'Resolution Provided (0-10)' },
+    { id: 'navigation', label: 'Navigation- on Salesforce (0-10)' },
+    FATAL_YESNO,
+    { id: 'fatal_reason', label: 'Fatal Reason', type: 'text' },
+    { id: 'remark', label: 'Remark', type: 'textarea' }
+  ]
+};
+
+// Email Audit rubric — a second audit type for processes that also handle email
+// support (Infres, VMM, Nihon, LOTS), alongside their existing call-audit rubric.
+const EMAIL_RUBRIC = [
+  { id: 'mail_received_from', label: 'Mail Received From', type: 'text' },
+  { id: 'type_of_mail', label: 'Type of Mail', type: 'select', options: ['Closed', 'Logged', 'Reminder', 'Update', 'Other'] },
+  { id: 'complaint_no', label: 'Complaint Number', type: 'text' },
+  { id: 'call_regarding', label: 'Subject Line', type: 'text' },
+  { id: 'understanding_email', label: 'Understanding of process and e-mail (0-10)' },
+  { id: 'email_structure', label: 'Email structure and professionalism (0-10)' },
+  { id: 'accuracy_resolution', label: 'Accuracy and resolution in reply (0-10)' },
+  { id: 'crm', label: 'CRM / E-mail Tagging (0-10)' },
+  FATAL_YESNO,
+  AREAS_IMPROVEMENT,
+  TRAINING_REQUIREMENT,
+  { id: 'remark', label: 'Overall Feedback', type: 'textarea' }
+];
+const QUALITY_EMAIL_RUBRIC = { Infres: EMAIL_RUBRIC, VMM: EMAIL_RUBRIC, Nihon: EMAIL_RUBRIC, LOTS: EMAIL_RUBRIC };
+
+// Rubric field ids that belong to a real quality_audit column rather than the
+// generic scores blob (mirrors how the historical Excel backfill split these
+// out — see gen_quality_backfill.py). Shared by the live score calculator below
+// and the submit handler.
+const ID_FIELD_MAP = {
+  fatal_error: 'fatalError', fatal: 'fatalError',
+  hangup_by: 'hangupBy', call_hungup: 'hangupBy', call_hungby: 'hangupBy',
+  call_type: 'typeOfCall', conversation_type: 'typeOfCall', type_of_mail: 'typeOfCall',
+  areas_of_improvement: 'areasOfImprovement',
+  training_requirement: 'trainingRequirement',
+  remark: 'remarks', remarks: 'remarks', fatal_reason: 'remarks',
+  case_id: 'callRegarding', call_regarding: 'callRegarding',
+  mail_received_from: 'mailReceivedFrom', complaint_no: 'complaintNumber'
+};
+
+function computeQualityScore() {
+  let sum = 0, count = 0, fatalYes = false;
+  document.querySelectorAll('#qualityScoreFields [id^="q_"]').forEach(el => {
+    const fieldId = el.id.slice(2);
+    const target = ID_FIELD_MAP[fieldId];
+    if (target === 'fatalError') {
+      if (el.value.trim().toLowerCase() === 'yes') fatalYes = true;
+      return;
+    }
+    if (target === 'hangupBy') {
+      // PSRI never renders this field at all (see FACILITY_RUBRIC_NO_HANGUP)
+      // -- it's not relevant to PSRI's calls -- so this branch only runs for
+      // the other Facility-rubric processes now.
+      if (el.value) { sum += el.value.trim().toLowerCase() === 'agent' ? 0 : 10; count++; }
+      return;
+    }
+    if (!target && el.type === 'number' && el.value !== '') { sum += Number(el.value); count++; }
+  });
+  let overall = count > 0 ? sum : null;
+  let pct = count > 0 ? Math.round((sum / (count * 10)) * 10000) / 10000 : null;
+  if (fatalYes) { overall = 0; pct = 0; }
+  return { overall, pct, count };
+}
+
+function refreshQualityScoreDisplay() {
+  const scoreEl = document.getElementById('qualityOverallScore');
+  const pctEl = document.getElementById('qualityPercentageDisplay');
+  const { overall, pct } = computeQualityScore();
+  scoreEl.value = overall === null ? '' : overall;
+  pctEl.value = pct === null ? '' : (Math.round(pct * 10000) / 100) + '%';
+}
+
+function renderQualityFields(processName) {
+  const needsProcess = document.getElementById('qualityNeedsProcess');
+  const scoreContainer = document.getElementById('qualityScoreFields');
+  const hint = document.getElementById('qualityProcessHint');
+  const auditTypeWrap = document.getElementById('qualityAuditTypeWrap');
+  const callFieldsWrap = document.getElementById('qualityCallFieldsWrap');
+  scoreContainer.innerHTML = '';
+  document.getElementById('qualityOverallScore').value = '';
+  document.getElementById('qualityPercentageDisplay').value = '';
+
+  const hasEmailOption = processName && !!QUALITY_EMAIL_RUBRIC[processName];
+  auditTypeWrap.classList.toggle('tf-hidden', !hasEmailOption);
+  if (!hasEmailOption) document.getElementById('auditType').value = '';
+
+  let rubric = null;
+  if (processName) {
+    if (hasEmailOption) {
+      const auditType = document.getElementById('auditType').value;
+      if (auditType === 'Email') rubric = QUALITY_EMAIL_RUBRIC[processName];
+      else if (auditType === 'Call') rubric = QUALITY_RUBRIC[processName];
+    } else {
+      rubric = QUALITY_RUBRIC[processName];
+    }
+  }
+  const isCallless = (hasEmailOption && document.getElementById('auditType').value === 'Email') || processName === 'ONDC';
+  callFieldsWrap.classList.toggle('tf-hidden', isCallless);
+
+  if (!rubric) {
+    needsProcess.style.display = 'block';
+    needsProcess.textContent = !processName
+      ? "Select a Process above to see this process's scoring parameters."
+      : 'Select an Audit Type above to see the scoring parameters.';
+    hint.textContent = '';
+    return;
+  }
+  needsProcess.style.display = 'none';
+  hint.textContent = hasEmailOption
+    ? `(${processName}'s ${document.getElementById('auditType').value} Audit criteria)`
+    : `(${processName}'s criteria)`;
+
+  rubric.forEach(field => {
+    const wrap = document.createElement('div');
+    wrap.className = 'tf-field' + (field.type === 'textarea' ? ' full' : '');
+    const label = document.createElement('label');
+    label.textContent = field.label + ' *';
+    wrap.appendChild(label);
+    let input;
+    if (field.type === 'select') {
+      input = document.createElement('select');
+      input.className = 'form-select w-full';
+      input.innerHTML = '<option value="">—</option>' + field.options.map(o => `<option>${o}</option>`).join('');
+    } else if (field.type === 'text') {
+      input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'form-input w-full';
+      if (field.placeholder) input.placeholder = field.placeholder;
+    } else if (field.type === 'textarea') {
+      input = document.createElement('textarea');
+      input.className = 'form-input w-full';
+    } else {
+      input = document.createElement('input');
+      input.type = 'number';
+      input.min = 0; input.max = 10;
+      input.className = 'form-input w-full';
+    }
+    input.id = 'q_' + field.id;
+    input.dataset.scoreLabel = field.label.replace(/\s*\(.*?\)\s*$/, '').trim();
+    wrap.appendChild(input);
+    scoreContainer.appendChild(wrap);
+  });
+}
+
+// Process-wise active agent roster -- a dropdown instead of free text kills
+// the exact class of typo/duplicate-identity problem (trailing spaces,
+// truncated names, short-form vs full-form spellings) that turned into a
+// one-off quality_audit cleanup this session.
+const AGENTS_BY_PROCESS = {
+  Baxter: ['Ansha', 'Komala', 'Mouli', 'Murugesh', 'Rashmi', 'Sarita'],
+  PSRI: ['Abhishek Raj', 'Abhishek Sharma', 'Anchal Singh', 'Kavneet Kaur', 'Monika Rani', 'Sameer', 'Shivani khandelwal', 'Suraj'],
+  LOTS: ['Akshat Sharma', 'Kajal Bhagel', 'Navjot Singh', 'Piyush Sharma', 'Suvika Chauhan', 'Vivek Prajapati'],
+  Infres: ['Monika Kumari', 'Rishi Chaudhari'],
+  VMM: ['Mahima Mishra', 'Rahul Pandey', 'Sachin Yadav', 'Sanskar Tiwari', 'Yogesh Malik'],
+  Nihon: ['Anish', 'Somansh', 'Yakoob'],
+  ResMed: ['Avijit Dey', 'Gulshan Khan', 'Mohit Kumar', 'Sagarika Bose'],
+  ONDC: ['Asha Yadav', 'MD NIZAM MANSOORI', 'Manjur', 'Sahil D', 'Sahil K', 'Shweta Kumari']
+};
+
+function renderAgentOptions(processName) {
+  const sel = document.getElementById('agentName');
+  const prevValue = sel.value;
+  const agents = AGENTS_BY_PROCESS[processName];
+  if (!agents) {
+    // No roster on file yet for this process (ResMed/ONDC) -- fall back to a
+    // free-text field instead of an empty, unusable dropdown.
+    if (sel.tagName === 'SELECT') {
+      const input = document.createElement('input');
+      input.type = 'text'; input.className = 'form-input w-full'; input.id = 'agentName'; input.required = true;
+      if (prevValue) input.value = prevValue;
+      sel.replaceWith(input);
+    }
+    return;
+  }
+  if (sel.tagName !== 'SELECT') {
+    const select = document.createElement('select');
+    select.className = 'form-select w-full'; select.id = 'agentName'; select.required = true;
+    sel.replaceWith(select);
+  }
+  const el = document.getElementById('agentName');
+  el.innerHTML = '<option value="">Select agent...</option>' + agents.map(a => `<option ${a === prevValue ? 'selected' : ''}>${a}</option>`).join('');
+}
+
+const typeSelect = document.getElementById('trackerType');
+const processSelect = document.getElementById('processName');
+const groups = document.querySelectorAll('.tf-group');
+
+function updateReceivedViaVisibility() {
+  const via = document.getElementById('receivedVia').value;
+  document.getElementById('receivedViaCallFields').classList.toggle('tf-hidden', via !== 'Call');
+  document.getElementById('receivedViaEmailFields').classList.toggle('tf-hidden', via !== 'Email');
+  document.getElementById('receivedViaChatFields').classList.toggle('tf-hidden', via !== 'Chat');
+}
+document.getElementById('receivedVia').addEventListener('change', updateReceivedViaVisibility);
+
+function updateConversionVisibility() {
+  const isResmed = processSelect.value === 'ResMed';
+  document.getElementById('conversionNotResmed').style.display = isResmed ? 'none' : 'block';
+  document.getElementById('conversionFields').classList.toggle('tf-hidden', !isResmed);
+}
+
+const EMAIL_PROD_PROCESSES = ['ResMed', 'Infres', 'VMM', 'Nihon'];
+function updateEmailProdVisibility() {
+  const allowed = EMAIL_PROD_PROCESSES.includes(processSelect.value);
+  document.getElementById('emailProdNotResmed').style.display = allowed ? 'none' : 'block';
+  document.getElementById('emailProdFields').classList.toggle('tf-hidden', !allowed);
+}
+
+// Agent Name Mapping: SparkTG agent names are fetched live (not a hardcoded
+// roster like AGENTS_BY_PROCESS) so a new/changed agent shows up here as soon
+// as they appear in the synced data, with no code deploy needed. Cached per
+// page load -- the list only changes daily at most.
+// Each entry: { sparktg_agent_name, salesforce_agent_name (current mapping, or
+// null if never mapped) }. Cached per page load -- refetch on demand via the
+// Process dropdown re-trigger if it's ever stale within a session (rare).
+let ondcAgentMappingsCache = null;
+async function fetchOndcAgentMappings() {
+  if (ondcAgentMappingsCache) return ondcAgentMappingsCache;
+  try {
+    const res = await fetch(ONDC_AGENT_NAMES_URL);
+    if (!res.ok) throw new Error(`Agent names API ${res.status}`);
+    const data = await res.json();
+    const rows = Array.isArray(data) ? data : (Array.isArray(data.data) ? data.data : []);
+    ondcAgentMappingsCache = rows;
+    return rows;
+  } catch (err) {
+    console.error('fetchOndcAgentMappings failed:', err);
+    return null; // distinct from [] (empty-but-successful) so the caller can tell the two apart
+  }
+}
+async function renderMappingAgentRows() {
+  const container = document.getElementById('mappingAgentRows');
+  container.innerHTML = '<div class="tf-need-process">Loading agents…</div>';
+  const rows = await fetchOndcAgentMappings();
+  if (rows === null) { container.innerHTML = '<div class="tf-need-process">Failed to load agents — try again.</div>'; return; }
+  if (!rows.length) { container.innerHTML = '<div class="tf-need-process">No recent ONDC agents found.</div>'; return; }
+
+  container.innerHTML = rows.map((r, i) => `
+    <div class="mp-row" id="mp-row-${i}">
+      <div class="mp-agent">${r.sparktg_agent_name}</div>
+      <div class="mp-sf">
+        <input type="text" class="form-input" id="mp-sf-${i}"
+          data-agent="${r.sparktg_agent_name.replace(/"/g, '&quot;')}"
+          data-original="${(r.salesforce_agent_name || '').replace(/"/g, '&quot;')}"
+          value="${(r.salesforce_agent_name || '').replace(/"/g, '&quot;')}"
+          placeholder="Not mapped yet">
+      </div>
+    </div>`).join('');
+
+  // Highlight rows the user actually edits, so it's obvious at a glance what
+  // will actually get submitted (unchanged rows are skipped entirely).
+  container.querySelectorAll('.mp-sf input').forEach(input => {
+    input.addEventListener('input', () => {
+      const changed = input.value !== input.dataset.original;
+      input.closest('.mp-row').classList.toggle('mp-changed', changed);
+    });
+  });
+}
+function updateMappingVisibility() {
+  const isOndc = processSelect.value === 'ONDC';
+  document.getElementById('mappingNotOndc').style.display = isOndc ? 'none' : 'block';
+  document.getElementById('mappingFields').classList.toggle('tf-hidden', !isOndc);
+  if (isOndc) renderMappingAgentRows();
+}
+// Collects only the rows the user actually edited (value !== the value it
+// loaded with) -- this is what "skip unchanged rows" / "no duplicate rows
+// added" means in practice: an untouched row never gets submitted at all.
+function getChangedMappings() {
+  const changed = [];
+  document.querySelectorAll('#mappingAgentRows .mp-sf input').forEach(input => {
+    const val = input.value.trim();
+    if (val !== '' && val !== input.dataset.original) {
+      changed.push({ sparktgAgentName: input.dataset.agent, salesforceAgentName: val });
+    }
+  });
+  return changed;
+}
+
+// Call Tag Correction: live list of ResMed calls whose note category doesn't
+// match call_type, excluding anything already corrected (server-side LEFT
+// JOIN against call_tag_corrections). Cached per page load like the ONDC
+// mapping list -- invalidated after a successful submit so the just-fixed
+// call drops off the list immediately.
+const OUTBOUND_CATEGORIES = ['OB - Fresh HST Follow Ups', 'OB - Fresh HST', 'OB - Call Back on Missed Calls',
+  'OB - Inaudible or Disconnected Calls', 'OB - AV Registration', 'OB - AirSense 11 Upselling',
+  'OB - AirMini Upselling', 'OB - Feedback Calls', 'Other Outbound Calls'];
+const INBOUND_CATEGORIES = ['Sales Lead', 'Service Query', 'Rewards & Registration', 'Non Customer Query', 'Other Inbound', 'Handled by Sales Team'];
+
+let flaggedTagsCache = null;
+let selectedFlaggedCall = null;
+async function fetchFlaggedTags() {
+  if (flaggedTagsCache) return flaggedTagsCache;
+  try {
+    const to = new Date().toISOString().slice(0, 10);
+    const from = new Date(Date.now() - 60 * 86400000).toISOString().slice(0, 10);
+    const res = await fetch(`${RESMED_FLAGGED_TAGS_URL}?from=${from}&to=${to}`);
+    if (!res.ok) throw new Error(`Flagged tags API ${res.status}`);
+    const data = await res.json();
+    const rows = Array.isArray(data) ? data : (Array.isArray(data.data) ? data.data : []);
+    flaggedTagsCache = rows;
+    return rows;
+  } catch (err) {
+    console.error('fetchFlaggedTags failed:', err);
+    return null;
+  }
+}
+function selectFlaggedCall(row, el) {
+  selectedFlaggedCall = row;
+  document.querySelectorAll('#tagCorrectionRows .mp-row').forEach(r => r.classList.remove('mp-changed'));
+  el.classList.add('mp-changed');
+  const sel = document.getElementById('correctedCategory');
+  const options = row.call_type === 'OUTBOUND' ? OUTBOUND_CATEGORIES : INBOUND_CATEGORIES;
+  sel.innerHTML = '<option value="">—</option>' + options.map(c => `<option>${c}</option>`).join('');
+  document.getElementById('tagCorrectionPickFields').style.display = '';
+}
+async function renderFlaggedTagRows() {
+  const container = document.getElementById('tagCorrectionRows');
+  container.innerHTML = '<div class="tf-need-process">Loading flagged calls…</div>';
+  document.getElementById('tagCorrectionPickFields').style.display = 'none';
+  selectedFlaggedCall = null;
+  const rows = await fetchFlaggedTags();
+  if (rows === null) { container.innerHTML = '<div class="tf-need-process">Failed to load flagged calls — try again.</div>'; return; }
+  if (!rows.length) { container.innerHTML = '<div class="tf-need-process">No calls currently flagged for correction.</div>'; return; }
+
+  container.innerHTML = '<div class="mp-row mp-row-header"><div class="mp-agent">Call</div><div class="mp-sf">Current Category</div></div>' +
+    rows.map((r, i) => `
+    <div class="mp-row" id="ftc-row-${i}" style="cursor:pointer;" onclick="selectFlaggedCall(window.__flaggedRows[${i}], document.getElementById('ftc-row-${i}'))">
+      <div class="mp-agent">${r.call_date} · ${r.call_type} · ${(r.received_by || '').split(',')[0].trim()}${r.recording_url ? ` · <a href="${r.recording_url}" target="_blank" onclick="event.stopPropagation()">Listen</a>` : ''}</div>
+      <div class="mp-sf">${r.category}</div>
+    </div>`).join('');
+  window.__flaggedRows = rows;
+}
+function updateCallTagCorrectionVisibility() {
+  const isResmed = processSelect.value === 'ResMed';
+  document.getElementById('tagCorrectionNotResmed').style.display = isResmed ? 'none' : 'block';
+  document.getElementById('tagCorrectionFields').classList.toggle('tf-hidden', !isResmed);
+  if (isResmed) renderFlaggedTagRows();
+}
+
+function updateVisibility() {
+  const t = typeSelect.value;
+  groups.forEach(g => {
+    const types = g.dataset.type.split(',');
+    g.classList.toggle('tf-hidden', !(t && types.includes(t)));
+  });
+  document.getElementById('dateLabel').textContent = (t === 'Quality' ? 'Date of Call' : t === 'Conversion' ? 'Payment Date' : 'Date') + ' *';
+  // Agent Name Mapping doesn't use the shared Date/Agent Name fields at the
+  // top -- it has its own SparkTG dropdown, and the row is timestamped
+  // automatically. Hide them AND drop the native `required` attribute, or a
+  // hidden-but-required field silently blocks submission.
+  const isMapping = t === 'Agent Name Mapping' || t === 'Call Tag Correction';
+  document.getElementById('dateFieldWrap').classList.toggle('tf-hidden', isMapping);
+  document.getElementById('date').required = !isMapping;
+  document.getElementById('agentNameFieldWrap').classList.toggle('tf-hidden', isMapping);
+  const agentEl = document.getElementById('agentName');
+  if (agentEl) agentEl.required = !isMapping;
+  if (t === 'Quality') renderQualityFields(processSelect.value);
+  if (t === 'Appreciation' || t === 'Escalation') updateReceivedViaVisibility();
+  if (t === 'Conversion') updateConversionVisibility();
+  if (t === 'Email Productivity') updateEmailProdVisibility();
+  if (t === 'Agent Name Mapping') updateMappingVisibility();
+  if (t === 'Call Tag Correction') updateCallTagCorrectionVisibility();
+}
+typeSelect.addEventListener('change', updateVisibility);
+processSelect.addEventListener('change', () => {
+  renderAgentOptions(processSelect.value);
+  if (typeSelect.value === 'Quality') renderQualityFields(processSelect.value);
+  if (typeSelect.value === 'Conversion') updateConversionVisibility();
+  if (typeSelect.value === 'Email Productivity') updateEmailProdVisibility();
+  if (typeSelect.value === 'Agent Name Mapping') updateMappingVisibility();
+  if (typeSelect.value === 'Call Tag Correction') updateCallTagCorrectionVisibility();
+});
+document.getElementById('auditType').addEventListener('change', () => {
+  if (typeSelect.value === 'Quality') renderQualityFields(processSelect.value);
+});
+updateVisibility();
+
+['input', 'change'].forEach(evt => {
+  document.getElementById('qualityScoreFields').addEventListener(evt, () => refreshQualityScoreDisplay());
+});
+
+document.getElementById('trackerForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const msg = document.getElementById('tfMsg');
+  const btn = document.getElementById('submitBtn');
+  msg.className = 'tf-msg';
+
+  if (!currentUser) {
+    msg.textContent = 'Please sign in with Microsoft before submitting.';
+    msg.className = 'tf-msg show error';
+    return;
+  }
+
+  const val = id => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
+  const type = val('trackerType');
+
+  // Type-specific fields aren't marked with the native `required` attribute because
+  // they live inside a .tf-group that gets display:none'd when a different Tracker
+  // Type is picked — a hidden required field silently blocks submission with no
+  // visible error. Validating explicitly here instead so users get a clear message.
+  const missingFields = [];
+  const requireField = (id, label) => { if (!val(id)) missingFields.push(label); };
+  if (type === 'Downtime') {
+    requireField('startTime', 'Start Time');
+    requireField('endTime', 'End Time');
+    requireField('reasonCategory', 'Reason');
+    requireField('reasonDetail', 'Description');
+  } else if (type === 'Training') {
+    requireField('typeOfTraining', 'Type of Training');
+    requireField('trainStartTime', 'Start Time');
+    requireField('trainEndTime', 'End Time');
+    requireField('description', 'Description');
+  } else if (type === 'Quality') {
+    const hasEmailOption = !!QUALITY_EMAIL_RUBRIC[val('processName')];
+    if (hasEmailOption) requireField('auditType', 'Audit Type');
+    const isCallless = (hasEmailOption && val('auditType') === 'Email') || val('processName') === 'ONDC';
+    if (!isCallless) {
+      requireField('transactionId', 'Call Transaction ID');
+      requireField('recordingUrl', 'Call Recording Link');
+    }
+    requireField('dateOfAudit', 'Date of Audit');
+    document.querySelectorAll('#qualityScoreFields [id^="q_"]').forEach(el => {
+      if (!el.value.trim()) missingFields.push(el.dataset.scoreLabel);
+    });
+  } else if (type === 'Appreciation' || type === 'Escalation') {
+    requireField('activityCount', 'Total Count');
+    requireField('receivedVia', 'Received Via');
+    const via = val('receivedVia');
+    if (via === 'Call') {
+      requireField('viaPhoneNumber', 'Phone Number');
+      requireField('viaCallTxnId', 'Call Transaction ID');
+      requireField('viaCallLink', 'Call Link');
+    } else if (via === 'Email') {
+      requireField('viaEmailSubject', 'Email Subject');
+      requireField('viaSender', 'Sender');
+    } else if (via === 'Chat') {
+      requireField('viaChatId', 'Chat ID');
+      requireField('viaChatSubject', 'Chat Subject');
+    }
+  } else if (type === 'Conversion') {
+    if (val('processName') !== 'ResMed') {
+      msg.textContent = 'Conversion tracking is only available for ResMed.';
+      msg.className = 'tf-msg show error';
+      return;
+    }
+    requireField('closureType', 'Closure Type');
+    requireField('conversionMobile', 'Mobile Number');
+    requireField('conversionEmail', 'Email');
+  } else if (type === 'Email Productivity') {
+    if (!EMAIL_PROD_PROCESSES.includes(val('processName'))) {
+      msg.textContent = 'Email Productivity tracking is only available for ResMed, Infres, VMM, and Nihon.';
+      msg.className = 'tf-msg show error';
+      return;
+    }
+    requireField('emailCount', 'Emails Sent');
+  } else if (type === 'Agent Name Mapping') {
+    if (val('processName') !== 'ONDC') {
+      msg.textContent = 'Agent Name Mapping is only available for ONDC.';
+      msg.className = 'tf-msg show error';
+      return;
+    }
+    if (!getChangedMappings().length) {
+      msg.textContent = 'No changes to submit — edit at least one Salesforce Agent Name.';
+      msg.className = 'tf-msg show error';
+      return;
+    }
+  } else if (type === 'Call Tag Correction') {
+    if (val('processName') !== 'ResMed') {
+      msg.textContent = 'Call Tag Correction is only available for ResMed.';
+      msg.className = 'tf-msg show error';
+      return;
+    }
+    if (!selectedFlaggedCall) {
+      msg.textContent = 'Select a flagged call to correct.';
+      msg.className = 'tf-msg show error';
+      return;
+    }
+    requireField('correctedCategory', 'Corrected Category');
+  }
+  if (missingFields.length) {
+    msg.textContent = 'Please fill in: ' + missingFields.join(', ');
+    msg.className = 'tf-msg show error';
+    return;
+  }
+
+  const scores = {};
+  const mapped = {};
+  document.querySelectorAll('#qualityScoreFields [id^="q_"]').forEach(el => {
+    if (el.value === '') return;
+    const fieldId = el.id.slice(2);
+    const target = ID_FIELD_MAP[fieldId];
+    if (target === 'remarks') {
+      mapped.remarks = mapped.remarks ? mapped.remarks + ' | ' + el.value : el.value;
+    } else if (target === 'callRegarding') {
+      mapped.callRegarding = fieldId === 'case_id' ? ('Case/Chat ID: ' + el.value) : el.value;
+    } else if (target) {
+      mapped[target] = el.value;
+    } else {
+      scores[el.dataset.scoreLabel] = el.value;
+    }
+  });
+
+  let viaTransactionId = null, viaRecordingUrl = null, viaContactNumber = null, viaSubject = null,
+      viaReceivedVia = null, viaAppreciationReceivedFrom = null, viaEscalationReceivedFrom = null;
+  if (type === 'Appreciation' || type === 'Escalation') {
+    viaReceivedVia = val('receivedVia') || null;
+    if (viaReceivedVia === 'Call') {
+      viaContactNumber = val('viaPhoneNumber') || null;
+      viaTransactionId = val('viaCallTxnId') || null;
+      viaRecordingUrl = val('viaCallLink') || null;
+    } else if (viaReceivedVia === 'Email') {
+      viaSubject = val('viaEmailSubject') || null;
+      const sender = val('viaSender') || null;
+      if (type === 'Appreciation') viaAppreciationReceivedFrom = sender; else viaEscalationReceivedFrom = sender;
+    } else if (viaReceivedVia === 'Chat') {
+      viaTransactionId = val('viaChatId') || null;
+      viaSubject = val('viaChatSubject') || null;
+    }
+  }
+
+  const payload = {
+    trackerType: type,
+    processName: val('processName'),
+    date: val('date'),
+    agentName: val('agentName'),
+    auditedBy: currentUser.name,
+    auditedByEmail: currentUser.email,
+    startTime: type === 'Training' ? (val('trainStartTime') || null) : (val('startTime') || null),
+    endTime: type === 'Training' ? (val('trainEndTime') || null) : (val('endTime') || null),
+    reasonCategory: val('reasonCategory') || null,
+    reasonDetail: val('reasonDetail') || null,
+    typeOfTraining: val('typeOfTraining') || null,
+    description: val('description') || null,
+    transactionId: type === 'Quality' ? (val('transactionId') || null) : viaTransactionId,
+    recordingUrl: type === 'Quality' ? (val('recordingUrl') || null) : viaRecordingUrl,
+    dateOfAudit: type === 'Quality' ? (val('dateOfAudit') || null) : null,
+    count: (type === 'Appreciation' || type === 'Escalation') ? (parseInt(val('activityCount'), 10) || null) : null,
+    receivedVia: viaReceivedVia,
+    contactNumber: viaContactNumber,
+    subject: viaSubject,
+    appreciationReceivedFrom: viaAppreciationReceivedFrom,
+    escalationReceivedFrom: viaEscalationReceivedFrom,
+    fatalError: mapped.fatalError || null,
+    hangupBy: mapped.hangupBy || null,
+    typeOfCall: mapped.typeOfCall || null,
+    callRegarding: mapped.callRegarding || null,
+    areasOfImprovement: mapped.areasOfImprovement || null,
+    trainingRequirement: mapped.trainingRequirement || null,
+    remarks: (type === 'Appreciation' || type === 'Escalation') ? (val('activityRemarks') || null) : (mapped.remarks || null),
+    mailReceivedFrom: mapped.mailReceivedFrom || null,
+    complaintNumber: mapped.complaintNumber || null,
+    closureType: type === 'Conversion' ? (val('closureType') || null) : null,
+    conversionMobile: type === 'Conversion' ? (val('conversionMobile') || null) : null,
+    conversionEmail: type === 'Conversion' ? (val('conversionEmail') || null) : null,
+    emailCount: type === 'Email Productivity' && val('emailCount') !== '' ? parseInt(val('emailCount'), 10) : null,
+    mappings: type === 'Agent Name Mapping' ? getChangedMappings() : null,
+    txnId: type === 'Call Tag Correction' && selectedFlaggedCall ? selectedFlaggedCall.txn_id : null,
+    callDate: type === 'Call Tag Correction' && selectedFlaggedCall ? selectedFlaggedCall.call_date : null,
+    callType: type === 'Call Tag Correction' && selectedFlaggedCall ? selectedFlaggedCall.call_type : null,
+    originalCategory: type === 'Call Tag Correction' && selectedFlaggedCall ? selectedFlaggedCall.category : null,
+    correctedCategory: type === 'Call Tag Correction' ? (val('correctedCategory') || null) : null,
+    scores: Object.keys(scores).length ? scores : null
+  };
+  if (type === 'Call Tag Correction') payload.remarks = val('tagCorrectionRemarks') || null;
+
+  btn.disabled = true;
+  btn.innerHTML = '<i class="ti ti-loader-2"></i> Submitting...';
+  try {
+    const res = await fetch(WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    let resBody = null;
+    try { resBody = await res.json(); } catch (e) { /* non-JSON response, ignore */ }
+    if (!res.ok) throw new Error((resBody && resBody.message) ? resBody.message : ('Server responded ' + res.status));
+    msg.textContent = 'Entry submitted successfully.';
+    msg.className = 'tf-msg show success';
+    // Keep Tracker Type + Process Name so back-to-back entries of the same
+    // kind (e.g. logging several Quality audits in a row) don't force a
+    // re-select every time -- native form.reset() would blank both back to
+    // "Select type...".
+    const preservedType = typeSelect.value;
+    const preservedProcess = processSelect.value;
+    // Mapping rows are pre-filled from a cached fetch -- invalidate it so the
+    // re-render after this submit shows the values just saved, not stale ones.
+    if (preservedType === 'Agent Name Mapping') ondcAgentMappingsCache = null;
+    if (preservedType === 'Call Tag Correction') flaggedTagsCache = null;
+    document.getElementById('trackerForm').reset();
+    typeSelect.value = preservedType;
+    processSelect.value = preservedProcess;
+    renderAgentOptions(preservedProcess);
+    updateVisibility();
+    // The webhook responds the instant it receives the request, before its
+    // MySQL insert actually runs -- give that a moment to land before refreshing.
+    setTimeout(loadLastSubmissions, 1500);
+  } catch (err) {
+    msg.textContent = 'Failed to submit: ' + err.message;
+    msg.className = 'tf-msg show error';
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="ti ti-send"></i> Submit Entry';
+  }
+});
+</script>
+</body>
+</html>
