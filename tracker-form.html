@@ -668,7 +668,11 @@ function renderQualityFields(processName) {
     const wrap = document.createElement('div');
     wrap.className = 'tf-field' + (field.type === 'textarea' ? ' full' : '');
     const label = document.createElement('label');
-    label.textContent = field.label + ' *';
+    // Complaint Number / Mail Received From aren't always available (e.g. a
+    // case logged before a complaint number was issued) -- optional, so no
+    // required-marker and not enforced in the missing-fields check below.
+    const isOptionalScoreField = field.id === 'complaint_no' || field.id === 'mail_received_from';
+    label.textContent = field.label + (isOptionalScoreField ? '' : ' *');
     wrap.appendChild(label);
     let input;
     if (field.type === 'select') {
@@ -1012,7 +1016,9 @@ document.getElementById('trackerForm').addEventListener('submit', async (e) => {
       requireField('recordingUrl', 'Call Recording Link');
     }
     requireField('dateOfAudit', 'Date of Audit');
+    const OPTIONAL_SCORE_FIELD_IDS = new Set(['q_complaint_no', 'q_mail_received_from']);
     document.querySelectorAll('#qualityScoreFields [id^="q_"]').forEach(el => {
+      if (OPTIONAL_SCORE_FIELD_IDS.has(el.id)) return;
       if (!el.value.trim()) missingFields.push(el.dataset.scoreLabel);
     });
   } else if (type === 'Appreciation' || type === 'Escalation') {
