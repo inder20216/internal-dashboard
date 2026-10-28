@@ -240,10 +240,13 @@ function emailHandled(r) {
 // Mohit Kumar replaced Kumkum going forward (Oct 2026); Kumkum stays in the
 // allowlist so her existing historical rows keep showing correctly.
 const RESMED_AGENT_ALLOWLIST = new Set(['Gulshan Khan', 'Kumkum', 'Mohit Kumar', 'Avijit Dey', 'Sagarika Bose']);
-// HST charts specifically show current OM team members only (no departed
-// agents like Kumkum, even though she stays in RESMED_AGENT_ALLOWLIST above
-// for historical continuity elsewhere) -- per explicit request.
-const RESMED_HST_OM_TEAM = new Set(['Gulshan Khan', 'Avijit Dey', 'Mohit Kumar', 'Sagarika Bose']);
+// HST charts' agent roster -- was OM-team-only excluding departed agents
+// like Kumkum, but per a later explicit request Kumkum is back in (to see
+// her still-pending HST leads so the team can decide on reassignment), and
+// Snehil Sonkar is now included too. The two HST webhooks (allocation
+// report / summary) already scope to their own specific rosters server-side
+// -- this is just a safety net that must not be narrower than either of them.
+const RESMED_HST_OM_TEAM = new Set(['Gulshan Khan', 'Avijit Dey', 'Mohit Kumar', 'Sagarika Bose', 'Snehil Sonkar', 'Kumkum']);
 // Per-process short-name/misspelling -> canonical-name maps. ResMed's picks the
 // full name; other processes pick whichever spelling has the higher row count
 // (e.g. Baxter's "Rashmi" has far more rows across trackers than "Rashmi Gusain").
