@@ -297,6 +297,16 @@ const NON_AGENT_LABELS = new Set([
   'A Block OPD Extension ground floor', 'Corporate desk', 'Dialysis Billing',
   'Echo Lab', 'Harshita PHC Lab', 'TPA Dispatch Extension'
 ]);
+// ResMed shares its SparkTG line with several names that aren't our agents
+// (ResMed's own in-house team) -- unlike the pseudo-agent labels above,
+// these are real-looking person names with no structural pattern to catch
+// them, so they need an explicit roster instead. 'Admin' and 'Sagarika Bose'
+// are both listed because SparkTG hasn't been relabeled from 'Admin' yet for
+// that extension; 'Kumkum' and 'Mohit Kumar' share one SIP mid-handover.
+// Used only for the two "Agent Missed" views (the KPI card's Agent bucket
+// and the Agent Missed bar chart) -- everything else on the ResMed
+// dashboard is intentionally left unscoped.
+const RESMED_OUR_AGENTS = new Set(['Admin', 'Sagarika Bose', 'Avijit Dey', 'Gulshan Khan', 'Kumkum', 'Mohit Kumar']);
 function isTransferPseudoAgent(name) {
   // Some rows carry a literal "&nbsp;" (or other stray HTML entity) baked into
   // the raw CRM export -- e.g. "Corporate desk&nbsp;" -- which fails an exact
@@ -417,7 +427,18 @@ function aggregateProcess(rows, processName) {
   // exists), and "Missed Working Hours" already sums all 4 under the same
   // working-hours filter as Queue/IVR/Service below -- so backing Agent out
   // as the remainder is exact, using only fields already in the sheet.
-  const agentMissedIbWh = missedWorkingHours - queueMissedWh - ivrMissedWh - serviceMissedWh;
+  //
+  // ResMed override: the residual above counts ANY agent's missed calls,
+  // including the several names on ResMed's shared SparkTG line that are
+  // ResMed's own in-house team, not ours. For ResMed specifically, this
+  // card should only reflect missed calls our own agents are responsible
+  // for -- so it's a direct sum over RESMED_OUR_AGENTS instead of the
+  // residual, even though that means dummy/forward-target calls with no
+  // agent row (which the residual approach exists to capture) are excluded
+  // here too, same as any other non-our-agent miss.
+  const agentMissedIbWh = processName === 'ResMed'
+    ? sumNumber(daily.filter(r => RESMED_OUR_AGENTS.has(agentName(r))), "Agent Missed IB (WH)")
+    : missedWorkingHours - queueMissedWh - ivrMissedWh - serviceMissedWh;
   const missedNonWorkingHours = sumProcessDayConstant(daily, "Missed Non-Working Hours");
   // Working-hours-only version of totalCalls (Step12) -- the correct
   // denominator for a working-hours-scoped Missed Call %, since totalCalls
@@ -481,7 +502,7 @@ function aggregateProcess(rows, processName) {
   // column too, same as the true "all processes" admin view.
   const showProcessColumn = !processName || processName === 'Facility';
   const agents = aggregateAgents(daily, showProcessColumn);
-  const agentMissedBreakdown = aggregateAgentMissed(daily);
+  const agentMissedBreakdown = aggregateAgentMissed(daily, processName);
   // NOTE: charts.js's renderAgentMissed deliberately excludes the "Non OM
   // Agents" entry from the chart (real agents only, per explicit request) --
   // so the top-up below currently has no visible effect on that chart. It's
@@ -582,11 +603,17 @@ function aggregateProcess(rows, processName) {
    Kept as its own lightweight pass rather than folded into aggregateAgents
    so every other metric there keeps excluding pseudo-agents entirely as
    before -- this is scoped to the Agent Missed chart only. */
-function aggregateAgentMissed(rows) {
+function aggregateAgentMissed(rows, processName) {
   const map = new Map();
   rows.forEach(r => {
     const rawAgent = agentName(r);
-    const agent = isTransferPseudoAgent(rawAgent) ? 'Non OM Agents' : rawAgent;
+    // ResMed: in addition to the usual pseudo-agent check, anyone not in our
+    // known roster (ResMed's own in-house team) also collapses into "Non OM
+    // Agents" -- same bucket the chart already excludes, so this is the only
+    // change needed to keep those names off the "Agent Missed" bar chart.
+    const isNonOurs = isTransferPseudoAgent(rawAgent)
+      || (processName === 'ResMed' && !RESMED_OUR_AGENTS.has(rawAgent));
+    const agent = isNonOurs ? 'Non OM Agents' : rawAgent;
     const cur = map.get(agent) || { agent, agentMissedIbWh: 0, agentMissedOb: 0, inboundAnswered: 0, outboundAll: 0 };
     cur.agentMissedIbWh += toNumber(r["Agent Missed IB (WH)"]);
     cur.agentMissedOb += toNumber(r["Agent Missed (OB)"]);
