@@ -714,6 +714,17 @@ function aggregateAgents(rows, includeProcess) {
     // that silently flags "exactly 1 hour" as exceeding the target, even though
     // the displayed HH:MM:SS shows exactly 1:00:00.
     const breakSecForTarget = Math.round(dayCount > 1 ? breakSecTotal / dayCount : breakSecTotal);
+    // Avg Login Duration / Avg Training Duration per day -- same dayCount
+    // denominator as Avg Break above, for the Agent Averages panel.
+    const trainingSecTotal = sumSecondsRaw(a.rows, "Training Duration");
+    const avgLoginSec = Math.round(hrsSec / dayCount);
+    const avgTrainingSec = Math.round(trainingSecTotal / dayCount);
+    // Breaks exceeded -- per real day (not averaged): how many individual
+    // days this agent's break went over the 1-hour target, and the total
+    // excess time summed across just those over-target days.
+    const breakExceededRows = a.rows.filter(r => excelDayToSeconds(r["Break time"]) > BREAK_TARGET_SEC);
+    const breakExceededDaysCount = breakExceededRows.length;
+    const breakExceededTotalSec = breakExceededRows.reduce((s, r) => s + (excelDayToSeconds(r["Break time"]) - BREAK_TARGET_SEC), 0);
     // First Login / Last Logout across the whole date range -- earliest
     // "Login Time" and latest "Login Out" clock-of-day value seen for this
     // agent, used by the Agent Login Window (Gantt-style) chart. These are
@@ -740,6 +751,8 @@ function aggregateAgents(rows, includeProcess) {
       breakDaysCount: dayCount,
       breakSecForTarget,
       breakVsTargetSec: breakSecForTarget - BREAK_TARGET_SEC,
+      breakExceededDaysCount, breakExceededTotalSec,
+      avgLoginSec, avgTrainingSec,
       trainingDuration: sumSeconds(a.rows, "Training Duration", "Training Duration (formatted)"),
       // Calls actually routed to this specific agent (answered by them or missed by them) —
       // NOT "Total Inbound Calls", which is a process-wide broadcast value repeated on every

@@ -344,67 +344,6 @@ function hourClockLabel(h) {
   return `${h12}:${String(mm).padStart(2, '0')} ${period}`;
 }
 
-function renderAgentLoginRange(id, agents, isDark) {
-  const ctx = getCtx(id);
-  if (!ctx) return;
-  const textColor = isDark ? '#b0b5c0' : '#6b7280';
-  const sorted = (agents || [])
-    .filter(a => a.firstLoginSec != null && a.lastLogoutSec != null && a.lastLogoutSec > a.firstLoginSec)
-    .sort((a, b) => a.firstLoginSec - b.firstLoginSec);
-
-  const firstHrs = sorted.map(a => a.firstLoginSec / 3600);
-  const lastHrs = sorted.map(a => a.lastLogoutSec / 3600);
-  const minScale = sorted.length ? Math.max(0, Math.floor(Math.min(...firstHrs)) - 1) : 0;
-  const maxScale = sorted.length ? Math.min(24, Math.ceil(Math.max(...lastHrs)) + 1) : 24;
-
-  ctx.chart = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: sorted.map(a => a.agent),
-      datasets: [{
-        label: 'Login Window',
-        data: sorted.map(a => [a.firstLoginSec / 3600, a.lastLogoutSec / 3600]),
-        backgroundColor: 'rgba(37,99,235,0.65)',
-        borderRadius: 4,
-        barThickness: 14,
-        datalabels: {
-          anchor: 'end', align: 'right', offset: 2, color: textColor, font: { size: 9, weight: '600' },
-          formatter: (v, c) => {
-            const a = sorted[c.dataIndex];
-            return `${hourClockLabel(a.firstLoginSec / 3600)}–${hourClockLabel(a.lastLogoutSec / 3600)} · ${a.loginDuration}`;
-          }
-        }
-      }]
-    },
-    options: {
-      indexAxis: 'y',
-      responsive: true, maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          backgroundColor: isDark ? '#1a1d2e' : '#fff', titleColor: isDark ? '#e8eaed' : '#1a1d2e',
-          bodyColor: isDark ? '#b0b5c0' : '#6b7280', borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
-          borderWidth: 1, padding: 10, cornerRadius: 8,
-          callbacks: {
-            label: c => {
-              const a = sorted[c.dataIndex];
-              return [
-                `First Login: ${hourClockLabel(a.firstLoginSec / 3600)}`,
-                `Last Logout: ${hourClockLabel(a.lastLogoutSec / 3600)}`,
-                `Total Login Duration: ${a.loginDuration}`
-              ];
-            }
-          }
-        }
-      },
-      scales: {
-        x: { min: minScale, max: maxScale, ticks: { color: textColor, font: { size: 10 }, stepSize: 1, callback: v => hourClockLabel(v) }, grid: { display: false } },
-        y: { ticks: { color: textColor, font: { size: 10 } }, grid: { display: false } }
-      }
-    }
-  });
-}
-
 function renderBreakDuration(id, agents, isDark) {
   const ctx = getCtx(id);
   if (!ctx) return;
@@ -529,7 +468,9 @@ function renderAgentHangup(id, agents, isDark) {
   });
 }
 
-/* ── TRAINING DURATION — AGENT WISE TOTAL (type breakdown stays in the table below) ── */
+/* ── AVG TRAINING DURATION — AGENT WISE (per-day average; caller pre-divides
+   each row's durationSec by that agent's active-day count before calling
+   this, so the sum below comes out as a daily average, not a range total) ── */
 function renderTrainingByAgent(id, training, isDark) {
   const ctx = getCtx(id);
   if (!ctx) return;
@@ -541,14 +482,39 @@ function renderTrainingByAgent(id, training, isDark) {
     type: 'bar',
     data: {
       labels: sorted.map(([agent]) => agent),
-      datasets: [{ label: 'Training Duration', data: sorted.map(([, sec]) => Math.round(sec / 60)), backgroundColor: 'rgba(37,99,235,0.8)', borderRadius: 3 }]
+      datasets: [{ label: 'Avg Training Duration', data: sorted.map(([, sec]) => Math.round(sec / 60)), backgroundColor: 'rgba(37,99,235,0.8)', borderRadius: 3 }]
     },
     options: {
-      ...defaultOpts('Training Duration by Agent', isDark),
+      ...defaultOpts('Avg Training Duration by Agent', isDark),
       // Reserve headroom above the tallest bar or its datalabel gets clipped
       // by the canvas edge (happened with the previous no-padding layout).
       layout: { padding: { top: 24 } },
-      plugins: { ...defaultOpts('Training Duration by Agent', isDark).plugins, legend: { display: false }, datalabels: { anchor: 'end', align: 'end', offset: 2, color: textColor, font: { size: 9, weight: '600' }, formatter: v => v ? secondsToHms(v * 60) : '' } },
+      plugins: { ...defaultOpts('Avg Training Duration by Agent', isDark).plugins, legend: { display: false }, datalabels: { anchor: 'end', align: 'end', offset: 2, color: textColor, font: { size: 9, weight: '600' }, formatter: v => v ? secondsToHms(v * 60) : '' } },
+      scales: {
+        x: { ticks: { color: textColor, font: { size: 10 } }, grid: { display: false } },
+        y: { beginAtZero: true, ticks: { color: textColor, font: { size: 10 }, callback: v => secondsToHms(v * 60) }, grid: { display: false } }
+      }
+    }
+  });
+}
+
+/* ── AVG LOGIN DURATION — AGENT WISE (replaces the First-Login-to-Last-Logout
+   Gantt chart; same per-day-average shape as Avg Break/Training/Downtime) ── */
+function renderAgentAvgLogin(id, agents, isDark) {
+  const ctx = getCtx(id);
+  if (!ctx) return;
+  const textColor = isDark ? '#b0b5c0' : '#6b7280';
+  const sorted = (agents || []).filter(a => a.avgLoginSec > 0).sort((a, b) => b.avgLoginSec - a.avgLoginSec);
+  ctx.chart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: sorted.map(a => a.agent),
+      datasets: [{ label: 'Avg Login Duration', data: sorted.map(a => Math.round(a.avgLoginSec / 60)), backgroundColor: 'rgba(5,150,105,0.8)', borderRadius: 3 }]
+    },
+    options: {
+      ...defaultOpts('Avg Login Duration by Agent', isDark),
+      layout: { padding: { top: 24 } },
+      plugins: { ...defaultOpts('Avg Login Duration by Agent', isDark).plugins, legend: { display: false }, datalabels: { anchor: 'end', align: 'end', offset: 2, color: textColor, font: { size: 9, weight: '600' }, formatter: v => v ? secondsToHms(v * 60) : '' } },
       scales: {
         x: { ticks: { color: textColor, font: { size: 10 } }, grid: { display: false } },
         y: { beginAtZero: true, ticks: { color: textColor, font: { size: 10 }, callback: v => secondsToHms(v * 60) }, grid: { display: false } }
@@ -584,7 +550,9 @@ function renderAppreciationEscalation(id, agents, isDark) {
   });
 }
 
-/* ── DOWNTIME — AGENT WISE TOTAL (reason breakdown stays in the table below) ── */
+/* ── AVG DOWNTIME — AGENT WISE (per-day average; caller pre-divides each row's
+   durationSec by that agent's active-day count before calling this, same
+   pattern as renderTrainingByAgent; reason breakdown stays in the table below) ── */
 function renderDowntimeByAgent(id, downtime, isDark) {
   const ctx = getCtx(id);
   if (!ctx) return;
@@ -596,12 +564,12 @@ function renderDowntimeByAgent(id, downtime, isDark) {
     type: 'bar',
     data: {
       labels: sorted.map(([agent]) => agent),
-      datasets: [{ label: 'Downtime', data: sorted.map(([, sec]) => Math.round(sec / 60)), backgroundColor: 'rgba(220,38,38,0.8)', borderRadius: 3 }]
+      datasets: [{ label: 'Avg Downtime', data: sorted.map(([, sec]) => Math.round(sec / 60)), backgroundColor: 'rgba(220,38,38,0.8)', borderRadius: 3 }]
     },
     options: {
-      ...defaultOpts('Downtime by Agent', isDark),
+      ...defaultOpts('Avg Downtime by Agent', isDark),
       layout: { padding: { top: 24 } },
-      plugins: { ...defaultOpts('Downtime by Agent', isDark).plugins, legend: { display: false }, datalabels: { anchor: 'end', align: 'end', offset: 2, color: textColor, font: { size: 9, weight: '600' }, formatter: v => v ? secondsToHms(v * 60) : '' } },
+      plugins: { ...defaultOpts('Avg Downtime by Agent', isDark).plugins, legend: { display: false }, datalabels: { anchor: 'end', align: 'end', offset: 2, color: textColor, font: { size: 9, weight: '600' }, formatter: v => v ? secondsToHms(v * 60) : '' } },
       scales: {
         x: { ticks: { color: textColor, font: { size: 10 } }, grid: { display: false } },
         y: { beginAtZero: true, ticks: { color: textColor, font: { size: 10 }, callback: v => secondsToHms(v * 60) }, grid: { display: false } }
@@ -1221,7 +1189,7 @@ window.CHARTS = {
   renderAgentHeatmap, renderMiniChart, renderDayWiseChart,
   renderAgentProductivity, renderBreakDuration, renderQualityRatio, renderAgentMissed, renderAgentHangup, renderTrainingByAgent, renderDowntimeByAgent, renderAppreciationEscalation, renderStatBar, renderHourlyMissed, renderFreshCallsComparison,
   renderFacilityCallCases, renderFacilityEmailCases, renderEmailSentAgentWise, renderIBCasesAppointments,
-  renderObActivityCombo, renderPsriObDetailChart, renderAgentLoginRange,
+  renderObActivityCombo, renderPsriObDetailChart, renderAgentAvgLogin,
   renderHstCountsByLeadSource, renderHstFollowUpStatus, renderHstClosedConversionIssues,
   chartColors, colorPalette
 };

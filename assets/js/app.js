@@ -343,7 +343,10 @@ function renderDashboard() {
         <div class="panel-header"><i class="ti ti-coffee"></i> Break Duration vs 1-Hour Target — ${range.from === range.to ? 'Total for ' + range.from : 'Daily Average'}
           <span class="insight-badge red" style="margin-left:auto;">${processData.agents.filter(a => a.breakDaysCount > 0 && a.breakVsTargetSec > 0).length} exceeded</span>
         </div>
-        <div class="panel-body"><div class="chart-container chart-container-sm" id="breakDurationChart"></div></div>
+        <div class="panel-body">
+          <div class="chart-container chart-container-sm" id="breakDurationChart"></div>
+          ${buildBreakExceededTable(processData.agents)}
+        </div>
       </div>
 
       <div class="panel">
@@ -353,8 +356,8 @@ function renderDashboard() {
     </div>
 
     <div class="panel">
-      <div class="panel-header"><i class="ti ti-login-2"></i> Agent Login Window — First Login to Last Logout</div>
-      <div class="panel-body"><div class="chart-container" id="agentLoginRangeChart" style="height:${Math.max(220, processData.agents.filter(a => a.firstLoginSec != null).length * 30)}px;"></div></div>
+      <div class="panel-header"><i class="ti ti-login-2"></i> Avg Login Duration — Agent Wise</div>
+      <div class="panel-body"><div class="chart-container" id="agentAvgLoginChart" style="height:${Math.max(220, processData.agents.filter(a => a.avgLoginSec > 0).length * 30)}px;"></div></div>
     </div>
 
     ${processName === 'Baxter' ? `
@@ -528,7 +531,7 @@ function renderDashboard() {
     charts.renderAgentProductivity('agentProductivityChart', processData.agents, isDarkNow);
     charts.renderBreakDuration('breakDurationChart', processData.agents, isDarkNow);
     charts.renderAgentMissed('agentMissedChart', processData.agentMissedBreakdown, isDarkNow);
-    charts.renderAgentLoginRange('agentLoginRangeChart', processData.agents, isDarkNow);
+    charts.renderAgentAvgLogin('agentAvgLoginChart', processData.agents, isDarkNow);
     if (document.getElementById('agentHangupChart')) charts.renderAgentHangup('agentHangupChart', processData.agents, isDarkNow);
     if (document.getElementById('emailSentAgentChart')) charts.renderEmailSentAgentWise('emailSentAgentChart', processData.agents, isDarkNow);
     if (document.getElementById('appreciationEscalationChart')) charts.renderAppreciationEscalation('appreciationEscalationChart', processData.agents, isDarkNow);
@@ -551,6 +554,14 @@ function renderDashboard() {
     window.CHARTS.renderAgentProductivity('agentProductivityChart', liveEmailAgents || processData.agents, isDarkNow, productivityExtras || undefined);
   }
 
+  // Training/Downtime tables below still show range totals (unchanged) -- only
+  // the two "Avg ... by Agent" charts need a per-day average, computed here by
+  // dividing each row's durationSec by that agent's active-day count from
+  // processData.agents (same dayCount Avg Break/Login already use) before
+  // handing off to the chart, which just sums what it's given.
+  const dayCountByAgent = new Map(processData.agents.map(a => [a.agent, a.breakDaysCount || 1]));
+  const toAvgRows = rows => (rows || []).map(r => ({ ...r, durationSec: r.durationSec / (dayCountByAgent.get(r.agent) || 1) }));
+
   const insightsReady = processName
     ? data.fetchTrackerInsights(processName, range.from, range.to).then(insights => {
       const trainingEl = document.getElementById('trainingInsightsBody');
@@ -560,7 +571,7 @@ function renderDashboard() {
       const obActivityEl = document.getElementById('obActivityInsightsBody');
       if (trainingEl) {
         trainingEl.innerHTML = buildTrainingInsights(insights.training);
-        if (insights.training && insights.training.length) window.CHARTS.renderTrainingByAgent('trainingByAgentChart', insights.training, isDarkNow);
+        if (insights.training && insights.training.length) window.CHARTS.renderTrainingByAgent('trainingByAgentChart', toAvgRows(insights.training), isDarkNow);
       }
       if (qualityEl) {
         qualityEl.innerHTML = buildQualityInsights(insights.quality);
@@ -568,7 +579,7 @@ function renderDashboard() {
       }
       if (downtimeEl) {
         downtimeEl.innerHTML = buildDowntimeInsights(insights.downtime);
-        if (insights.downtime && insights.downtime.length) window.CHARTS.renderDowntimeByAgent('downtimeByAgentChart', insights.downtime, isDarkNow);
+        if (insights.downtime && insights.downtime.length) window.CHARTS.renderDowntimeByAgent('downtimeByAgentChart', toAvgRows(insights.downtime), isDarkNow);
       }
       if (conversionEl) conversionEl.innerHTML = buildConversionInsights(insights.conversions);
       if (obActivityEl) {
@@ -1108,7 +1119,20 @@ function buildKPICards(d, prevData) {
       <div class="kpi-value">${d.apt || '—'}</div>
     </div>`;
 
-  return statusHtml + trendHtml + pickTimeHtml + callbackHtml;
+  // Based on Login Time crossing 9:30am per day/agent -- counts whatever
+  // attendance data (Login Time) is currently present in combined_summary;
+  // relabel/rewire this if a dedicated attendance source is added later.
+  const lateLoginHtml = `<div class="kpi-card status-neutral">
+      <div class="kpi-accent" style="background:var(--accent);"></div>
+      <div class="kpi-header">
+        <div class="kpi-icon-wrap" style="background:rgba(217,119,6,0.08);color:#d97706;"><i class="ti ti-clock-exclamation"></i></div>
+      </div>
+      <div class="kpi-label">Total Late Login</div>
+      <div class="kpi-value">${d.lateLogin || 0}</div>
+      <div class="kpi-sub">Logins after 9:30 AM</div>
+    </div>`;
+
+  return statusHtml + trendHtml + pickTimeHtml + callbackHtml + lateLoginHtml;
 }
 
 /* Top-of-dashboard stat groups. */
@@ -1425,6 +1449,28 @@ function buildClosedPartialTable(agents) {
 }
 
 /* Agent-wise Appreciation/Escalation, standalone summary table. */
+function buildBreakExceededTable(agents) {
+  if (!agents || !agents.length) return '';
+  const rows = agents
+    .filter(a => (a.breakExceededDaysCount || 0) > 0)
+    .sort((a, b) => (b.breakExceededDaysCount || 0) - (a.breakExceededDaysCount || 0));
+  if (!rows.length) return '';
+  return `<div class="table-wrap" style="margin-top:10px;">
+    <table>
+      <thead><tr>
+        <th>Agent</th>
+        <th>Times Exceeded (&gt;1h)</th>
+        <th>Total Excess Time</th>
+      </tr></thead>
+      <tbody>${rows.map(a => `<tr>
+        <td>${a.agent}</td>
+        <td>${a.breakExceededDaysCount}</td>
+        <td>${secondsToHms(a.breakExceededTotalSec || 0)}</td>
+      </tr>`).join('')}</tbody>
+    </table>
+  </div>`;
+}
+
 function buildAppreciationEscalationTable(agents) {
   if (!agents || !agents.length) return '<div style="text-align:center;padding:30px;color:var(--muted);">No data available.</div>';
   const rows = agents
