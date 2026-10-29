@@ -385,22 +385,37 @@ function aggregateProcess(rows, processName) {
   // regardless of which row it reads it from, so filtering wouldn't change
   // their result.
   const realAgentDaily = daily.filter(r => !isTransferPseudoAgent(agentName(r)));
+  // ResMed-only: several metrics below (OB Bifurcation, OB Answer Rate, Hangup
+  // Rate, Emails Handled, and Total Productivity's OB/email components) must
+  // reflect only our own agents, same reasoning as the Agent Missed/AHT/APT
+  // overrides already applied elsewhere in this function -- ResMed's shared
+  // SparkTG line carries several names that are ResMed's own in-house team,
+  // not ours. Missed Call % and IB Bifurcation are deliberately left on the
+  // unfiltered realAgentDaily/process-day-constants (explicit request).
+  const resmedScopedDaily = processName === 'ResMed'
+    ? realAgentDaily.filter(r => RESMED_AGENT_ALLOWLIST.has(agentName(r)))
+    : realAgentDaily;
 
   const reportLabel = dateFrom && dateTo ? (dateFrom === dateTo ? dateFrom : `${dateFrom} → ${dateTo}`)
     : dateFrom ? `${dateFrom} onward` : dateTo ? `up to ${dateTo}` : latest || '';
 
   /* Core metrics */
+  // ib stays unfiltered -- IB Bifurcation's "Answered" must show the full
+  // shared-line total, per explicit request. ibScoped is a roster-filtered
+  // twin used only inside productivityTotal below.
   const ib = sumNumber(realAgentDaily, "Inbound Answer");
-  const ob = sumNumber(realAgentDaily, "Outbound All");
-  const obAns = sumNumber(realAgentDaily, "OB Answer");
+  const ibScoped = processName === 'ResMed' ? sumNumber(resmedScopedDaily, "Inbound Answer") : ib;
+  const ob = sumNumber(resmedScopedDaily, "Outbound All");
+  const obAns = sumNumber(resmedScopedDaily, "OB Answer");
   // Email Received is a process-wide daily total (broadcast to every agent row
   // for that process+day, same as Total Inbound Calls) — take one value per
-  // (process, date), not a per-row sum. Email Sent is the same story before the
+  // (process, date), not a per-row sum -- this part can't be agent-scoped
+  // either way, same as Missed Call %. Email Sent is the same story before the
   // tagging cutover, genuinely per-agent after it — sumEmailSentCount() branches
   // on that date. CRM(E-Mail)/CRM(Call) are genuinely per-agent, so a plain sum.
-  const email = sumNumber(realAgentDaily, "Emails Handled") + sumNumber(realAgentDaily, "Email Handled") + sumNumber(realAgentDaily, "E-Mail Handled")
-    + sumProcessDayConstant(daily, "Email Received") + sumEmailSentCount(realAgentDaily)
-    + sumNumber(realAgentDaily, "CRM(E-Mail)") + sumNumber(realAgentDaily, "CRM(Call)");
+  const email = sumNumber(resmedScopedDaily, "Emails Handled") + sumNumber(resmedScopedDaily, "Email Handled") + sumNumber(resmedScopedDaily, "E-Mail Handled")
+    + sumProcessDayConstant(daily, "Email Received") + sumEmailSentCount(resmedScopedDaily)
+    + sumNumber(resmedScopedDaily, "CRM(E-Mail)") + sumNumber(resmedScopedDaily, "CRM(Call)");
   const totalCalls = sumProcessDayConstant(daily, "Total Inbound Calls") || sumNumber(realAgentDaily, "Inbound Offered") || sumNumber(realAgentDaily, "Calls Offered") || sumNumber(realAgentDaily, "Offered");
   const totalMissed = sumProcessDayConstant(daily, "Total IB Missed");
   const agentMissedIb = sumNumber(realAgentDaily, "Agent Missed(IB)");
@@ -490,8 +505,8 @@ function aggregateProcess(rows, processName) {
   const ahtObAnswered = sumNumber(ahtRows, "OB Answer");
 
   /* Quality metrics */
-  const hangupIB = sumNumber(realAgentDaily, "Call Hangup With in 10 Sec-IB");
-  const hangupOB = sumNumber(realAgentDaily, "Call Hangup With in 10 Sec-OB");
+  const hangupIB = sumNumber(resmedScopedDaily, "Call Hangup With in 10 Sec-IB");
+  const hangupOB = sumNumber(resmedScopedDaily, "Call Hangup With in 10 Sec-OB");
   const totalHangup = hangupIB + hangupOB;
   const emailDurationSec = sumEmailSentDurationSec(realAgentDaily);
   const emailDuration = secondsToHms(emailDurationSec);
@@ -534,7 +549,7 @@ function aggregateProcess(rows, processName) {
     /* Volume */
     totalCalls, inboundAnswered: ib, outboundAll: ob, obAnswered: obAns, emailsHandled: email,
     obAnswerPercent: ob > 0 ? obAns / ob : 0,
-    productivityTotal: ib + ob + email,
+    productivityTotal: ibScoped + ob + email,
     /* Missed */
     totalMissed, agentMissed: agentMissedIb + agentMissedOb, agentMissedInbound: agentMissedIb, customerMissed,
     // Missed Call % is scoped to working hours on both sides -- a call that
@@ -583,7 +598,7 @@ function aggregateProcess(rows, processName) {
     emailDuration,
     /* Quality */
     hangupIB, hangupOB, totalHangup,
-    hangupRate: (ib + ob) > 0 ? totalHangup / (ib + ob) : 0,
+    hangupRate: (ibScoped + ob) > 0 ? totalHangup / (ibScoped + ob) : 0,
     crmCall, crmEmail, crmTotal: crmCall + crmEmail,
     nonTrading,
     callbackOnMissedCall: secondsToHms(avgProcessDayConstantSeconds(daily, "Call Back on Missed Call")),
