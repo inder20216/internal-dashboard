@@ -310,6 +310,21 @@ const NON_AGENT_LABELS = new Set([
 // and the Agent Missed bar chart) -- everything else on the ResMed
 // dashboard is intentionally left unscoped.
 const RESMED_OUR_AGENTS = new Set(['Admin', 'Sagarika Bose', 'Avijit Dey', 'Gulshan Khan', 'Kumkum', 'Mohit Kumar']);
+// PSRI shares its SparkTG line with the hospital's own internal department
+// extensions (Emergency, Insurance, dozens of doctor-coordinator/nursing-
+// station lines, etc. -- confirmed via essl_agent_mapping vs daywise_summary
+// comparison). Same "Agent Missed" scoping as ResMed above, same reason:
+// the residual Agent-missed count otherwise includes every one of those.
+// Kavneet Kaur / Anchal Singh are the departed agents Kajal Koshyari / Pooja
+// replaced (Oct 2026) -- kept here too so their earlier-in-month history
+// stays attributed to them instead of collapsing into "Non OM Agents".
+const PSRI_OUR_AGENTS = new Set(['Abhishek Raj', 'Abhishek Sharma', 'Kajal Koshyari', 'Kavneet Kaur', 'Monika Rani', 'Pooja', 'Anchal Singh', 'Sameer', 'Shivani khandelwal', 'Suraj']);
+// Looked up by processName wherever a metric needs to be restricted to a
+// process's own known roster instead of everyone sharing its telephony
+// line -- add an entry here (and build the matching Set above) as each
+// process's "Agent Missed" scoping gets confirmed, rather than hardcoding
+// another processName === 'X' branch per process.
+const OUR_AGENTS_BY_PROCESS = { ResMed: RESMED_OUR_AGENTS, PSRI: PSRI_OUR_AGENTS };
 function isTransferPseudoAgent(name) {
   // Some rows carry a literal "&nbsp;" (or other stray HTML entity) baked into
   // the raw CRM export -- e.g. "Corporate desk&nbsp;" -- which fails an exact
@@ -446,16 +461,18 @@ function aggregateProcess(rows, processName) {
   // working-hours filter as Queue/IVR/Service below -- so backing Agent out
   // as the remainder is exact, using only fields already in the sheet.
   //
-  // ResMed override: the residual above counts ANY agent's missed calls,
-  // including the several names on ResMed's shared SparkTG line that are
-  // ResMed's own in-house team, not ours. For ResMed specifically, this
-  // card should only reflect missed calls our own agents are responsible
-  // for -- so it's a direct sum over RESMED_OUR_AGENTS instead of the
-  // residual, even though that means dummy/forward-target calls with no
-  // agent row (which the residual approach exists to capture) are excluded
-  // here too, same as any other non-our-agent miss.
-  const agentMissedIbWh = processName === 'ResMed'
-    ? sumNumber(daily.filter(r => RESMED_OUR_AGENTS.has(agentName(r))), "Agent Missed IB (WH)")
+  // Roster override: the residual above counts ANY agent's missed calls,
+  // including every other name sharing this process's telephony line (the
+  // client's own in-house team, or in PSRI's case dozens of hospital
+  // department extensions). For a process with a known roster in
+  // OUR_AGENTS_BY_PROCESS, this card should only reflect missed calls our
+  // own agents are responsible for -- so it's a direct sum over that roster
+  // instead of the residual, even though that means dummy/forward-target
+  // calls with no agent row (which the residual approach exists to capture)
+  // are excluded here too, same as any other non-our-agent miss.
+  const ourAgents = OUR_AGENTS_BY_PROCESS[processName];
+  const agentMissedIbWh = ourAgents
+    ? sumNumber(daily.filter(r => ourAgents.has(agentName(r))), "Agent Missed IB (WH)")
     : missedWorkingHours - queueMissedWh - ivrMissedWh - serviceMissedWh;
   const missedNonWorkingHours = sumProcessDayConstant(daily, "Missed Non-Working Hours");
   // Working-hours-only version of totalCalls (Step12) -- the correct
@@ -625,12 +642,14 @@ function aggregateAgentMissed(rows, processName) {
   const map = new Map();
   rows.forEach(r => {
     const rawAgent = agentName(r);
-    // ResMed: in addition to the usual pseudo-agent check, anyone not in our
-    // known roster (ResMed's own in-house team) also collapses into "Non OM
-    // Agents" -- same bucket the chart already excludes, so this is the only
-    // change needed to keep those names off the "Agent Missed" bar chart.
+    // For a process with a known roster in OUR_AGENTS_BY_PROCESS, anyone not
+    // in it also collapses into "Non OM Agents" in addition to the usual
+    // pseudo-agent check -- same bucket the chart already excludes, so this
+    // is the only change needed to keep those names off the "Agent Missed"
+    // bar chart (ResMed's own in-house team, PSRI's hospital extensions, etc).
+    const ourAgentsForMissed = OUR_AGENTS_BY_PROCESS[processName];
     const isNonOurs = isTransferPseudoAgent(rawAgent)
-      || (processName === 'ResMed' && !RESMED_OUR_AGENTS.has(rawAgent));
+      || (ourAgentsForMissed && !ourAgentsForMissed.has(rawAgent));
     const agent = isNonOurs ? 'Non OM Agents' : rawAgent;
     const cur = map.get(agent) || { agent, agentMissedIbWh: 0, agentMissedOb: 0, inboundAnswered: 0, outboundAll: 0 };
     cur.agentMissedIbWh += toNumber(r["Agent Missed IB (WH)"]);
