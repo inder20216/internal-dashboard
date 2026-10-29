@@ -715,9 +715,13 @@ function aggregateAgents(rows, includeProcess) {
     // the displayed HH:MM:SS shows exactly 1:00:00.
     const breakSecForTarget = Math.round(dayCount > 1 ? breakSecTotal / dayCount : breakSecTotal);
     // Avg Login Duration / Avg Training Duration per day -- same dayCount
-    // denominator as Avg Break above, for the Agent Averages panel.
+    // denominator as Avg Break above, for the Agent Averages panel. Avg Login
+    // Duration is net working time -- "Hours" (login to logout) minus Break
+    // and Training, not the raw logged-in span, so it isn't inflated by time
+    // the agent wasn't actually working.
     const trainingSecTotal = sumSecondsRaw(a.rows, "Training Duration");
-    const avgLoginSec = Math.round(hrsSec / dayCount);
+    const netLoginSec = Math.max(0, hrsSec - breakSecTotal - trainingSecTotal);
+    const avgLoginSec = Math.round(netLoginSec / dayCount);
     const avgTrainingSec = Math.round(trainingSecTotal / dayCount);
     // Breaks exceeded -- per real day (not averaged): how many individual
     // days this agent's break went over the 1-hour target, and the total
