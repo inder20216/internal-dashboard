@@ -1291,12 +1291,12 @@ function buildTrainingInsights(training) {
       </div>
     </div>
     <div class="chart-container" id="trainingByAgentChart" style="height:${Math.max(200, new Set(training.map(t => t.agent)).size * 40)}px;margin-bottom:14px;"></div>
-    <div class="table-wrap">
+    ${detailsWrap('Training detail — agent &amp; type wise', `<div class="table-wrap">
       <table>
         <thead><tr><th>Agent</th><th>Training Type</th><th>Sessions</th><th>Total Duration</th></tr></thead>
         <tbody>${rows.map(t => `<tr><td>${t.agent}</td><td>${t.category}</td><td>${t.count}</td><td>${secondsToHms(t.durationSec)}</td></tr>`).join('')}</tbody>
       </table>
-    </div>`;
+    </div>`)}`;
 }
 
 /* Agent-wise Call Quality Ratio, from quality_audit via the tracker-insights webhook. */
@@ -1304,12 +1304,12 @@ function buildQualityInsights(quality) {
   if (!quality || !quality.length) return '<div style="text-align:center;padding:30px;color:var(--muted);">No quality audits logged for this range.</div>';
   const sorted = [...quality].sort((a, b) => b.avgPercentage - a.avgPercentage);
   return `<div class="chart-container" id="qualityRatioChart" style="height:${Math.max(160, sorted.length * 34)}px;margin-bottom:14px;"></div>
-  <div class="table-wrap">
+  ${detailsWrap('Quality detail — agent wise', `<div class="table-wrap">
     <table>
       <thead><tr><th>Agent</th><th>Audits</th><th>Quality Ratio</th></tr></thead>
       <tbody>${sorted.map(q => `<tr><td>${q.agent}</td><td>${q.count}</td><td>${(q.avgPercentage * 100).toFixed(1)}%</td></tr>`).join('')}</tbody>
     </table>
-  </div>`;
+  </div>`)}`;
 }
 
 /* Agent-wise + reason-wise Downtime, from activity_tracker (form submissions)
@@ -1332,12 +1332,12 @@ function buildDowntimeInsights(downtime) {
       </div>
     </div>
     <div class="chart-container chart-container-sm" id="downtimeByAgentChart" style="margin-bottom:14px;"></div>
-    <div class="table-wrap">
+    ${detailsWrap('Downtime detail — agent &amp; reason wise', `<div class="table-wrap">
       <table>
         <thead><tr><th>Agent</th><th>Reason</th><th>Instances</th><th>Total Duration</th></tr></thead>
         <tbody>${rows.map(d => `<tr><td>${d.agent}</td><td>${d.category}</td><td>${d.count}</td><td>${secondsToHms(d.durationSec)}</td></tr>`).join('')}</tbody>
       </table>
-    </div>`;
+    </div>`)}`;
 }
 
 /* Product + agent wise Conversions (ResMed only), from resmed_conversion via
@@ -1363,12 +1363,12 @@ function buildConversionInsights(conversions) {
         <div class="stat-group-values">${productCards}</div>
       </div>
     </div>
-    <div class="table-wrap">
+    ${detailsWrap('Conversion detail — agent &amp; product wise', `<div class="table-wrap">
       <table>
         <thead><tr><th>Agent</th><th>Product</th><th>Conversions</th></tr></thead>
         <tbody>${rows.map(c => `<tr><td>${c.agent}</td><td>${c.category}</td><td>${c.count}</td></tr>`).join('')}</tbody>
       </table>
-    </div>`;
+    </div>`)}`;
 }
 
 /* Agent + activity wise outbound connectivity (ResMed only), parsed from
@@ -1449,13 +1449,21 @@ function buildClosedPartialTable(agents) {
 }
 
 /* Agent-wise Appreciation/Escalation, standalone summary table. */
+/* Wraps a detail table (sitting below a chart/summary cards) in a native
+   <details> disclosure so it's collapsed by default instead of always
+   taking up space -- used for every secondary breakdown table across the
+   dashboard, not the one or two tables that ARE a panel's whole content. */
+function detailsWrap(summaryLabel, innerHtml) {
+  return `<details class="tbl-details"><summary>${summaryLabel}</summary>${innerHtml}</details>`;
+}
+
 function buildBreakExceededTable(agents) {
   if (!agents || !agents.length) return '';
   const rows = agents
     .filter(a => (a.breakExceededDaysCount || 0) > 0)
     .sort((a, b) => (b.breakExceededDaysCount || 0) - (a.breakExceededDaysCount || 0));
   if (!rows.length) return '';
-  return `<div class="table-wrap" style="margin-top:10px;">
+  return detailsWrap('Breaks exceeded — agent wise', `<div class="table-wrap" style="margin-top:10px;">
     <table>
       <thead><tr>
         <th>Agent</th>
@@ -1468,7 +1476,7 @@ function buildBreakExceededTable(agents) {
         <td>${secondsToHms(a.breakExceededTotalSec || 0)}</td>
       </tr>`).join('')}</tbody>
     </table>
-  </div>`;
+  </div>`);
 }
 
 function buildAppreciationEscalationTable(agents) {
@@ -1477,7 +1485,7 @@ function buildAppreciationEscalationTable(agents) {
     .filter(a => (a.appreciationCount || 0) + (a.escalationCount || 0) > 0)
     .sort((a, b) => (b.appreciationCount || 0) - (a.appreciationCount || 0));
   if (!rows.length) return '<div style="text-align:center;padding:30px;color:var(--muted);">No Appreciation or Escalation logged this month.</div>';
-  return `<div class="table-wrap">
+  return detailsWrap('Appreciation &amp; Escalation detail — agent wise', `<div class="table-wrap">
     <table>
       <thead><tr>
         <th>Agent</th>
@@ -1490,7 +1498,7 @@ function buildAppreciationEscalationTable(agents) {
         <td>${a.escalationCount || 0}</td>
       </tr>`).join('')}</tbody>
     </table>
-  </div>`;
+  </div>`);
 }
 
 function buildGlobalRankingTable(allRanked) {

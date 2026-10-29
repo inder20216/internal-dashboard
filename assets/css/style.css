@@ -461,6 +461,20 @@ body {
 
 /* ═══ TABLE ═══ */
 .table-wrap { overflow-x: auto; }
+/* Secondary detail tables (below a chart/summary cards) collapse behind a
+   disclosure arrow by default instead of always taking up space. */
+.tbl-details { margin-top: 10px; }
+.tbl-details > summary {
+  cursor: pointer; list-style: none; font-size: 12px; font-weight: 600;
+  color: var(--accent); padding: 6px 0; user-select: none;
+}
+.tbl-details > summary::-webkit-details-marker { display: none; }
+.tbl-details > summary::before {
+  content: '▸'; display: inline-block; margin-right: 6px;
+  transition: transform 0.15s ease;
+}
+.tbl-details[open] > summary::before { transform: rotate(90deg); }
+.tbl-details > summary:hover { color: var(--accent-hover, var(--accent)); }
 table { width: 100%; border-collapse: collapse; font-size: 12px; }
 thead th {
   background: var(--surface2);
