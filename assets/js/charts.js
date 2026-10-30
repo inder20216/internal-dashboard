@@ -441,6 +441,34 @@ function renderAgentMissed(id, agents, isDark) {
   });
 }
 
+/* ── AVG TALK TIME (AHT) — AGENT WISE, INBOUND / OUTBOUND SPLIT ── */
+function renderAgentAht(id, agents, isDark) {
+  const ctx = getCtx(id);
+  if (!ctx) return;
+  const textColor = isDark ? '#b0b5c0' : '#6b7280';
+  const sorted = [...agents].filter(a => (a.ahtInboundSec || 0) + (a.ahtOutboundSec || 0) > 0)
+    .sort((a, b) => (b.ahtInboundSec + b.ahtOutboundSec) - (a.ahtInboundSec + a.ahtOutboundSec));
+  ctx.chart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: sorted.map(a => a.agent),
+      datasets: [
+        { label: 'Avg Talk Time (Inbound)', data: sorted.map(a => Math.round((a.ahtInboundSec || 0) / 60)), backgroundColor: 'rgba(37,99,235,0.75)', borderRadius: 3, datalabels: { anchor: 'end', align: 'end', offset: 2, color: textColor, font: { size: 9, weight: '600' }, formatter: v => v ? secondsToHms(v * 60) : '' } },
+        { label: 'Avg Talk Time (Outbound)', data: sorted.map(a => Math.round((a.ahtOutboundSec || 0) / 60)), backgroundColor: 'rgba(234,88,12,0.75)', borderRadius: 3, datalabels: { anchor: 'end', align: 'end', offset: 2, color: textColor, font: { size: 9, weight: '600' }, formatter: v => v ? secondsToHms(v * 60) : '' } }
+      ]
+    },
+    options: {
+      ...defaultOpts('Avg Talk Time by Agent', isDark),
+      layout: { padding: { top: 24 } },
+      plugins: { ...defaultOpts('Avg Talk Time by Agent', isDark).plugins, legend: { position: 'bottom', labels: { color: textColor, font: { size: 10 } } } },
+      scales: {
+        x: { ticks: { color: textColor, font: { size: 10 } }, grid: { display: false } },
+        y: { beginAtZero: true, ticks: { color: textColor, font: { size: 10 }, callback: v => secondsToHms(v * 60) }, grid: { display: false } }
+      }
+    }
+  });
+}
+
 /* ── AGENT HANGUP — INBOUND / OUTBOUND (calls hung up within 10s) ── */
 function renderAgentHangup(id, agents, isDark) {
   const ctx = getCtx(id);
@@ -1187,7 +1215,7 @@ window.CHARTS = {
   renderTrendChart, renderProcessComparison, renderAgentRanking,
   renderPareto, renderDailyTrend, renderQualityTrend,
   renderAgentHeatmap, renderMiniChart, renderDayWiseChart,
-  renderAgentProductivity, renderBreakDuration, renderQualityRatio, renderAgentMissed, renderAgentHangup, renderTrainingByAgent, renderDowntimeByAgent, renderAppreciationEscalation, renderStatBar, renderHourlyMissed, renderFreshCallsComparison,
+  renderAgentProductivity, renderBreakDuration, renderQualityRatio, renderAgentMissed, renderAgentHangup, renderAgentAht, renderTrainingByAgent, renderDowntimeByAgent, renderAppreciationEscalation, renderStatBar, renderHourlyMissed, renderFreshCallsComparison,
   renderFacilityCallCases, renderFacilityEmailCases, renderEmailSentAgentWise, renderIBCasesAppointments,
   renderObActivityCombo, renderPsriObDetailChart, renderAgentAvgLogin,
   renderHstCountsByLeadSource, renderHstFollowUpStatus, renderHstClosedConversionIssues,

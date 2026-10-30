@@ -371,6 +371,11 @@ function renderDashboard() {
       <div class="panel-body"><div class="chart-container" id="agentAvgLoginChart" style="height:${Math.max(220, processData.agents.filter(a => a.avgLoginSec > 0).length * 30)}px;"></div></div>
     </div>
 
+    <div class="panel">
+      <div class="panel-header"><i class="ti ti-clock-hour-4"></i> Avg Talk Time — Agent Wise</div>
+      <div class="panel-body"><div class="chart-container" id="agentAhtChart" style="height:${Math.max(220, processData.agents.filter(a => (a.ahtInboundSec || 0) + (a.ahtOutboundSec || 0) > 0).length * 30)}px;"></div></div>
+    </div>
+
     ${processName === 'Baxter' ? `
     <div class="panel">
       <div class="panel-header"><i class="ti ti-checklist"></i> Closed &amp; Partial Closed — MTD (${baxterMtdData.mtdRange.from} → ${baxterMtdData.mtdRange.to})</div>
@@ -543,6 +548,7 @@ function renderDashboard() {
     charts.renderBreakDuration('breakDurationChart', processData.agents, isDarkNow);
     charts.renderAgentMissed('agentMissedChart', processData.agentMissedBreakdown, isDarkNow);
     charts.renderAgentAvgLogin('agentAvgLoginChart', processData.agents, isDarkNow);
+    charts.renderAgentAht('agentAhtChart', processData.agents, isDarkNow);
     if (document.getElementById('agentHangupChart')) charts.renderAgentHangup('agentHangupChart', processData.agents, isDarkNow);
     if (document.getElementById('emailSentAgentChart')) charts.renderEmailSentAgentWise('emailSentAgentChart', processData.agents, isDarkNow);
     if (document.getElementById('appreciationEscalationChart')) charts.renderAppreciationEscalation('appreciationEscalationChart', processData.agents, isDarkNow);
