@@ -303,6 +303,17 @@ function renderDashboard() {
   data.currentState.dateTo = prevRange.to;
   const prevData = data.aggregateProcess(data.allRows, processName);
 
+  // Baxter's Closed & Partial Closed table is always Month-to-Date, independent
+  // of the Daily/Weekly/Monthly period tabs above it -- it's tracking how much
+  // of this month's case backlog is cleared, not a per-period snapshot.
+  let baxterMtdData = null;
+  if (processName === 'Baxter') {
+    const mtdRange = data.computeDefaultRange();
+    data.currentState.dateFrom = mtdRange.from;
+    data.currentState.dateTo = mtdRange.to;
+    baxterMtdData = { ...data.aggregateProcess(data.allRows, processName), mtdRange };
+  }
+
   data.currentState.dateFrom = range.from;
   data.currentState.dateTo = range.to;
   const isDarkNow = document.documentElement.getAttribute('data-theme') === 'dark';
@@ -362,9 +373,9 @@ function renderDashboard() {
 
     ${processName === 'Baxter' ? `
     <div class="panel">
-      <div class="panel-header"><i class="ti ti-checklist"></i> Closed &amp; Partial Closed — ${range.from === range.to ? range.from : `${range.from} → ${range.to}`}</div>
+      <div class="panel-header"><i class="ti ti-checklist"></i> Closed &amp; Partial Closed — MTD (${baxterMtdData.mtdRange.from} → ${baxterMtdData.mtdRange.to})</div>
       <div class="panel-body">
-        ${buildClosedPartialTable(processData.agents)}
+        ${buildClosedPartialTable(baxterMtdData.agents)}
       </div>
     </div>` : ''}
 
