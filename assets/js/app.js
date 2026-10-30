@@ -366,14 +366,16 @@ function renderDashboard() {
       </div>
     </div>
 
-    <div class="panel">
-      <div class="panel-header"><i class="ti ti-login-2"></i> Avg Login Duration — Agent Wise</div>
-      <div class="panel-body"><div class="chart-container" id="agentAvgLoginChart" style="height:${Math.max(220, processData.agents.filter(a => a.avgLoginSec > 0).length * 30)}px;"></div></div>
-    </div>
+    <div class="grid-2">
+      <div class="panel">
+        <div class="panel-header"><i class="ti ti-login-2"></i> Avg Login Duration — Agent Wise</div>
+        <div class="panel-body"><div class="chart-container chart-container-sm" id="agentAvgLoginChart"></div></div>
+      </div>
 
-    <div class="panel">
-      <div class="panel-header"><i class="ti ti-clock-hour-4"></i> Avg Talk Time — Agent Wise</div>
-      <div class="panel-body"><div class="chart-container" id="agentAhtChart" style="height:${Math.max(220, processData.agents.filter(a => (a.ahtInboundSec || 0) + (a.ahtOutboundSec || 0) > 0).length * 30)}px;"></div></div>
+      <div class="panel">
+        <div class="panel-header"><i class="ti ti-clock-hour-4"></i> Avg Talk Time — Agent Wise</div>
+        <div class="panel-body"><div class="chart-container chart-container-sm" id="agentAhtChart"></div></div>
+      </div>
     </div>
 
     ${processName === 'Baxter' ? `
