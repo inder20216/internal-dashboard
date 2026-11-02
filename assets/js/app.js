@@ -303,15 +303,31 @@ function renderDashboard() {
   data.currentState.dateTo = prevRange.to;
   const prevData = data.aggregateProcess(data.allRows, processName);
 
-  // Baxter's Closed & Partial Closed table is always Month-to-Date, independent
-  // of the Daily/Weekly/Monthly period tabs above it -- it's tracking how much
-  // of this month's case backlog is cleared, not a per-period snapshot.
+  // Baxter's Closed & Partial Closed table tracks case backlog, not a
+  // per-period snapshot. On the Monthly tab it follows whichever month is
+  // selected (full month, or MTD-capped-at-yesterday if that month is the
+  // current real month). On Daily/Weekly tabs, which don't carry a
+  // month-scoped range, it stays pinned to current-month MTD.
   let baxterMtdData = null;
   if (processName === 'Baxter') {
-    const mtdRange = data.computeDefaultRange();
+    let mtdRange, isMtd;
+    if (period === 'monthly') {
+      const now = new Date();
+      const curMonthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+      if (range.from === curMonthStart) {
+        mtdRange = data.computeDefaultRange();
+        isMtd = true;
+      } else {
+        mtdRange = { from: range.from, to: range.to };
+        isMtd = false;
+      }
+    } else {
+      mtdRange = data.computeDefaultRange();
+      isMtd = true;
+    }
     data.currentState.dateFrom = mtdRange.from;
     data.currentState.dateTo = mtdRange.to;
-    baxterMtdData = { ...data.aggregateProcess(data.allRows, processName), mtdRange };
+    baxterMtdData = { ...data.aggregateProcess(data.allRows, processName), mtdRange, isMtd };
   }
 
   data.currentState.dateFrom = range.from;
@@ -380,7 +396,7 @@ function renderDashboard() {
 
     ${processName === 'Baxter' ? `
     <div class="panel">
-      <div class="panel-header"><i class="ti ti-checklist"></i> Closed &amp; Partial Closed — MTD (${baxterMtdData.mtdRange.from} → ${baxterMtdData.mtdRange.to})</div>
+      <div class="panel-header"><i class="ti ti-checklist"></i> Closed &amp; Partial Closed — ${baxterMtdData.isMtd ? 'MTD' : 'Month'} (${baxterMtdData.mtdRange.from} → ${baxterMtdData.mtdRange.to})</div>
       <div class="panel-body">
         ${buildClosedPartialTable(baxterMtdData.agents)}
       </div>
