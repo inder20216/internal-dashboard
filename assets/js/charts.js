@@ -453,17 +453,23 @@ function renderAgentAht(id, agents, isDark) {
     data: {
       labels: sorted.map(a => a.agent),
       datasets: [
-        { label: 'Avg Talk Time (Inbound)', data: sorted.map(a => Math.round((a.ahtInboundSec || 0) / 60)), backgroundColor: 'rgba(37,99,235,0.75)', borderRadius: 3, datalabels: { anchor: 'end', align: 'end', offset: 2, color: textColor, font: { size: 9, weight: '600' }, formatter: v => v ? secondsToHms(v * 60) : '' } },
-        { label: 'Avg Talk Time (Outbound)', data: sorted.map(a => Math.round((a.ahtOutboundSec || 0) / 60)), backgroundColor: 'rgba(234,88,12,0.75)', borderRadius: 3, datalabels: { anchor: 'end', align: 'end', offset: 2, color: textColor, font: { size: 9, weight: '600' }, formatter: v => v ? secondsToHms(v * 60) : '' } }
+        { label: 'Avg Talk Time (Inbound)', yAxisID: 'y', data: sorted.map(a => Math.round((a.ahtInboundSec || 0) / 60)), backgroundColor: 'rgba(37,99,235,0.75)', borderRadius: 3, datalabels: { anchor: 'end', align: 'end', offset: 2, color: textColor, font: { size: 9, weight: '600' }, formatter: v => v ? secondsToHms(v * 60) : '' } },
+        { label: 'Avg Talk Time (Outbound)', yAxisID: 'y', data: sorted.map(a => Math.round((a.ahtOutboundSec || 0) / 60)), backgroundColor: 'rgba(234,88,12,0.75)', borderRadius: 3, datalabels: { anchor: 'end', align: 'end', offset: 2, color: textColor, font: { size: 9, weight: '600' }, formatter: v => v ? secondsToHms(v * 60) : '' } },
+        // Total Talk Time (IB+OB combined) -- a line on its own scale (y1)
+        // since the total can run into hours while the avg bars above are
+        // minutes; plotting both on one axis would flatten the bars to zero.
+        { label: 'Total Talk Time', type: 'line', yAxisID: 'y1', data: sorted.map(a => Math.round((a.totalTalkTimeSec || 0) / 60)), borderColor: 'rgba(5,150,105,0.9)', backgroundColor: 'rgba(5,150,105,0.9)', borderWidth: 2, pointRadius: 3, tension: 0.2, datalabels: { display: false } }
       ]
     },
     options: {
       ...defaultOpts('Avg Talk Time by Agent', isDark),
       layout: { padding: { top: 24 } },
-      plugins: { ...defaultOpts('Avg Talk Time by Agent', isDark).plugins, legend: { position: 'bottom', labels: { color: textColor, font: { size: 10 } } } },
+      plugins: { ...defaultOpts('Avg Talk Time by Agent', isDark).plugins, legend: { position: 'bottom', labels: { color: textColor, font: { size: 10 } } },
+        tooltip: { ...defaultOpts('Avg Talk Time by Agent', isDark).plugins.tooltip, callbacks: { label: c => `${c.dataset.label}: ${secondsToHms(c.parsed.y * 60)}` } } },
       scales: {
         x: { ticks: { color: textColor, font: { size: 10 } }, grid: { display: false } },
-        y: { beginAtZero: true, ticks: { color: textColor, font: { size: 10 }, callback: v => secondsToHms(v * 60) }, grid: { display: false } }
+        y: { beginAtZero: true, position: 'left', ticks: { color: textColor, font: { size: 10 }, callback: v => secondsToHms(v * 60) }, grid: { display: false } },
+        y1: { beginAtZero: true, position: 'right', ticks: { color: textColor, font: { size: 10 }, callback: v => secondsToHms(v * 60) }, grid: { display: false } }
       }
     }
   });

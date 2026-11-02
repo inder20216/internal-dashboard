@@ -768,6 +768,10 @@ function aggregateAgents(rows, includeProcess) {
       // distinct from the blended "AHT" column which mixes IB+OB.
       ahtInboundSec: a.inboundAnswered > 0 ? Math.round(ibSec / a.inboundAnswered) : 0,
       ahtOutboundSec: a.obAnswered > 0 ? Math.round(obSec / a.obAnswered) : 0,
+      // Raw total talk time (IB+OB combined) for the Avg Talk Time chart's
+      // overlay line -- ibTalkTime/obTalkTime above are formatted strings,
+      // not chartable numbers.
+      totalTalkTimeSec: ibSec + obSec,
       firstLoginSec, lastLogoutSec,
       loginDuration: sumSeconds(a.rows, "Hours", "Hours (formatted)"),
       breakDuration: sumSeconds(a.rows, "Break time", "Break time (formatted)"),
