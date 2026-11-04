@@ -1334,23 +1334,31 @@ function buildTrainingInsights(training) {
     </div>`)}`;
 }
 
-/* Agent + channel wise Audit Quality (Call/Email/Chat/Other), from quality_audit
-   via the tracker-insights webhook. Blending every audit type into one ratio per
+/* Agent + channel wise Audit Quality (Call/Email/Chat), from quality_audit via
+   the tracker-quality webhook. Blending every audit type into one ratio per
    agent hid the fact that a Call audit (10-pt rubric) and an Email audit (40-pt
    rubric covering different things) aren't the same measurement -- the category
-   breakdown (added server-side in tracker_insights_webhook.json's quality block)
-   keeps them visibly separate instead of averaging them together. */
-const AUDIT_CHANNEL_ICON = { Call: 'ti-phone', Email: 'ti-mail', Chat: 'ti-message-circle', Other: 'ti-help-circle' };
-const AUDIT_CHANNEL_ORDER = ['Call', 'Email', 'Chat', 'Other'];
+   breakdown (added server-side in tracker_quality_webhook.json) keeps them
+   visibly separate instead of averaging them together.
+   'Other' isn't a real audit channel -- it's the fallback bucket for rows with
+   a blank type_of_call or one where a recording URL got pasted into that field
+   by mistake. It's excluded from the summary cards and chart (so real data
+   doesn't get crowded out by noise) but still counted in the detail table,
+   with a note below the chart if any exist. */
+const AUDIT_CHANNEL_ICON = { Call: 'ti-phone', Email: 'ti-mail', Chat: 'ti-message-circle' };
+const AUDIT_CHANNEL_ORDER = ['Call', 'Email', 'Chat'];
 function buildQualityInsights(quality) {
   if (!quality || !quality.length) return '<div style="text-align:center;padding:30px;color:var(--muted);">No quality audits logged for this range.</div>';
 
+  const chartRows = quality.filter(q => AUDIT_CHANNEL_ORDER.includes(q.category));
+  const otherRows = quality.filter(q => !AUDIT_CHANNEL_ORDER.includes(q.category));
+
   const byChannel = new Map();
-  quality.forEach(q => {
+  chartRows.forEach(q => {
     if (!byChannel.has(q.category)) byChannel.set(q.category, []);
     byChannel.get(q.category).push(q);
   });
-  const channels = AUDIT_CHANNEL_ORDER.filter(c => byChannel.has(c)).concat([...byChannel.keys()].filter(c => !AUDIT_CHANNEL_ORDER.includes(c)));
+  const channels = AUDIT_CHANNEL_ORDER.filter(c => byChannel.has(c));
 
   const summaryCards = channels.map(c => {
     const rows = byChannel.get(c);
@@ -1365,10 +1373,18 @@ function buildQualityInsights(quality) {
     </div>`;
   }).join('');
 
+  const otherCount = otherRows.reduce((s, q) => s + q.count, 0);
+  const otherNote = otherCount
+    ? `<div style="font-size:12px;color:var(--muted);margin:-4px 0 14px;">+ ${otherCount} audit${otherCount === 1 ? '' : 's'} with an unrecognized/blank call type, not shown above — see the detail table.</div>`
+    : '';
+
   const sorted = [...quality].sort((a, b) => AUDIT_CHANNEL_ORDER.indexOf(a.category) - AUDIT_CHANNEL_ORDER.indexOf(b.category) || b.avgPercentage - a.avgPercentage);
+  const agentCount = new Set(chartRows.map(q => q.agent)).size;
+  const rowsPerAgent = Math.max(1, channels.length);
   return `
     <div class="stat-group-row" style="margin-bottom:14px;">${summaryCards}</div>
-    <div class="chart-container" id="qualityRatioChart" style="height:${Math.max(160, new Set(quality.map(q => q.agent)).size * 34)}px;margin-bottom:14px;"></div>
+    <div class="chart-container" id="qualityRatioChart" style="height:${Math.max(180, agentCount * rowsPerAgent * 26)}px;margin-bottom:4px;"></div>
+    ${otherNote}
     ${detailsWrap('Quality detail — agent &amp; channel wise', `<div class="table-wrap">
       <table>
         <thead><tr><th>Agent</th><th>Channel</th><th>Audits</th><th>Quality Ratio</th></tr></thead>

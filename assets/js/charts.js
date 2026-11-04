@@ -612,24 +612,27 @@ function renderDowntimeByAgent(id, downtime, isDark) {
   });
 }
 
-/* ── CALL QUALITY RATIO — AGENT WISE (from quality_audit) ── */
-/* Grouped horizontal bar: one row per agent, one series per audit channel
-   (Call/Email/Chat/Other) so a 10-pt call rubric and a 40-pt email rubric never
-   get silently averaged into a single misleading number. */
+/* ── AUDIT QUALITY — AGENT & CHANNEL WISE (from quality_audit) ── */
+/* Grouped horizontal bar: one row per agent, one series per real audit channel
+   (Call/Email/Chat) so a 10-pt call rubric and a 40-pt email rubric never get
+   silently averaged into a single misleading number. 'Other' (blank/malformed
+   type_of_call rows -- not a real channel) is dropped here; buildQualityInsights
+   shows its count separately in a note + the detail table instead. */
 function renderQualityRatio(id, quality, isDark) {
   const ctx = getCtx(id);
   if (!ctx) return;
   const textColor = isDark ? '#b0b5c0' : '#6b7280';
-  const channelOrder = ['Call', 'Email', 'Chat', 'Other'];
-  const channelColor = { Call: 'rgba(37,99,235,0.8)', Email: 'rgba(5,150,105,0.8)', Chat: 'rgba(217,119,6,0.8)', Other: 'rgba(107,114,128,0.8)' };
-  const channels = channelOrder.filter(c => quality.some(q => q.category === c))
-    .concat([...new Set(quality.map(q => q.category))].filter(c => !channelOrder.includes(c)));
+  const channelOrder = ['Call', 'Email', 'Chat'];
+  const channelColor = { Call: 'rgba(37,99,235,0.85)', Email: 'rgba(5,150,105,0.85)', Chat: 'rgba(217,119,6,0.85)' };
+  const rows = quality.filter(q => channelOrder.includes(q.category));
+  if (!rows.length) return;
+  const channels = channelOrder.filter(c => rows.some(q => q.category === c));
 
   const agentTotals = new Map();
-  quality.forEach(q => agentTotals.set(q.agent, (agentTotals.get(q.agent) || 0) + q.count));
+  rows.forEach(q => agentTotals.set(q.agent, (agentTotals.get(q.agent) || 0) + q.count));
   const agents = [...agentTotals.keys()].sort((a, b) => agentTotals.get(b) - agentTotals.get(a));
 
-  const byAgentChannel = new Map(quality.map(q => [`${q.agent}|${q.category}`, q]));
+  const byAgentChannel = new Map(rows.map(q => [`${q.agent}|${q.category}`, q]));
   ctx.chart = new Chart(ctx, {
     type: 'bar',
     data: {
@@ -640,9 +643,12 @@ function renderQualityRatio(id, quality, isDark) {
           const q = byAgentChannel.get(`${a}|${c}`);
           return q ? +(q.avgPercentage * 100).toFixed(1) : null;
         }),
-        backgroundColor: channelColor[c] || 'rgba(107,114,128,0.8)',
+        backgroundColor: channelColor[c],
         borderRadius: 3,
-        datalabels: { formatter: v => (v || v === 0) ? v + '%' : '' }
+        maxBarThickness: 22,
+        categoryPercentage: 0.7,
+        barPercentage: 0.9,
+        datalabels: { formatter: v => (v || v === 0) ? v + '%' : '', font: { size: 9 } }
       }))
     },
     options: {
