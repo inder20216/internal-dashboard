@@ -418,7 +418,7 @@ function renderDashboard() {
     ${processName ? `
     <div class="grid-2">
       <div class="panel">
-        <div class="panel-header"><i class="ti ti-star"></i> Call Quality Ratio — Agent Wise</div>
+        <div class="panel-header"><i class="ti ti-star"></i> Audit Quality — Agent &amp; Channel Wise</div>
         <div class="panel-body" id="qualityInsightsBody"><div style="text-align:center;padding:20px;color:var(--muted);">Loading…</div></div>
       </div>
       ${['ResMed', 'LOTS', 'PSRI'].includes(processName) ? `
@@ -1334,17 +1334,47 @@ function buildTrainingInsights(training) {
     </div>`)}`;
 }
 
-/* Agent-wise Call Quality Ratio, from quality_audit via the tracker-insights webhook. */
+/* Agent + channel wise Audit Quality (Call/Email/Chat/Other), from quality_audit
+   via the tracker-insights webhook. Blending every audit type into one ratio per
+   agent hid the fact that a Call audit (10-pt rubric) and an Email audit (40-pt
+   rubric covering different things) aren't the same measurement -- the category
+   breakdown (added server-side in tracker_insights_webhook.json's quality block)
+   keeps them visibly separate instead of averaging them together. */
+const AUDIT_CHANNEL_ICON = { Call: 'ti-phone', Email: 'ti-mail', Chat: 'ti-message-circle', Other: 'ti-help-circle' };
+const AUDIT_CHANNEL_ORDER = ['Call', 'Email', 'Chat', 'Other'];
 function buildQualityInsights(quality) {
   if (!quality || !quality.length) return '<div style="text-align:center;padding:30px;color:var(--muted);">No quality audits logged for this range.</div>';
-  const sorted = [...quality].sort((a, b) => b.avgPercentage - a.avgPercentage);
-  return `<div class="chart-container" id="qualityRatioChart" style="height:${Math.max(160, sorted.length * 34)}px;margin-bottom:14px;"></div>
-  ${detailsWrap('Quality detail — agent wise', `<div class="table-wrap">
-    <table>
-      <thead><tr><th>Agent</th><th>Audits</th><th>Quality Ratio</th></tr></thead>
-      <tbody>${sorted.map(q => `<tr><td>${q.agent}</td><td>${q.count}</td><td>${(q.avgPercentage * 100).toFixed(1)}%</td></tr>`).join('')}</tbody>
-    </table>
-  </div>`)}`;
+
+  const byChannel = new Map();
+  quality.forEach(q => {
+    if (!byChannel.has(q.category)) byChannel.set(q.category, []);
+    byChannel.get(q.category).push(q);
+  });
+  const channels = AUDIT_CHANNEL_ORDER.filter(c => byChannel.has(c)).concat([...byChannel.keys()].filter(c => !AUDIT_CHANNEL_ORDER.includes(c)));
+
+  const summaryCards = channels.map(c => {
+    const rows = byChannel.get(c);
+    const totalAudits = rows.reduce((s, q) => s + q.count, 0);
+    const weightedAvg = totalAudits ? rows.reduce((s, q) => s + q.avgPercentage * q.count, 0) / totalAudits : 0;
+    return `<div class="stat-group-card">
+      <div class="stat-group-title"><i class="ti ${AUDIT_CHANNEL_ICON[c] || 'ti-clipboard-check'}"></i> ${c} Audits</div>
+      <div class="stat-group-values">
+        <div class="stat-group-item"><div class="v">${totalAudits}</div><div class="l">Audits</div></div>
+        <div class="stat-group-item"><div class="v">${(weightedAvg * 100).toFixed(1)}%</div><div class="l">Avg Quality</div></div>
+      </div>
+    </div>`;
+  }).join('');
+
+  const sorted = [...quality].sort((a, b) => AUDIT_CHANNEL_ORDER.indexOf(a.category) - AUDIT_CHANNEL_ORDER.indexOf(b.category) || b.avgPercentage - a.avgPercentage);
+  return `
+    <div class="stat-group-row" style="margin-bottom:14px;">${summaryCards}</div>
+    <div class="chart-container" id="qualityRatioChart" style="height:${Math.max(160, new Set(quality.map(q => q.agent)).size * 34)}px;margin-bottom:14px;"></div>
+    ${detailsWrap('Quality detail — agent &amp; channel wise', `<div class="table-wrap">
+      <table>
+        <thead><tr><th>Agent</th><th>Channel</th><th>Audits</th><th>Quality Ratio</th></tr></thead>
+        <tbody>${sorted.map(q => `<tr><td>${q.agent}</td><td>${q.category}</td><td>${q.count}</td><td>${(q.avgPercentage * 100).toFixed(1)}%</td></tr>`).join('')}</tbody>
+      </table>
+    </div>`)}`;
 }
 
 /* Agent-wise + reason-wise Downtime, from activity_tracker (form submissions)

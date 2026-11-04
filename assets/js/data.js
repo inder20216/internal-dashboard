@@ -1056,7 +1056,7 @@ function aggregateTrackerInsights(rows) {
   })).filter(o => passesResmedAllowlist(o.process, o.agent) && !isTransferPseudoAgent(o.agent));
   const quality = rows.filter(r => r.metric_type === 'quality').map(r => ({
     agent: normalizeAgentName(r.process_name, r.agent_name), process: r.process_name, avgPercentage: Number(r.score) || 0,
-    totalScore: Number(r.value) || 0, count: Number(r.cnt) || 0
+    totalScore: Number(r.value) || 0, count: Number(r.cnt) || 0, category: r.category || 'Call'
   })).filter(o => passesResmedAllowlist(o.process, o.agent) && !isTransferPseudoAgent(o.agent));
   const downtime = rows.filter(r => r.metric_type === 'downtime').map(r => ({
     agent: normalizeAgentName(r.process_name, r.agent_name), process: r.process_name, category: r.category || 'Unspecified',

@@ -613,29 +613,42 @@ function renderDowntimeByAgent(id, downtime, isDark) {
 }
 
 /* ── CALL QUALITY RATIO — AGENT WISE (from quality_audit) ── */
+/* Grouped horizontal bar: one row per agent, one series per audit channel
+   (Call/Email/Chat/Other) so a 10-pt call rubric and a 40-pt email rubric never
+   get silently averaged into a single misleading number. */
 function renderQualityRatio(id, quality, isDark) {
   const ctx = getCtx(id);
   if (!ctx) return;
   const textColor = isDark ? '#b0b5c0' : '#6b7280';
-  const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
-  const sorted = [...quality].sort((a, b) => b.avgPercentage - a.avgPercentage);
-  const colorFor = pct => pct >= 95 ? 'rgba(5,150,105,0.75)' : pct >= 85 ? 'rgba(217,119,6,0.75)' : 'rgba(220,38,38,0.75)';
+  const channelOrder = ['Call', 'Email', 'Chat', 'Other'];
+  const channelColor = { Call: 'rgba(37,99,235,0.8)', Email: 'rgba(5,150,105,0.8)', Chat: 'rgba(217,119,6,0.8)', Other: 'rgba(107,114,128,0.8)' };
+  const channels = channelOrder.filter(c => quality.some(q => q.category === c))
+    .concat([...new Set(quality.map(q => q.category))].filter(c => !channelOrder.includes(c)));
+
+  const agentTotals = new Map();
+  quality.forEach(q => agentTotals.set(q.agent, (agentTotals.get(q.agent) || 0) + q.count));
+  const agents = [...agentTotals.keys()].sort((a, b) => agentTotals.get(b) - agentTotals.get(a));
+
+  const byAgentChannel = new Map(quality.map(q => [`${q.agent}|${q.category}`, q]));
   ctx.chart = new Chart(ctx, {
     type: 'bar',
     data: {
-      labels: sorted.map(q => `${q.agent} (${q.count})`),
-      datasets: [{
-        label: 'Quality Ratio %',
-        data: sorted.map(q => +(q.avgPercentage * 100).toFixed(1)),
-        backgroundColor: sorted.map(q => colorFor(q.avgPercentage * 100)),
+      labels: agents.map(a => `${a} (${agentTotals.get(a)})`),
+      datasets: channels.map(c => ({
+        label: c,
+        data: agents.map(a => {
+          const q = byAgentChannel.get(`${a}|${c}`);
+          return q ? +(q.avgPercentage * 100).toFixed(1) : null;
+        }),
+        backgroundColor: channelColor[c] || 'rgba(107,114,128,0.8)',
         borderRadius: 3,
-        datalabels: { formatter: v => v ? v + '%' : '' }
-      }]
+        datalabels: { formatter: v => (v || v === 0) ? v + '%' : '' }
+      }))
     },
     options: {
-      ...defaultOpts('Call Quality Ratio', isDark),
+      ...defaultOpts('Audit Quality by Channel', isDark),
       indexAxis: 'y',
-      plugins: { ...defaultOpts('Call Quality Ratio', isDark).plugins, legend: { display: false } },
+      plugins: { ...defaultOpts('Audit Quality by Channel', isDark).plugins, legend: { display: channels.length > 1, position: 'top', labels: { color: textColor, boxWidth: 10, font: { size: 10 } } } },
       scales: {
         x: { min: 0, max: 100, ticks: { color: textColor, font: { size: 10 } }, grid: { display: false } },
         y: { ticks: { color: textColor, font: { size: 10 } }, grid: { display: false } }
