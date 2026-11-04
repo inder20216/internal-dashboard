@@ -421,14 +421,13 @@ function renderDashboard() {
         <div class="panel-header"><i class="ti ti-star"></i> Audit Quality — Agent &amp; Channel Wise</div>
         <div class="panel-body" id="qualityInsightsBody"><div style="text-align:center;padding:20px;color:var(--muted);">Loading…</div></div>
       </div>
-      ${['ResMed', 'LOTS', 'PSRI', 'VMM'].includes(processName) ? `
       <div class="panel">
         <div class="panel-header"><i class="ti ti-heart-handshake"></i> Appreciation &amp; Escalation — Agent Wise</div>
         <div class="panel-body">
           <div class="chart-container chart-container-sm" id="appreciationEscalationChart"></div>
           <div id="appreciationEscalationTableBody">${buildAppreciationEscalationTable(processData.agents)}</div>
         </div>
-      </div>` : ''}
+      </div>
     </div>` : ''}
 
     ${processName === 'ResMed' ? `
