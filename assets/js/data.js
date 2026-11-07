@@ -585,18 +585,17 @@ function aggregateProcess(rows, processName) {
     queueMissedWh, ivrMissedWh, serviceMissedWh, agentMissedIbWh,
     missedWorkingHours, missedNonWorkingHours, ibOfferedWorkingHours, ibOfferedNonWorkingHours,
     ibAnsweredWorkingHours, sla15sAnsweredWorkingHours,
-    // SLA denominator is OFFERED, not answered-only -- per explicit request,
-    // offered = ib + totalMissed, the SAME "Answered" and "Missed" fields
-    // already shown in the IB Bifurcation card above (not the separately
-    // sourced ibAnsweredWorkingHours/missedWorkingHours pair, and not the
-    // ibOfferedWorkingHours column) -- so SLA's offered count always
-    // matches IB Bifurcation exactly, in every process, under every
-    // date-range/IVR selection, since it goes through the identical
-    // unfiltered ib/totalMissed values rather than a second, separately
-    // scoped computation that could drift from what's already on screen.
-    sla15sOfferedForPercent: ib + totalMissed,
-    sla15sPercent: (ib + totalMissed) > 0
-      ? sla15sAnsweredWorkingHours / (ib + totalMissed) : 0,
+    // SLA denominator is OFFERED, not answered-only -- offered = ib (IB
+    // Bifurcation's "Answered", unfiltered, same figure in every process)
+    // + missedWorkingHours (the WORKING-HOURS-ONLY missed count from the
+    // Missed WH/NWH split, NOT IB Bifurcation's own "Missed" bar, which
+    // also includes non-working-hours misses that were never answerable in
+    // the first place and shouldn't count against SLA). Both inputs go
+    // through the same date-range/process selection as everywhere else on
+    // the dashboard, so this always matches what's on screen.
+    sla15sOfferedForPercent: ib + missedWorkingHours,
+    sla15sPercent: (ib + missedWorkingHours) > 0
+      ? sla15sAnsweredWorkingHours / (ib + missedWorkingHours) : 0,
     // Process-level Avg Pick Time (ring_start_time -> start_time), replacing
     // the Sheet-sourced APT KPI card -- blended across IB+OB, with the IB/OB
     // split shown alongside it. `apt` (Sheet-sourced, per-agent) is left
