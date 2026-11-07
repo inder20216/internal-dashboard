@@ -480,10 +480,15 @@ function aggregateProcess(rows, processName) {
   // includes calls that arrived outside working hours too.
   const ibOfferedWorkingHours = sumProcessDayConstant(daily, "IB Offered Working Hours");
   const ibOfferedNonWorkingHours = sumProcessDayConstant(daily, "IB Offered Non-Working Hours");
-  // SLA (Step13) -- of the calls actually answered during working hours, how
-  // many had a pick time (ring_start_time -> start_time) of 15 seconds or
-  // less. Denominator is answered-only, not offered -- a call that was never
-  // picked up has no pick time to measure.
+  // SLA (Step13) -- numerator is calls actually answered (by a real agent,
+  // any time of day -- despite the "Working Hours" column name, the live
+  // query no longer restricts to shift hours) that had a QUEUE wait
+  // (queue_duration_raw, the telephony provider's own queue-in -> queue-out
+  // duration -- NOT ring_start_time -> start_time, which is the separate
+  // Avg Pick Time metric below) of 15 seconds or less. The denominator
+  // (sla15sPercent below, near the return) is OFFERED = ib + totalMissed,
+  // deliberately reusing IB Bifurcation's own Answered/Missed fields rather
+  // than this working-hours pair, per explicit request.
   const ibAnsweredWorkingHours = sumProcessDayConstant(daily, "IB Answered Working Hours");
   const sla15sAnsweredWorkingHours = sumProcessDayConstant(daily, "SLA 15s Answered Working Hours");
   // Avg Pick Time (Step16) -- ring_start_time -> start_time per real agent
@@ -580,7 +585,18 @@ function aggregateProcess(rows, processName) {
     queueMissedWh, ivrMissedWh, serviceMissedWh, agentMissedIbWh,
     missedWorkingHours, missedNonWorkingHours, ibOfferedWorkingHours, ibOfferedNonWorkingHours,
     ibAnsweredWorkingHours, sla15sAnsweredWorkingHours,
-    sla15sPercent: ibAnsweredWorkingHours > 0 ? sla15sAnsweredWorkingHours / ibAnsweredWorkingHours : 0,
+    // SLA denominator is OFFERED, not answered-only -- per explicit request,
+    // offered = ib + totalMissed, the SAME "Answered" and "Missed" fields
+    // already shown in the IB Bifurcation card above (not the separately
+    // sourced ibAnsweredWorkingHours/missedWorkingHours pair, and not the
+    // ibOfferedWorkingHours column) -- so SLA's offered count always
+    // matches IB Bifurcation exactly, in every process, under every
+    // date-range/IVR selection, since it goes through the identical
+    // unfiltered ib/totalMissed values rather than a second, separately
+    // scoped computation that could drift from what's already on screen.
+    sla15sOfferedForPercent: ib + totalMissed,
+    sla15sPercent: (ib + totalMissed) > 0
+      ? sla15sAnsweredWorkingHours / (ib + totalMissed) : 0,
     // Process-level Avg Pick Time (ring_start_time -> start_time), replacing
     // the Sheet-sourced APT KPI card -- blended across IB+OB, with the IB/OB
     // split shown alongside it. `apt` (Sheet-sourced, per-agent) is left
