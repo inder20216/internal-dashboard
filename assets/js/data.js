@@ -1040,9 +1040,10 @@ async function fetchInfresProductivity(from, to) {
 }
 
 async function fetchTrackerInsights(processName, from, to) {
-  // tracker-psri-appointments is PSRI-only (reads crm_daily_summary.extra's
-  // Appt_* JSON fields, which only PSRI populates) -- calling it for every
-  // other process would just be a guaranteed-to-error wasted request.
+  // tracker-psri-appointments is PSRI-only (reads psri.cases live for both
+  // appointment totals and CRM cases logged, which only exists for PSRI)
+  // -- calling it for every other process would just be a
+  // guaranteed-to-error wasted request.
   const endpoints = processName === 'PSRI' ? [...INSIGHTS_ENDPOINTS, 'tracker-psri-appointments'] : INSIGHTS_ENDPOINTS;
   try {
     const results = await Promise.all(endpoints.map(async (endpoint) => {
@@ -1060,7 +1061,7 @@ async function fetchTrackerInsights(processName, from, to) {
     return aggregateTrackerInsights(results.flat());
   } catch (err) {
     console.error('fetchTrackerInsights failed:', err);
-    return { training: [], quality: [], downtime: [], conversions: [], obActivity: [], hourlyMissed: [], freshCallsComparison: [], stgTagging: [], psriAppointments: [], emailProductivity: [], appreciation: [], escalation: [] };
+    return { training: [], quality: [], downtime: [], conversions: [], obActivity: [], hourlyMissed: [], freshCallsComparison: [], stgTagging: [], psriAppointments: [], psriCrmCases: [], emailProductivity: [], appreciation: [], escalation: [] };
   }
 }
 
@@ -1115,8 +1116,15 @@ function aggregateTrackerInsights(rows) {
     agent: r.agent_name, process: r.process_name, count: Number(r.value) || 0, calls: Number(r.cnt) || 0
   })).filter(o => !isTransferPseudoAgent(o.agent));
   // Agent-wise total Appointments (Booked+Cancelled+Rescheduled+Walkin summed)
-  // from crm_daily_summary.extra's JSON fields -- PSRI only.
+  // and CRM Cases Logged, both queried live from psri.cases (the in-house
+  // CRM) -- PSRI only. Replaces the old crm_daily_summary.extra/
+  // crm_inbound_cases sources, which both stopped getting PSRI rows after
+  // 2026-10-31 (broken VTiger sync) -- querying live here also means no
+  // next-day batch-job lag, same reasoning as Email Productivity below.
   const psriAppointments = rows.filter(r => r.metric_type === 'psri_appointments').map(r => ({
+    agent: normalizeAgentName(r.process_name, r.agent_name), count: Number(r.value) || 0
+  })).filter(o => !isTransferPseudoAgent(o.agent));
+  const psriCrmCases = rows.filter(r => r.metric_type === 'psri_crm_cases').map(r => ({
     agent: normalizeAgentName(r.process_name, r.agent_name), count: Number(r.value) || 0
   })).filter(o => !isTransferPseudoAgent(o.agent));
   // Live agent-wise Email Productivity (email_tagged_daily), queried directly
@@ -1139,7 +1147,7 @@ function aggregateTrackerInsights(rows) {
   const escalation = rows.filter(r => r.metric_type === 'escalation').map(r => ({
     agent: normalizeAgentName(r.process_name, r.agent_name), process: r.process_name, count: Number(r.value) || 0
   })).filter(o => passesResmedAllowlist(o.process, o.agent) && !isTransferPseudoAgent(o.agent));
-  return { training, quality, downtime, conversions, obActivity, hourlyMissed, freshCallsComparison, stgTagging, psriAppointments, emailProductivity, appreciation, escalation };
+  return { training, quality, downtime, conversions, obActivity, hourlyMissed, freshCallsComparison, stgTagging, psriAppointments, psriCrmCases, emailProductivity, appreciation, escalation };
 }
 
 /* ── EXPORT GLOBALLY ── */

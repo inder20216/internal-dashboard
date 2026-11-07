@@ -820,13 +820,17 @@ function renderFacilityEmailCases(id, agents, isDark) {
 }
 
 /* ── IB CALLS vs CRM CASES vs APPOINTMENTS — AGENT WISE (PSRI only) ── */
-function renderIBCasesAppointments(id, agents, appointments, isDark) {
+function renderIBCasesAppointments(id, agents, appointments, crmCasesData, isDark) {
   const ctx = getCtx(id);
   if (!ctx) return;
   const textColor = isDark ? '#b0b5c0' : '#6b7280';
   const apptByAgent = new Map((appointments || []).map(a => [a.agent, a.count]));
-  const rows = (agents || []).filter(a => (a.inboundAnswered || 0) + (a.crmInboundCases || 0) + (apptByAgent.get(a.agent) || 0) > 0);
-  const crmCases = rows.map(a => a.crmInboundCases || 0);
+  // CRM Cases Logged is now queried live from psri.cases (see data.js'
+  // psriCrmCases), not the stale combined_summary.crm_inbound_cases field
+  // (broken VTiger sync) -- same live source as Appointments above.
+  const crmByAgent = new Map((crmCasesData || []).map(a => [a.agent, a.count]));
+  const rows = (agents || []).filter(a => (a.inboundAnswered || 0) + (crmByAgent.get(a.agent) || 0) + (apptByAgent.get(a.agent) || 0) > 0);
+  const crmCases = rows.map(a => crmByAgent.get(a.agent) || 0);
   const ibHandled = rows.map(a => a.inboundAnswered || 0);
   const apptCounts = rows.map(a => apptByAgent.get(a.agent) || 0);
   ctx.chart = new Chart(ctx, {
