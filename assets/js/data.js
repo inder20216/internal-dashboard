@@ -1061,7 +1061,7 @@ async function fetchTrackerInsights(processName, from, to) {
     return aggregateTrackerInsights(results.flat());
   } catch (err) {
     console.error('fetchTrackerInsights failed:', err);
-    return { training: [], quality: [], downtime: [], conversions: [], obActivity: [], hourlyMissed: [], freshCallsComparison: [], stgTagging: [], psriAppointments: [], psriCrmCases: [], emailProductivity: [], appreciation: [], escalation: [] };
+    return { training: [], quality: [], downtime: [], conversions: [], obActivity: [], hourlyMissed: [], freshCallsComparison: [], stgTagging: [], psriAppointments: [], psriCrmCases: [], psriIncompleteCases: [], emailProductivity: [], appreciation: [], escalation: [] };
   }
 }
 
@@ -1121,10 +1121,16 @@ function aggregateTrackerInsights(rows) {
   // crm_inbound_cases sources, which both stopped getting PSRI rows after
   // 2026-10-31 (broken VTiger sync) -- querying live here also means no
   // next-day batch-job lag, same reasoning as Email Productivity below.
+  // Both exclude status='Incomplete' (a case the agent never actually
+  // finished working) -- psriIncompleteCases is the mirror-image count, so
+  // nothing silently disappears from the dashboard.
   const psriAppointments = rows.filter(r => r.metric_type === 'psri_appointments').map(r => ({
     agent: normalizeAgentName(r.process_name, r.agent_name), count: Number(r.value) || 0
   })).filter(o => !isTransferPseudoAgent(o.agent));
   const psriCrmCases = rows.filter(r => r.metric_type === 'psri_crm_cases').map(r => ({
+    agent: normalizeAgentName(r.process_name, r.agent_name), count: Number(r.value) || 0
+  })).filter(o => !isTransferPseudoAgent(o.agent));
+  const psriIncompleteCases = rows.filter(r => r.metric_type === 'psri_incomplete_cases').map(r => ({
     agent: normalizeAgentName(r.process_name, r.agent_name), count: Number(r.value) || 0
   })).filter(o => !isTransferPseudoAgent(o.agent));
   // Live agent-wise Email Productivity (email_tagged_daily), queried directly
@@ -1147,7 +1153,7 @@ function aggregateTrackerInsights(rows) {
   const escalation = rows.filter(r => r.metric_type === 'escalation').map(r => ({
     agent: normalizeAgentName(r.process_name, r.agent_name), process: r.process_name, count: Number(r.value) || 0
   })).filter(o => passesResmedAllowlist(o.process, o.agent) && !isTransferPseudoAgent(o.agent));
-  return { training, quality, downtime, conversions, obActivity, hourlyMissed, freshCallsComparison, stgTagging, psriAppointments, psriCrmCases, emailProductivity, appreciation, escalation };
+  return { training, quality, downtime, conversions, obActivity, hourlyMissed, freshCallsComparison, stgTagging, psriAppointments, psriCrmCases, psriIncompleteCases, emailProductivity, appreciation, escalation };
 }
 
 /* ── EXPORT GLOBALLY ── */

@@ -637,7 +637,7 @@ function renderDashboard() {
       if (document.getElementById('freshCallsChart')) window.CHARTS.renderFreshCallsComparison('freshCallsChart', insights.freshCallsComparison, isDarkNow);
       if (document.getElementById('facilityCallCasesChart')) window.CHARTS.renderFacilityCallCases('facilityCallCasesChart', processData.agents, insights.stgTagging, isDarkNow);
       if (document.getElementById('facilityEmailCasesChart')) window.CHARTS.renderFacilityEmailCases('facilityEmailCasesChart', processData.agents, isDarkNow);
-      if (document.getElementById('ibCasesAppointmentsChart')) window.CHARTS.renderIBCasesAppointments('ibCasesAppointmentsChart', processData.agents, insights.psriAppointments, insights.psriCrmCases, isDarkNow);
+      if (document.getElementById('ibCasesAppointmentsChart')) window.CHARTS.renderIBCasesAppointments('ibCasesAppointmentsChart', processData.agents, insights.psriAppointments, insights.psriCrmCases, insights.psriIncompleteCases, isDarkNow);
       // Appreciation/Escalation counts override combined_summary's precomputed
       // ones with this live activity_tracker read (see fetchTrackerInsights) --
       // CRM escalation sub-breakdown (Open/Pending Field/Pending RHC) stays

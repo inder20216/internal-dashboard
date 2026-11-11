@@ -820,19 +820,25 @@ function renderFacilityEmailCases(id, agents, isDark) {
 }
 
 /* ── IB CALLS vs CRM CASES vs APPOINTMENTS — AGENT WISE (PSRI only) ── */
-function renderIBCasesAppointments(id, agents, appointments, crmCasesData, isDark) {
+function renderIBCasesAppointments(id, agents, appointments, crmCasesData, incompleteCasesData, isDark) {
   const ctx = getCtx(id);
   if (!ctx) return;
   const textColor = isDark ? '#b0b5c0' : '#6b7280';
   const apptByAgent = new Map((appointments || []).map(a => [a.agent, a.count]));
   // CRM Cases Logged is now queried live from psri.cases (see data.js'
   // psriCrmCases), not the stale combined_summary.crm_inbound_cases field
-  // (broken VTiger sync) -- same live source as Appointments above.
+  // (broken VTiger sync) -- same live source as Appointments above. Both
+  // exclude status='Incomplete' cases (never actually worked, so they
+  // shouldn't count toward a logged case or a real appointment) --
+  // Incomplete Cases is the mirror-image count, shown as its own bar so
+  // that exclusion is visible rather than silent.
   const crmByAgent = new Map((crmCasesData || []).map(a => [a.agent, a.count]));
-  const rows = (agents || []).filter(a => (a.inboundAnswered || 0) + (crmByAgent.get(a.agent) || 0) + (apptByAgent.get(a.agent) || 0) > 0);
+  const incompleteByAgent = new Map((incompleteCasesData || []).map(a => [a.agent, a.count]));
+  const rows = (agents || []).filter(a => (a.inboundAnswered || 0) + (crmByAgent.get(a.agent) || 0) + (apptByAgent.get(a.agent) || 0) + (incompleteByAgent.get(a.agent) || 0) > 0);
   const crmCases = rows.map(a => crmByAgent.get(a.agent) || 0);
   const ibHandled = rows.map(a => a.inboundAnswered || 0);
   const apptCounts = rows.map(a => apptByAgent.get(a.agent) || 0);
+  const incompleteCounts = rows.map(a => incompleteByAgent.get(a.agent) || 0);
   ctx.chart = new Chart(ctx, {
     type: 'bar',
     data: {
@@ -855,7 +861,8 @@ function renderIBCasesAppointments(id, agents, appointments, crmCasesData, isDar
               return `${value} (${pct}%)`;
             }
           }
-        }
+        },
+        { label: 'Incomplete Cases', data: incompleteCounts, backgroundColor: 'rgba(245,158,11,0.8)', borderRadius: 3 }
       ]
     },
     options: defaultOpts('IB Calls vs CRM Cases vs Appointments', isDark)
