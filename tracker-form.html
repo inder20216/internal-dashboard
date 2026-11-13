@@ -1117,8 +1117,23 @@ document.getElementById('trackerForm').addEventListener('submit', async (e) => {
     }
   }
 
+  // Audit "source" (Call / Email / Chat) -- the auditType selector only exists
+  // for Infres/VMM/Nihon/LOTS (hasEmailOption); ONDC has no Call audits at all,
+  // so its conversation_type dropdown IS the source; every other process only
+  // ever does Call audits. Stored as its own field so the Reports tab's
+  // downloaded audit Excel can show Source without inferring it from the
+  // scores blob (which varies by process and isn't a reliable signal).
+  let qualitySource = null;
+  if (type === 'Quality') {
+    const processName = val('processName');
+    if (QUALITY_EMAIL_RUBRIC[processName]) qualitySource = val('auditType') || null;
+    else if (processName === 'ONDC') qualitySource = mapped.typeOfCall || null;
+    else qualitySource = 'Call';
+  }
+
   const payload = {
     trackerType: type,
+    source: qualitySource,
     processName: val('processName'),
     date: val('date'),
     agentName: val('agentName'),
